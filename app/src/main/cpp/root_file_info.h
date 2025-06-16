@@ -1,0 +1,14 @@
+//
+// Created by lxz on 2025/6/6.
+//
+
+#ifndef OVERT_ROOT_FILE_INFO_H
+#define OVERT_ROOT_FILE_INFO_H
+
+#include <string>
+#include <map>
+#include <vector>
+
+std::map<std::string, std::string> get_root_file_info();
+
+#endif //OVERT_ROOT_FILE_INFO_H
