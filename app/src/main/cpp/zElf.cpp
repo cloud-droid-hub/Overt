@@ -15,6 +15,7 @@
 #include <bits/elf_arm64.h>
 #include <elf.h>
 #include <vector>
+#include <link.h>
 
 #define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
 
@@ -33,18 +34,29 @@ zElf::zElf(void *elf_mem_addr) {
     parse_dynamic_table();
 }
 
+static ElfW(Dyn) *find_dyn_by_tag2(ElfW(Dyn) *dyn, ElfW(Sxword) tag) {
+    while (dyn->d_tag != DT_NULL) {     // 遍历动态段表，直到遇到结束标记DT_NULL
+    if (dyn->d_tag == tag) {         // 找到目标标签
+    return dyn;                   // 返回该表项的指针
+    }
+    ++dyn;                           // 移动到下一个表项
+    }
+    return NULL;                         // 未找到返回NULL
+}
+
 zElf::zElf(char *elf_file_name) {
     if (strncmp(elf_file_name, "lib", 3) == 0) {
         this->base_addr = get_maps_base(elf_file_name);
         parse_elf_head();
         parse_program_header_table();
-        parse_dynamic_table();
+//        parse_dynamic_table();
     } else {
         this->base_addr = parse_elf_file(elf_file_name);
+
         parse_elf_head();
         parse_program_header_table();
         parse_section_table();
-        parse_dynamic_table();
+//        parse_dynamic_table();
     }
 }
 
@@ -59,14 +71,15 @@ void zElf::parse_elf_head() {
 void zElf::parse_program_header_table() {
     Elf64_Phdr *program_header_table = ((Elf64_Phdr *) (base_addr + header_size));
     for (int i = 0; i < program_header_table_num; i++) {
-        if (program_header_table->p_type == 1 and physical_address == -1) {
+        if (program_header_table->p_type == PT_LOAD and physical_address == -1) {
             physical_address = program_header_table->p_paddr;
             LOGE("physical_address %x", physical_address);
         }
-        if (program_header_table->p_type == 2) {
-            dynamic_table = base_addr + program_header_table->p_offset;
-            dynamic_element_num = (program_header_table->p_filesz) / sizeof(Elf64_Dyn);
-            LOGE("dynamic_table_offset %x", program_header_table->p_offset);
+        if (program_header_table->p_type == PT_DYNAMIC) {
+            dynamic_table = base_addr + program_header_table->p_vaddr;
+            dynamic_element_num = (program_header_table->p_memsz) / sizeof(Elf64_Dyn);
+            LOGE("dynamic_table_offset %x", program_header_table->p_vaddr);
+            LOGE("dynamic_table 0x%p", dynamic_table);
             LOGE("dynamic_element_num %d", dynamic_element_num);
         }
         program_header_table++;
@@ -250,9 +263,13 @@ void zElf::parse_dynamic_table() {
     LOGE("parse_dynamic_table %p", dynamic_table);
     LOGE("physical_address %p", physical_address);
 
+
+
+
     Elf64_Dyn *dynamic_element = (Elf64_Dyn *) dynamic_table;
     char *gnu_hash_table = nullptr;
     for (int i = 0; i < dynamic_element_num; i++) {
+        LOGE("dynamic_element->d_tag %x", dynamic_element->d_tag);
         if (dynamic_element->d_tag == DT_STRTAB) {
             LOGE("DT_STRTAB %x", dynamic_element->d_un.d_ptr - physical_address);
             dynamic_string_table = base_addr + dynamic_element->d_un.d_ptr - physical_address;
@@ -318,8 +335,7 @@ void zElf::parse_dynamic_table() {
         size_t dynsym_count = max_sym;
         size_t dynsym_size = dynsym_count * dynamic_symbol_element_size;
 
-        LOGE("gnu_hash info: nbuckets=%u, symoffset=%u, bloom_size=%u, bloom_shift=%u",
-             nbuckets, symoffset, bloom_size, bloom_shift);
+        LOGE("gnu_hash info: nbuckets=%u, symoffset=%u, bloom_size=%u, bloom_shift=%u", nbuckets, symoffset, bloom_size, bloom_shift);
         LOGE("Final dynsym count (gnu.hash): %zu", dynsym_count);
         LOGE("Final dynsym size  (gnu.hash): %zu", dynsym_size);
 
@@ -498,23 +514,26 @@ char *zElf::get_maps_base(char *so_name) {
 
     char line[1024];
     char *base_addr = nullptr;
-
+//    dyn_base_addr 0x0x7fa7789180 = 0x0x7fa7756000 + 33180
     while (fgets(line, sizeof(line), fp)) {
-
+        LOGE("line:%s", line); sleep(0);
         if (!strstr(line, "p 00000000 ")) continue;
 
         if (!strstr(line, so_name)) continue;
 
-        LOGE("line:%s", line); sleep(0);
+        LOGE("line2:%s", line); sleep(0);
 
         char* start = (char *) (strtoul(strtok(line, "-"), NULL, 16));
 
         if (memcmp(start, "\x7f""ELF", 4) != 0) continue;
 
+        LOGE("line3:%s", line); sleep(0);
+//        7fa775e000
+//        7fa7783000
         base_addr = start;
 
     }
-
+    LOGE("base_addr:%p", base_addr); sleep(0);
     fclose(fp);
     return base_addr;
 }

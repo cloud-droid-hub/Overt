@@ -41,7 +41,7 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-             deviceInfoProvider = new DeviceInfoProvider(this, mainContainer);
+            deviceInfoProvider = new DeviceInfoProvider(this, mainContainer);
 
             Log.e(TAG, "onCreate completed successfully");
 

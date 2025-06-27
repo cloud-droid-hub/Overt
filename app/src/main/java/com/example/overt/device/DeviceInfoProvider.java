@@ -1,6 +1,5 @@
 package com.example.overt.device;
 
-import static com.example.overt.device.package_info.get_package_info;
 import static com.example.overt.device.system_info.get_system_info;
 
 import android.content.Context;
@@ -28,6 +27,7 @@ public class DeviceInfoProvider {
     private Context context;
 
     native public Map<String, String> get_root_file_info();
+    native public Map<String, String> get_package_info();
     native public Map<String, String> get_mounts_info();
     native public Map<String, String> get_system_prop_info();
     native public Map<String, String> get_class_loader_info();
@@ -41,8 +41,8 @@ public class DeviceInfoProvider {
         Log.d(TAG, "DeviceInfoProvider initialized with context and container");
 
         this.addInfoCard("system_info", get_system_info(context));
-        this.addInfoCard("package_info", get_package_info(context));
 
+        this.addInfoCard("package_info", get_package_info());
         this.addInfoCard("time_info", get_time_info());
         this.addInfoCard("root_file_info", get_root_file_info());
         this.addInfoCard("mounts_info", get_mounts_info());

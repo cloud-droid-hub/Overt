@@ -22,13 +22,20 @@ bool check_file_exist_1(nonstd::string path) {
     return false;
 }
 
+bool check_file_exist_2(std::string path) {
+    if (access(path.c_str(), F_OK) != -1) {
+        return true;
+    }
+    return false;
+}
+
 // 综合检查函数
 bool check_file_exist(nonstd::string path) {
     bool file_exist = false;
 
     // 使用多种方法检查文件是否存在
     bool exist1 = check_file_exist_1(path);
-    bool exist2 = check_file_exist_1(path);
+    bool exist2 = check_file_exist_2(path.c_str());
 
     // 记录每种方法的检查结果
     LOGE("check_file_1 (ifstream): %d", exist1);

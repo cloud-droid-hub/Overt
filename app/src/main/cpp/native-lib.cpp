@@ -44,57 +44,67 @@
 #include "mounts_info.h"
 #include "system_prop_info.h"
 #include "classloader.h"
-#include "zElfEditor.h"
 #include "time_info.h"
 #include "linker_info.h"
 #include "zElf.h"
 #include "zLinker.h"
+#include "package_info.h"
+#include "plt.h"
 
 #define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
 
 static std::map<std::string, std::vector<std::string>> device_info;
 
-
-void test(){
-    //    zElfEditor android_runtime_mem = zElfEditor("libandroid_runtime.so");
-//    LOGE("android_runtime_mem %p", android_runtime_mem.elf_addr);
-//
-//    zElfEditor android_runtime_file = zElfEditor("/system/lib64/libandroid_runtime.so");
-//    LOGE("android_runtime_file %p", android_runtime_file.elf_addr);
-//
-//    Elf64_Addr runtime_offset = android_runtime_file.find_symbol("_ZN7android14AndroidRuntime10getRuntimeEv");
-//
-//    auto GetAndroidRuntime = (void*(*)())(android_runtime_mem.elf_addr + runtime_offset);
-//
-//    LOGE("GetAndroidRuntime %p", GetAndroidRuntime);
-//
-//    void* runtime = GetAndroidRuntime();
-//
-//    LOGE("runtime %p", runtime);
-//
-//    char* mOptions_ptr = (char*)runtime+8;
-//    LOGE("mOptions_ptr %p", mOptions_ptr);
-//
-//    void* vector_base = mOptions_ptr;
-//
-//    int mOptions_size = *(int*)(mOptions_ptr+0x10);
-//    LOGE("mOptions_size %d", mOptions_size);
-//
-//    JavaVMOption* option = *(JavaVMOption**)(mOptions_ptr+8);
-//    for(int i = 0; i < mOptions_size; i++){
-//        LOGE("optionString[%d] %p", i , option);
-//        LOGE("optionString[%d] %p %p", i , option, option->optionString);
-//        LOGE("optionString[%d] %p %p %s", i , option, option->optionString, option->optionString);
-//        option++;
-//    }
-
-}
+struct RuntimeFake {
+    bool is_started_;          // 1 byte
+    bool is_shutting_down_;    // 1 byte
+    uint8_t padding1[6];       // 对齐 8 字节
+    void* heap_;               // gc::Heap*
+    void* class_linker_;       // ClassLinker*
+    void* signal_catcher_;     // SignalCatcher*
+    void* instrumentation_;    // Instrumentation*
+    void* thread_list_;        // ThreadList*（不实际使用）
+    void* intern_table_;       // InternTable*
+    void* jni_env_;            // JNIEnvExt*
+    void* java_vm_;            // JavaVMExt*
+    uint8_t padding2[8];       // padding for alignment
+    int32_t runtime_flags_;    // 你真正关心的字段
+};
 
 extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     __android_log_print(6, "lxz", "JNI_OnLoad");
 
+//    zElf libart = zLinker::getInstance()->find_lib("libart.so");
+//
+//    unsigned long _ZN3art7Runtime9instance_E_offset = libart.find_symbol("_ZN3art7Runtime9instance_E");
+//
+//    LOGE("_ZN3art7Runtime9instance_E_offset %lu", _ZN3art7Runtime9instance_E_offset);
+//
+//    RuntimeFake* _ZN3art7Runtime9instance_E_ptr = (RuntimeFake*)(libart.base_addr + _ZN3art7Runtime9instance_E_offset);
+//
+////    int flag = *(int*)(libart.base_addr + _ZN3art7Runtime9instance_E_offset + 0x2BA);
+//
+//    LOGE("runtime_flags_ %lu", _ZN3art7Runtime9instance_E_ptr->runtime_flags_);
+//
+//    __android_log_print(6, "lxz", "JNI_OnLoad over");
 
+
+
+
+//    zLinker::getInstance();
+//    plt_dlsym("_ZN7android13InputConsumer18resampleTouchStateElPNS_11MotionEventEPKNS_12InputMessageE", nullptr);
+//    std::vector<std::string> path_list = zLinker::getInstance()->get_libpath_list();
+//
+//    for(std::string path: path_list){
+//        LOGE("path_list %s", path.c_str());
+//    }
+
+//    zElf elf("libinput.so");
+
+//    unsigned long resampleTouchState_offset = elf.find_symbol("_ZN7android13InputConsumer18resampleTouchStateElPNS_11MotionEventEPKNS_12InputMessageE");
+
+//    LOGE("find_symbol resampleTouchState_offset %lu", resampleTouchState_offset);
 
     return JNI_VERSION_1_6;
 }
@@ -215,5 +225,12 @@ JNIEXPORT jobject JNICALL
 Java_com_example_overt_device_DeviceInfoProvider_get_1linker_1info(JNIEnv *env, jobject thiz) {
     // TODO: implement get_linker_info()
     std::map<std::string, std::string> info = get_linker_info();
+    return cmap_to_jmap(env, info);
+}
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_example_overt_device_DeviceInfoProvider_get_1package_1info(JNIEnv *env, jobject thiz) {
+    // TODO: implement get_package_info()
+    std::map<std::string, std::string> info = get_package_info();
     return cmap_to_jmap(env, info);
 }

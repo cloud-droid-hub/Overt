@@ -6,11 +6,11 @@
 #define OVERT_PACKAGE_INFO_H
 
 
+#include <string>
+#include <map>
+#include <vector>
 
-class package_info {
-
-};
-
+std::map<std::string, std::string> get_package_info();
 
 
 #endif //OVERT_PACKAGE_INFO_H

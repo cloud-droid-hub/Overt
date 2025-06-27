@@ -137,9 +137,6 @@ long get_earliest_time() {
     return startup_time;
 }
 
-
-
-
 long get_boot_time_by_syscall() {
     struct sysinfo info;
 

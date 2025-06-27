@@ -89,32 +89,32 @@ std::map<std::string, std::string> get_system_prop_info() {
             {"persist.security.adbinput",      "0"},
     };
 
-    for(const auto& [key, value] : prop_map){
-        if(properties.find(key.c_str()) != properties.end()) {
-            if(properties[key.c_str()].value != value) {
-                char buffer[100] = {0};
-                sprintf(buffer, "value[%s]", properties[key.c_str()].value.c_str());
-                info[key.c_str()] = buffer;
-            }
-        }
-    }
-
-    for(std::string key : prop_list){
-        if(properties[key.c_str()].serial_version != 0){
-            char buffer[100] = {0};
-            sprintf(buffer, "serial[%d]", properties[key.c_str()].serial_version);
-            info[key.c_str()] = buffer;
-        }
-    }
-
-//    for(const auto& [key, value] : properties){
-//        LOGE("%s", key.c_str());
-//        if(strstr(key.c_str(), "usb") != 0 || strstr(key.c_str(), "adb") != 0) {
+//    for(const auto& [key, value] : prop_map){
+//        if(properties.find(key.c_str()) != properties.end()) {
+//            if(properties[key.c_str()].value != value) {
+//                char buffer[100] = {0};
+//                sprintf(buffer, "value[%s]", properties[key.c_str()].value.c_str());
+//                info[key.c_str()] = buffer;
+//            }
+//        }
+//    }
+//
+//    for(std::string key : prop_list){
+//        if(properties[key.c_str()].serial_version != 0){
 //            char buffer[100] = {0};
-//            sprintf(buffer, "value[%s]", properties[key.c_str()].value.c_str());
+//            sprintf(buffer, "serial[%d]", properties[key.c_str()].serial_version);
 //            info[key.c_str()] = buffer;
 //        }
 //    }
+
+    for(const auto& [key, value] : properties){
+        LOGE("%s", key.c_str());
+        if(strstr(key.c_str(), "sim") != 0) {
+            char buffer[100] = {0};
+            sprintf(buffer, "value[%s]", properties[key.c_str()].value.c_str());
+            info[key.c_str()] = buffer;
+        }
+    }
 
     return info;
 }

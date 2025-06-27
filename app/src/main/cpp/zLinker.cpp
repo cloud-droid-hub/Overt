@@ -21,6 +21,9 @@ zLinker::zLinker() {
     unsigned long solist_get_head_offset = this->find_symbol("__dl__Z15solist_get_headv");
     LOGE("solist_get_head_offset %x", solist_get_head_offset);
 
+    unsigned long __dl__ZL6solist_offset = this->find_symbol("__dl__ZL6solist");
+    LOGE("__dl__ZL6solist_offset %x", __dl__ZL6solist_offset);
+
     unsigned long soinfo_get_realpath_offset = this->find_symbol("__dl__ZNK6soinfo12get_realpathEv");
     LOGE("soinfo_get_realpath_offset %x", soinfo_get_realpath_offset);
 
@@ -40,6 +43,7 @@ zLinker::zLinker() {
 //    while(soinfo->next != nullptr){
 //        char* real_path = soinfo_get_realpath(soinfo);
 //        LOGE("linker64 soinfo base:%p path:%s", soinfo->base, real_path);
+//        sleep(0);
 //        soinfo = soinfo->next;
 //    }
 }
@@ -90,7 +94,7 @@ zElf zLinker::find_lib(char* so_name){
     soinfo* soinfo = soinfo_head;
     while(soinfo->next != nullptr){
         char* real_path = soinfo_get_realpath(soinfo);
-        LOGE("linker64 soinfo base:%p path:%s", soinfo->base, real_path);
+//        LOGE("linker64 soinfo base:%p path:%s", soinfo->base, real_path);
         if(ends_with(real_path, so_name)){
             LOGE("linker64 fins succeed soinfo base:%p path:%s", soinfo->base, real_path);
             zElf elf_file = zElf(real_path);

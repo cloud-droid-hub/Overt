@@ -3,7 +3,6 @@
 //
 
 #include "linker_info.h"
-#include "zElfEditor.h"
 #include "zLinker.h"
 #include <setjmp.h>
 #include <unwind.h>
@@ -203,10 +202,10 @@ extern "C" void _init(void){
 }
 
 
-
 char* get_linker_solist(char* linker64_base_addr){
-    zElfEditor linker64_file = zElfEditor("/system/bin/linker64");
-    long solist_get_head_offset = linker64_file.find_symbol("__dl__Z15solist_get_headv");
+
+    unsigned long long solist_get_head_offset = zLinker::getInstance()->find_symbol("__dl__Z15solist_get_headv");
+
     LOGE("solist_get_head_offset %x", solist_get_head_offset);
 
     LOGE("linker64_base_addr %p", linker64_base_addr);

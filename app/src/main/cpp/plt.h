@@ -8,10 +8,10 @@
 extern "C" {
 #endif
 
-#define PLT_CHECK_PLT_APP ((unsigned short) 0x1u)
-#define PLT_CHECK_PLT_ALL ((unsigned short) 0x2u)
-#define PLT_CHECK_NAME    ((unsigned short) 0x4u)
-#define PLT_CHECK_SYM_ONE ((unsigned short) 0x8u)
+#define PLT_CHECK_PLT_APP ((unsigned short) 0x1u)  // 二进制：0001
+#define PLT_CHECK_PLT_ALL ((unsigned short) 0x2u)  // 二进制：0010
+#define PLT_CHECK_NAME    ((unsigned short) 0x4u)  // 二进制：0100
+#define PLT_CHECK_SYM_ONE ((unsigned short) 0x8u)  // 二进制：1000
 
 typedef struct Symbol {
     unsigned short check;

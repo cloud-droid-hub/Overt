@@ -26,13 +26,13 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         root_file_info.cpp
         mounts_info.cpp
         system_prop_info.cpp
-        zElfEditor.cpp
         linker_info.cpp
         time_info.cpp
         classloader.cpp
         plt.c
         zElf.cpp
         zLinker.cpp
+        package_info.cpp
         native-lib.cpp)
 
 #include_directories(zTraverseClassLoader)

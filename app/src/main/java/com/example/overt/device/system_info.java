@@ -1,9 +1,11 @@
 package com.example.overt.device;
 
+import android.app.ActivityManager;
 import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -16,10 +18,14 @@ import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
+
+import javax.security.auth.login.LoginException;
 
 public class system_info {
 
@@ -53,6 +59,9 @@ public class system_info {
         if(isCharging(context)){
             hashMap.put("isCharging", String.valueOf(isCharging(context)));
         }
+//        if(isAppDebuggable(context)){
+            hashMap.put("isAppDebuggable", String.valueOf(isAppDebuggable(context)));
+//        }
         return hashMap;
     }
 
@@ -96,6 +105,31 @@ public class system_info {
     static public boolean isDeveloperModeEnabled(Context context) {
         return Settings.Global.getInt(context.getContentResolver(),
                 Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1;
+    }
+
+
+    public static boolean isAppDebuggable(Context context) {
+        try {
+            Class<?> activityThreadClass = Class.forName("android.app.ActivityThread");
+            Method currentActivityThread = activityThreadClass.getDeclaredMethod("currentActivityThread");
+            currentActivityThread.setAccessible(true);
+            Object activityThread = currentActivityThread.invoke(null);
+
+            Field mBoundApplicationField = activityThreadClass.getDeclaredField("mBoundApplication");
+            mBoundApplicationField.setAccessible(true);
+            Object appBindData = mBoundApplicationField.get(activityThread);
+
+            Field runtimeFlagsField = appBindData.getClass().getDeclaredField("runtimeFlags");
+            runtimeFlagsField.setAccessible(true);
+            int runtimeFlags = runtimeFlagsField.getInt(appBindData);
+
+            Log.d("lxz", "runtimeFlags = " + runtimeFlags);
+
+        } catch (Exception e) {
+
+            Log.e("lxz", "error = " + e.toString());
+        }
+        return true;
     }
 
     static public boolean isUsbDebugEnabled(Context context) {
