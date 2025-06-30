@@ -7,7 +7,6 @@
 #include <regex>
 #define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
 
-// Initialize static instance
 zLinker* zLinker::instance = nullptr;
 
 zLinker::zLinker() {
@@ -18,28 +17,20 @@ zLinker::zLinker() {
     parse_program_header_table();
     parse_section_table();
 
-    unsigned long solist_get_head_offset = this->find_symbol("__dl__Z15solist_get_headv");
-    LOGE("solist_get_head_offset %x", solist_get_head_offset);
-
-    unsigned long __dl__ZL6solist_offset = this->find_symbol("__dl__ZL6solist");
-    LOGE("__dl__ZL6solist_offset %x", __dl__ZL6solist_offset);
-
-    unsigned long soinfo_get_realpath_offset = this->find_symbol("__dl__ZNK6soinfo12get_realpathEv");
-    LOGE("soinfo_get_realpath_offset %x", soinfo_get_realpath_offset);
-
     this->base_addr = get_maps_base("linker64");
     LOGE("linker64 mem_base_addr %p", this->base_addr);
 
-    soinfo*(*solist_get_head)() = (soinfo*(*)())(this->base_addr + solist_get_head_offset);
+    soinfo*(*solist_get_head)() = (soinfo*(*)())(this->find_symbol("__dl__Z15solist_get_headv"));
 
     LOGE("linker64 solist_get_head %p", solist_get_head);
 
     soinfo_head = solist_get_head();
-    LOGE("soinfo_head %x", soinfo_head);
+    LOGE("soinfo_head %p", soinfo_head);
 
-    soinfo* soinfo = soinfo_head;
-    soinfo_get_realpath =  (char*(*)(void*))(this->base_addr + soinfo_get_realpath_offset);
+    soinfo_get_realpath =  (char*(*)(void*))(this->find_symbol("__dl__ZNK6soinfo12get_realpathEv"));
+    LOGE("soinfo_get_realpath %p", soinfo_get_realpath);
 
+//    soinfo* soinfo = soinfo_head;
 //    while(soinfo->next != nullptr){
 //        char* real_path = soinfo_get_realpath(soinfo);
 //        LOGE("linker64 soinfo base:%p path:%s", soinfo->base, real_path);
@@ -47,10 +38,6 @@ zLinker::zLinker() {
 //        soinfo = soinfo->next;
 //    }
 }
-
-#include "util.h"
-
-
 
 /**
  * 判断字符串 str 是否以 suffix 结尾
@@ -74,9 +61,7 @@ bool ends_with(const char *str, const char *suffix) {
     return (strcmp(str + len_str - len_suffix, suffix) == 0);
 }
 
-
-
-char* zLinker::find_lib_base(char* so_name){
+char* zLinker::find_lib_base(const char* so_name){
     soinfo* soinfo = soinfo_head;
     while(soinfo->next != nullptr){
         char* real_path = soinfo_get_realpath(soinfo);
@@ -89,8 +74,7 @@ char* zLinker::find_lib_base(char* so_name){
     return nullptr;
 }
 
-
-zElf zLinker::find_lib(char* so_name){
+zElf zLinker::find_lib(const char* so_name){
     soinfo* soinfo = soinfo_head;
     while(soinfo->next != nullptr){
         char* real_path = soinfo_get_realpath(soinfo);

@@ -53,9 +53,9 @@ public:
 
     char*(*soinfo_get_realpath)(void*) = nullptr;
 
-    char* find_lib_base(char* so_name);
+    char* find_lib_base(const char* so_name);
 
-    zElf find_lib(char* so_name);
+    zElf find_lib(const char* so_name);
 
     std::vector<std::string> get_libpath_list();
 };

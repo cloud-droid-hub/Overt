@@ -49,62 +49,15 @@
 #include "zElf.h"
 #include "zLinker.h"
 #include "package_info.h"
-#include "plt.h"
 
 #define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
 
 static std::map<std::string, std::vector<std::string>> device_info;
 
-struct RuntimeFake {
-    bool is_started_;          // 1 byte
-    bool is_shutting_down_;    // 1 byte
-    uint8_t padding1[6];       // 对齐 8 字节
-    void* heap_;               // gc::Heap*
-    void* class_linker_;       // ClassLinker*
-    void* signal_catcher_;     // SignalCatcher*
-    void* instrumentation_;    // Instrumentation*
-    void* thread_list_;        // ThreadList*（不实际使用）
-    void* intern_table_;       // InternTable*
-    void* jni_env_;            // JNIEnvExt*
-    void* java_vm_;            // JavaVMExt*
-    uint8_t padding2[8];       // padding for alignment
-    int32_t runtime_flags_;    // 你真正关心的字段
-};
 
 extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     __android_log_print(6, "lxz", "JNI_OnLoad");
-
-//    zElf libart = zLinker::getInstance()->find_lib("libart.so");
-//
-//    unsigned long _ZN3art7Runtime9instance_E_offset = libart.find_symbol("_ZN3art7Runtime9instance_E");
-//
-//    LOGE("_ZN3art7Runtime9instance_E_offset %lu", _ZN3art7Runtime9instance_E_offset);
-//
-//    RuntimeFake* _ZN3art7Runtime9instance_E_ptr = (RuntimeFake*)(libart.base_addr + _ZN3art7Runtime9instance_E_offset);
-//
-////    int flag = *(int*)(libart.base_addr + _ZN3art7Runtime9instance_E_offset + 0x2BA);
-//
-//    LOGE("runtime_flags_ %lu", _ZN3art7Runtime9instance_E_ptr->runtime_flags_);
-//
-//    __android_log_print(6, "lxz", "JNI_OnLoad over");
-
-
-
-
-//    zLinker::getInstance();
-//    plt_dlsym("_ZN7android13InputConsumer18resampleTouchStateElPNS_11MotionEventEPKNS_12InputMessageE", nullptr);
-//    std::vector<std::string> path_list = zLinker::getInstance()->get_libpath_list();
-//
-//    for(std::string path: path_list){
-//        LOGE("path_list %s", path.c_str());
-//    }
-
-//    zElf elf("libinput.so");
-
-//    unsigned long resampleTouchState_offset = elf.find_symbol("_ZN7android13InputConsumer18resampleTouchStateElPNS_11MotionEventEPKNS_12InputMessageE");
-
-//    LOGE("find_symbol resampleTouchState_offset %lu", resampleTouchState_offset);
 
     return JNI_VERSION_1_6;
 }

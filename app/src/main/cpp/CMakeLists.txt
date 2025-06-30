@@ -29,7 +29,6 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         linker_info.cpp
         time_info.cpp
         classloader.cpp
-        plt.c
         zElf.cpp
         zLinker.cpp
         package_info.cpp

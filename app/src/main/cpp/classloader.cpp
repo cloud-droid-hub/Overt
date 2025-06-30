@@ -7,7 +7,6 @@
 #include <jni.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include "plt.h"
 #include "art.h"
 #include <vector>
 #include <string>
@@ -17,7 +16,6 @@
 
 std::vector<std::string> classNameList = std::vector<std::string>();
 std::vector<std::string> classLoaderStringList = std::vector<std::string>();
-
 
 void debug(C_JNIEnv *env, const char *format, jobject object) {
     if (object == nullptr) {
@@ -171,6 +169,7 @@ std::vector<std::string> getClassNameList(JNIEnv *env, jobject classloader) {
     return classNameList;
 }
 
+#include "zLinker.h"
 
 static jobject newLocalRef(JNIEnv *env, void *object) {
     static jobject (*NewLocalRef)(JNIEnv *, void *) = nullptr;
@@ -178,7 +177,7 @@ static jobject newLocalRef(JNIEnv *env, void *object) {
         return nullptr;
     }
     if (NewLocalRef == nullptr) {
-        NewLocalRef = (jobject (*)(JNIEnv *, void *)) plt_dlsym("_ZN3art9JNIEnvExt11NewLocalRefEPNS_6mirror6ObjectE", nullptr);
+        NewLocalRef = (jobject (*)(JNIEnv *, void *)) (zLinker::getInstance()->find_lib("libart.so").find_symbol("_ZN3art9JNIEnvExt11NewLocalRefEPNS_6mirror6ObjectE"));
     }
     if (NewLocalRef != nullptr) {
         return NewLocalRef(env, object);
@@ -190,7 +189,7 @@ static jobject newLocalRef(JNIEnv *env, void *object) {
 static void deleteLocalRef(JNIEnv *env, jobject object) {
     static void (*DeleteLocalRef)(JNIEnv *, jobject) = nullptr;
     if (DeleteLocalRef == nullptr) {
-        DeleteLocalRef = (void (*)(JNIEnv *, jobject)) plt_dlsym("_ZN3art9JNIEnvExt14DeleteLocalRefEP8_jobject", nullptr);
+        DeleteLocalRef = (void (*)(JNIEnv *, jobject)) zLinker::getInstance()->find_lib("libart.so").find_symbol("_ZN3art9JNIEnvExt14DeleteLocalRefEP8_jobject");
     }
     if (DeleteLocalRef != nullptr) {
         DeleteLocalRef(env, object);
@@ -226,7 +225,7 @@ private:
 };
 
 static void checkGlobalRef(JNIEnv *env, jclass clazz) {
-    auto VisitRoots = (void (*)(void *, void *)) plt_dlsym("_ZN3art9JavaVMExt10VisitRootsEPNS_11RootVisitorE", nullptr);
+    auto VisitRoots = (void (*)(void *, void *)) zLinker::getInstance()->find_lib("libart.so").find_symbol("_ZN3art9JavaVMExt10VisitRootsEPNS_11RootVisitorE");
 
     if (VisitRoots == nullptr) {
         return;
@@ -267,7 +266,8 @@ private:
 };
 
 static void checkWeakGlobalRef(JNIEnv *env, jclass clazz) {
-    auto SweepJniWeakGlobals = (void (*)(void *, void *)) plt_dlsym("_ZN3art9JavaVMExt19SweepJniWeakGlobalsEPNS_15IsMarkedVisitorE", nullptr);
+    // auto SweepJniWeakGlobals = (void (*)(void *, void *)) plt_dlsym("_ZN3art9JavaVMExt19SweepJniWeakGlobalsEPNS_15IsMarkedVisitorE", nullptr);
+    auto SweepJniWeakGlobals = (void (*)(void *, void *)) zLinker::getInstance()->find_lib("libart.so").find_symbol("_ZN3art9JavaVMExt19SweepJniWeakGlobalsEPNS_15IsMarkedVisitorE");
 
     if (SweepJniWeakGlobals == nullptr) {
         return;
