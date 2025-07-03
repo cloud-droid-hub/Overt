@@ -56,8 +56,8 @@ std::map<std::string, PropertyValue> getAllSystemProperties() {
 
 
 
-std::map<std::string, std::string> get_system_prop_info() {
-    std::map<std::string, std::string> info;
+std::map<std::string, std::map<std::string, std::string>> get_system_prop_info() {
+    std::map<std::string, std::map<std::string, std::string>> info;
     auto properties = getAllSystemProperties();
 
     std::vector<std::string> prop_list{
@@ -90,31 +90,24 @@ std::map<std::string, std::string> get_system_prop_info() {
     };
 
     for(const auto& [key, value] : prop_map){
-        if(properties.find(key.c_str()) != properties.end()) {
+        if(properties.find(key) != properties.end()) {
             if(properties[key.c_str()].value != value) {
                 char buffer[100] = {0};
-                sprintf(buffer, "value[%s]", properties[key.c_str()].value.c_str());
-                info[key.c_str()] = buffer;
+                sprintf(buffer, ":value[%s]", properties[key.c_str()].value.c_str());
+                info[key+buffer]["risk"] = "error";
+                info[key+buffer]["explain"] = "value is not correct";
             }
         }
     }
 
-    for(std::string key : prop_list){
+    for(const std::string& key : prop_list){
         if(properties[key.c_str()].serial_version != 0){
             char buffer[100] = {0};
-            sprintf(buffer, "serial[%d]", properties[key.c_str()].serial_version);
-            info[key.c_str()] = buffer;
+            sprintf(buffer, ":serial[%d]", properties[key.c_str()].serial_version);
+            info[key+buffer]["risk"] = "error";
+            info[key+buffer]["explain"] = "serial_version is not 0";
         }
     }
-
-//    for(const auto& [key, value] : properties){
-//        LOGE("%s", key.c_str());
-//        if(strstr(key.c_str(), "sim") != 0) {
-//            char buffer[100] = {0};
-//            sprintf(buffer, "value[%s]", properties[key.c_str()].value.c_str());
-//            info[key.c_str()] = buffer;
-//        }
-//    }
 
     return info;
 }

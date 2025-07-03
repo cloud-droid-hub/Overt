@@ -47,8 +47,8 @@ bool check_file_exist(nonstd::string path) {
     return file_exist;
 }
 
-std::map<std::string, std::string> get_root_file_info(){
-    std::map<std::string, std::string> info;
+std::map<std::string, std::map<std::string, std::string>> get_root_file_info(){
+    std::map<std::string, std::map<std::string, std::string>> info;
     const char* paths[] = {
             "/sbin/su",
             "/system/bin/su",
@@ -65,7 +65,8 @@ std::map<std::string, std::string> get_root_file_info(){
 
     for (const char* path : paths) {
         if (check_file_exist(path)) {
-            info[path] = "exist";
+            info[path]["risk"] = "error";
+            info[path]["explain"] = "black file but exist";
         }
     }
 

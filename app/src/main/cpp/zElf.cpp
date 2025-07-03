@@ -525,7 +525,7 @@ int zElf::is_link_view(uintptr_t elf_mem_ptr) {
     return 0;
 }
 
-char *zElf::get_maps_base(char *so_name) {
+char *zElf::get_maps_base(const char *so_name) {
     FILE *fp = fopen("/proc/self/maps", "r");
     if (!fp) return nullptr;
 

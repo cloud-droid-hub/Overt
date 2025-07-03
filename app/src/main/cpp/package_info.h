@@ -10,7 +10,6 @@
 #include <map>
 #include <vector>
 
-std::map<std::string, std::string> get_package_info();
-
+std::map<std::string, std::map<std::string, std::string>> get_package_info();
 
 #endif //OVERT_PACKAGE_INFO_H

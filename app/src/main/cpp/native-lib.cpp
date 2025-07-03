@@ -50,6 +50,8 @@
 #include "zLinker.h"
 #include "package_info.h"
 #include "device_info.h"
+#include "class_loader_info.h"
+
 
 #define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
 
@@ -57,14 +59,25 @@ extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     __android_log_print(6, "lxz", "JNI_OnLoad");
 
-//    zLinker::getInstance()->find_lib("libc.so").find_symbol("fopen");
+    JNIEnv *env;
+    if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6)!= JNI_OK) {
+        LOGE("Failed to get the environment");
+        return -1;
+    }
 
-    bool ret = zLinker::check_lib_hash("libc.so");
-    LOGE("check_lib_hash libc.so ret: %d", ret);
+    device_info["package_info"] = get_package_info();
+    device_info["root_file_info"] = get_root_file_info();
+    device_info["mounts_info"] = get_mounts_info();
+    device_info["class_loader_info"] = get_class_loader_info(env);
+    device_info["class_info"] = get_class_info(env);
+    device_info["system_prop_info"] = get_system_prop_info();
+    device_info["linker_info"] = get_linker_info();
+    device_info["time_info"] = get_time_info();
 
     return JNI_VERSION_1_6;
 }
 
+// 将 std::map<std::string, std::string> 转换为 Java Map<String, String>
 jobject cmap_to_jmap(JNIEnv *env, std::map<std::string, std::string> cmap){
     jobject jobjectMap = env->NewObject(env->FindClass("java/util/HashMap"), env->GetMethodID(env->FindClass("java/util/HashMap"), "<init>", "()V"));
     for (auto &entry : cmap) {
@@ -73,120 +86,43 @@ jobject cmap_to_jmap(JNIEnv *env, std::map<std::string, std::string> cmap){
     return jobjectMap;
 }
 
-extern "C"
-JNIEXPORT jobject JNICALL
-Java_com_example_overt_device_DeviceInfoProvider_get_1root_1file_1info(JNIEnv *env, jobject thiz) {
-    // TODO: implement get_root_file_info()
-    std::map<std::string, std::string> root_file_info = get_root_file_info();
-    return cmap_to_jmap(env, root_file_info);
-}
+// 将 std::map<std::string, std::map<std::string, std::string>> 转换为 Java Map<String, Map<String, String>>
+jobject cmap_to_jmap_nested(JNIEnv* env, const std::map<std::string, std::map<std::string, std::string>>& cmap) {
+    jclass hashMapClass = env->FindClass("java/util/HashMap");
+    jmethodID hashMapConstructor = env->GetMethodID(hashMapClass, "<init>", "()V");
+    jobject jmap = env->NewObject(hashMapClass, hashMapConstructor);
 
-extern "C"
-JNIEXPORT jobject JNICALL
-Java_com_example_overt_device_DeviceInfoProvider_get_1mounts_1info(JNIEnv *env, jobject thiz) {
-    // TODO: implement get_mounts_info()
-    std::map<std::string, std::string> mounts_info = get_mounts_info();
-    return cmap_to_jmap(env, mounts_info);
-}
-
-extern "C"
-JNIEXPORT jobject JNICALL
-Java_com_example_overt_device_DeviceInfoProvider_get_1system_1prop_1info(JNIEnv *env, jobject thiz) {
-    // TODO: implement get_system_prop_info()
-    std::map<std::string, std::string> system_prop_info = get_system_prop_info();
-    return cmap_to_jmap(env, system_prop_info);
-}
-
-extern "C"
-JNIEXPORT jobject JNICALL
-Java_com_example_overt_device_DeviceInfoProvider_get_1class_1loader_1info(JNIEnv *env, jobject thiz) {
-    if (env == nullptr) {
-        LOGE("get_class_loader_info: env is null");
-        return nullptr;
+    jmethodID putMethod = env->GetMethodID(hashMapClass, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+    for (const auto& entry : cmap) {
+        jstring jkey = env->NewStringUTF(entry.first.c_str());
+        jobject jvalue = cmap_to_jmap(env, entry.second); // 调用之前定义的 cmap_to_jmap 方法
+        env->CallObjectMethod(jmap, putMethod, jkey, jvalue);
+        env->DeleteLocalRef(jkey);
+        env->DeleteLocalRef(jvalue);
     }
+    return jmap;
+}
 
-    std::map<std::string, std::string> class_loader_info;
-    
-    // 检查异常
-    if (env->ExceptionCheck()) {
-        env->ExceptionClear();
-        LOGE("get_class_loader_info: Exception occurred before traversal");
-        return nullptr;
+// 主函数：将 std::map<std::string, std::map<std::string, std::map<std::string, std::string>>> 转换为 Java Map<String, Map<String, Map<String, String>>>
+jobject cmap_to_jmap_nested_3(JNIEnv* env, const std::map<std::string, std::map<std::string, std::map<std::string, std::string>>>& cmap) {
+    jclass hashMapClass = env->FindClass("java/util/HashMap");
+    jmethodID hashMapConstructor = env->GetMethodID(hashMapClass, "<init>", "()V");
+    jobject jmap = env->NewObject(hashMapClass, hashMapConstructor);
+
+    jmethodID putMethod = env->GetMethodID(hashMapClass, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+    for (const auto& entry : cmap) {
+        jstring jkey = env->NewStringUTF(entry.first.c_str());
+        jobject jvalue = cmap_to_jmap_nested(env, entry.second);
+        env->CallObjectMethod(jmap, putMethod, jkey, jvalue);
+        env->DeleteLocalRef(jkey);
+        env->DeleteLocalRef(jvalue);
     }
-
-    // 遍历类加载器
-    traverseClassLoader(env);
-    
-    // 检查异常
-    if (env->ExceptionCheck()) {
-        env->ExceptionClear();
-        LOGE("get_class_loader_info: Exception occurred during traversal");
-        return nullptr;
-    }
-
-    // 处理类加载器列表
-    for(const std::string& str : classLoaderStringList) {
-        if (str.empty()) {
-            continue;
-        }
-
-        if(strstr(str.c_str(), "LspModuleClassLoader")) {
-            class_loader_info[str] = "black";
-        }
-        if(strstr(str.c_str(), "InMemoryDexClassLoader") && strstr(str.c_str(), "nativeLibraryDirectories=[/system/lib64, /system_ext/lib64]")) {
-            class_loader_info[str] = "black";
-        }
-        if(strstr(str.c_str(), "InMemoryDexClassLoader") && strstr(str.c_str(), "nativeLibraryDirectories=[/system/lib64, /system/system_ext/lib64]")) {
-            class_loader_info[str] = "black";
-        }
-    }
-
-    return cmap_to_jmap(env, class_loader_info);
+    return jmap;
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
-Java_com_example_overt_device_DeviceInfoProvider_get_1class_1info(JNIEnv *env, jobject thiz) {
-    std::map<std::string, std::string> class_info;
-
-    std::vector<std::string> black_name_list = {
-//            "xposed", "lsposed", "lspd"
-        "XposedHooker"
-    };
-
-    for(std::string className : classNameList){
-        std::transform(className.begin(), className.end(), className.begin(), [](unsigned char c) { return std::tolower(c); });
-        for(std::string black_name: black_name_list){
-            std::transform(black_name.begin(), black_name.end(), black_name.begin(), [](unsigned char c) { return std::tolower(c); });
-            if(strstr(className.c_str(), black_name.c_str()) != 0){
-                LOGE("className %s", className.c_str());
-                class_info[className] = "black";
-            }
-        }
-    }
-    return cmap_to_jmap(env, class_info);
-}
-
-
-extern "C"
-JNIEXPORT jobject JNICALL
-Java_com_example_overt_device_DeviceInfoProvider_get_1time_1info(JNIEnv *env, jobject thiz) {
-    // TODO: implement get_time_info()
-    std::map<std::string, std::string> info = get_time_info();
-    return cmap_to_jmap(env, info);
-}
-
-extern "C"
-JNIEXPORT jobject JNICALL
-Java_com_example_overt_device_DeviceInfoProvider_get_1linker_1info(JNIEnv *env, jobject thiz) {
-    // TODO: implement get_linker_info()
-    std::map<std::string, std::string> info = get_linker_info();
-    return cmap_to_jmap(env, info);
-}
-extern "C"
-JNIEXPORT jobject JNICALL
-Java_com_example_overt_device_DeviceInfoProvider_get_1package_1info(JNIEnv *env, jobject thiz) {
-    // TODO: implement get_package_info()
-    std::map<std::string, std::string> info = get_package_info();
-    return cmap_to_jmap(env, info);
+Java_com_example_overt_device_DeviceInfoProvider_get_1device_1info(JNIEnv *env, jobject thiz) {
+    // TODO: implement get_device_info()
+    return cmap_to_jmap_nested_3(env,device_info);
 }

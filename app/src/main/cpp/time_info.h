@@ -10,7 +10,7 @@
 #include <map>
 #include <vector>
 
-std::map<std::string, std::string> get_time_info();
+std::map<std::string, std::map<std::string, std::string>> get_time_info();
 
 
 #endif //OVERT_TIME_INFO_H

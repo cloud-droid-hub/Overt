@@ -189,9 +189,9 @@ std::string get_time_diff(long timestamp) {
     return std::string(time_str);
 }
 
-std::map<std::string, std::string> get_time_info(){
+std::map<std::string, std::map<std::string, std::string>> get_time_info(){
 
-    std::map<std::string, std::string> info;
+    std::map<std::string, std::map<std::string, std::string>> info;
 
     // 获取最早时间
     long earliest_time = get_earliest_time();
@@ -210,13 +210,15 @@ std::map<std::string, std::string> get_time_info(){
 
     // 当前时间距离最早开机时间过短，可能刷机或恢复出厂设置
     if(current_time - earliest_time < 30 * 24 * 60 * 60){
-        info["earliest_time"] = earliest_time_str;
+        info["earliest_time:"+earliest_time_str]["risk"] = "warn";
+        info["earliest_time:"+earliest_time_str]["explain"] = "earliest_time is too short";
     }
 
     LOGE("boot_time2 %s", format_timestamp(current_time - boot_time).c_str());
     // 开机时间过短，可能刚重启
     if(current_time - boot_time < 1 * 24 * 60 * 60){
-        info["boot_time"] = boot_time_str;
+        info["boot_time:"+boot_time_str]["risk"] = "warn";
+        info["boot_time:"+boot_time_str]["explain"] = "boot_time is too short";
     }
 
     return info;

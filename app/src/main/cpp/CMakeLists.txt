@@ -32,6 +32,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zElf.cpp
         zLinker.cpp
         package_info.cpp
+        class_loader_info.cpp
         native-lib.cpp)
 
 #include_directories(zTraverseClassLoader)

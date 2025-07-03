@@ -59,7 +59,7 @@ public:
 
     std::vector<std::string> get_libpath_list();
 
-    static bool check_lib_hash(char* so_name);
+    static bool check_lib_hash(const char* so_name);
 };
 
 

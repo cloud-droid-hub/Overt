@@ -7,24 +7,8 @@
 #include "root_file_info.h"
 #include "device_info.h"
 
-std::map<std::string, std::string> get_package_info(){
-
-    std::map<std::string, std::string> info;
-
-    const char* paths[] = {
-            "/sbin/su",
-            "/system/bin/su",
-            "/system/xbin/su",
-            "/data/local/xbin/su",
-            "/data/local/bin/su",
-            "/system/sd/xbin/su",
-            "/system/bin/failsafe/su",
-            "/data/local/su",
-            "/system/xbin/mu",
-            "/system_ext/bin/su",
-            "/apex/com.android.runtime/bin/suu"
-    };
-
+std::map<std::string, std::map<std::string, std::string>> get_package_info(){
+    std::map<std::string, std::map<std::string, std::string>> info;
 
     std::map<std::string, std::string> black_map = {
             {"com.zhenxi.hunter", "Hunter"},
@@ -64,16 +48,18 @@ std::map<std::string, std::string> get_package_info(){
     for (auto &[key, value] : black_map) {
         std::string path = "/storage/emulated/0/Android/data/" + key;
         if (check_file_exist_2(path)) {
-            info[key] = "exist";
+            info[key]["risk"] = "error";
+            info[key]["explain"] = "black package name but install";
         }
     }
 
     for (auto &[key, value] : white_map) {
         std::string path = "/storage/emulated/0/Android/data/" + key;
-        if (!check_file_exist_2(path)) {
-            info[key] = "absent";
+        if (check_file_exist_2(path)) {
+            info[key]["risk"] = "warn";
+            info[key]["explain"] = "white package name but uninstall";
         }
     }
 
     return info;
-}
+};

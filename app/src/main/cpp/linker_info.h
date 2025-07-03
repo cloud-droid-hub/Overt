@@ -9,7 +9,7 @@
 #include <map>
 #include <vector>
 
-std::map<std::string, std::string> get_linker_info();
+std::map<std::string, std::map<std::string, std::string>>get_linker_info();
 
 
 #endif //OVERT_LINKER_INFO_H

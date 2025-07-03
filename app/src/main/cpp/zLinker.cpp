@@ -102,8 +102,8 @@ std::vector<std::string> zLinker::get_libpath_list(){
     return libpath_list;
 }
 
-bool zLinker::check_lib_hash(char* so_name){
-
+bool zLinker::check_lib_hash(const char* so_name){
+    LOGE("check_lib_hash so_name: %s", so_name);
     zElf elf_lib_file = zLinker::getInstance()->find_lib(so_name);
     uint64_t elf_lib_file_sum = elf_lib_file.get_text_segment_sum();
 
