@@ -49,15 +49,18 @@
 #include "zElf.h"
 #include "zLinker.h"
 #include "package_info.h"
+#include "device_info.h"
 
 #define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
-
-static std::map<std::string, std::vector<std::string>> device_info;
-
 
 extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     __android_log_print(6, "lxz", "JNI_OnLoad");
+
+//    zLinker::getInstance()->find_lib("libc.so").find_symbol("fopen");
+
+    bool ret = zLinker::check_lib_hash("libc.so");
+    LOGE("check_lib_hash libc.so ret: %d", ret);
 
     return JNI_VERSION_1_6;
 }

@@ -10,15 +10,15 @@
 zLinker* zLinker::instance = nullptr;
 
 zLinker::zLinker() {
-    this->base_addr = parse_elf_file("/system/bin/linker64");
-    LOGE("linker64 file_base_addr %p", this->base_addr);
+    this->elf_file_ptr = parse_elf_file("/system/bin/linker64");
+    LOGE("linker64 elf_file_ptr %p", this->elf_file_ptr);
 
     parse_elf_head();
     parse_program_header_table();
     parse_section_table();
 
-    this->base_addr = get_maps_base("linker64");
-    LOGE("linker64 mem_base_addr %p", this->base_addr);
+    this->elf_mem_ptr = get_maps_base("linker64");
+    LOGE("linker64 elf_mem_ptr %p", this->elf_mem_ptr);
 
     soinfo*(*solist_get_head)() = (soinfo*(*)())(this->find_symbol("__dl__Z15solist_get_headv"));
 
@@ -82,7 +82,7 @@ zElf zLinker::find_lib(const char* so_name){
         if(ends_with(real_path, so_name)){
             LOGE("linker64 fins succeed soinfo base:%p path:%s", soinfo->base, real_path);
             zElf elf_file = zElf(real_path);
-            elf_file.base_addr = (char*)soinfo->base;
+            elf_file.elf_mem_ptr = (char*)soinfo->base;
             return elf_file;
         }
         soinfo = soinfo->next;
@@ -100,4 +100,18 @@ std::vector<std::string> zLinker::get_libpath_list(){
         soinfo = soinfo->next;
     }
     return libpath_list;
+}
+
+bool zLinker::check_lib_hash(char* so_name){
+
+    zElf elf_lib_file = zLinker::getInstance()->find_lib(so_name);
+    uint64_t elf_lib_file_sum = elf_lib_file.get_text_segment_sum();
+
+    zElf elf_lib_mem = zElf((void*)zLinker::get_maps_base(so_name));
+    uint64_t elf_lib_mem_sum = elf_lib_mem.get_text_segment_sum();
+
+    LOGE("check_lib_hash elf_lib_file: %p sum1: %lu", elf_lib_file.elf_file_ptr, elf_lib_file_sum);
+    LOGE("check_lib_hash elf_lib_mem: %p sum2: %lu", elf_lib_mem.elf_mem_ptr, elf_lib_mem_sum);
+
+    return elf_lib_file_sum != elf_lib_mem_sum;
 }

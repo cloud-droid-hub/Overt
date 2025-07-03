@@ -26,9 +26,9 @@ zElf::zElf() {
     // 空实现，因为所有成员变量都已经在类定义中初始化
 }
 
-
 zElf::zElf(void *elf_mem_addr) {
-    this->base_addr = (char *) elf_mem_addr;
+    link_view = LINK_VIEW::MEMORY_VIEW;
+    this->elf_mem_ptr = (char *) elf_mem_addr;
     parse_elf_head();
     parse_program_header_table();
     parse_dynamic_table();
@@ -46,23 +46,26 @@ static ElfW(Dyn) *find_dyn_by_tag2(ElfW(Dyn) *dyn, ElfW(Sxword) tag) {
 
 zElf::zElf(char *elf_file_name) {
     if (strncmp(elf_file_name, "lib", 3) == 0) {
-        this->base_addr = get_maps_base(elf_file_name);
+        link_view = LINK_VIEW::MEMORY_VIEW;
+        this->real_path = elf_file_name;
+        this->elf_mem_ptr = get_maps_base(elf_file_name);
         parse_elf_head();
         parse_program_header_table();
         parse_dynamic_table();
     } else {
-        this->base_addr = parse_elf_file(elf_file_name);
-
+        link_view = LINK_VIEW::FILE_VIEW;
+        this->elf_file_ptr = parse_elf_file(elf_file_name);
         parse_elf_head();
         parse_program_header_table();
         parse_dynamic_table();
         parse_section_table();
-
     }
 }
 
 void zElf::parse_elf_head() {
-    elf_header = (Elf64_Ehdr *) this->base_addr;
+    char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
+
+    elf_header = (Elf64_Ehdr *) base_addr;
     LOGE("elf_header->e_shoff 0x%llx", elf_header->e_shoff);
     LOGE("elf_header->e_shnum %x", elf_header->e_shnum);
     header_size = elf_header->e_ehsize;
@@ -71,6 +74,8 @@ void zElf::parse_elf_head() {
 }
 
 void zElf::parse_program_header_table() {
+    char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
+
     bool found_load_segment = false;
     for (int i = 0; i < program_header_table_num; i++) {
         if (program_header_table[i].p_type== PT_LOAD && !found_load_segment) {
@@ -79,6 +84,11 @@ void zElf::parse_program_header_table() {
             load_segment_physical_offset = program_header_table[i].p_paddr;
             LOGE("load_segment_virtual_offset %llu", load_segment_virtual_offset);
         }
+        if (program_header_table[i].p_type== PT_LOAD && program_header_table[i].p_flags == (PF_X | PF_R)) {
+            loadable_rx_segment = &(program_header_table[i]);
+            LOGE("loadable_rx_segment %p", loadable_rx_segment);
+        }
+
         if (program_header_table[i].p_type == PT_DYNAMIC) {
             dynamic_table_offset = program_header_table[i].p_offset;
             dynamic_table = (Elf64_Dyn*)(base_addr + program_header_table[i].p_vaddr);
@@ -91,6 +101,7 @@ void zElf::parse_program_header_table() {
 }
 
 void zElf::parse_dynamic_table() {
+    char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
 
     LOGE("parse_dynamic_table %p", dynamic_table);
     LOGE("load_segment_virtual_offset %llu", load_segment_virtual_offset);
@@ -136,8 +147,9 @@ void zElf::parse_dynamic_table() {
 }
 
 void zElf::parse_section_table() {
+    char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
 
-    LOGE("parse_section_table is called base_addr %p", base_addr);
+    LOGE("parse_section_table is called elf_mem_ptr %p", base_addr);
 
     Elf64_Off session_table_offset = elf_header->e_shoff;
     LOGE("parse_section_table session_table_offset 0x%llx", session_table_offset);
@@ -250,6 +262,12 @@ unsigned long long zElf::find_symbol_offset(const char *symbol_name) {
 }
 
 char* zElf::find_symbol(const char *symbol_name) {
+
+    if (elf_mem_ptr == nullptr) {
+        LOGE("find_symbol elf_mem_ptr == nullptr");
+        return nullptr;
+    }
+
     Elf64_Addr symbol_offset = 0;
     symbol_offset = find_symbol_offset_by_dynamic(symbol_name);
     symbol_offset = symbol_offset == 0 ? find_symbol_offset_by_section(symbol_name) : symbol_offset;
@@ -259,7 +277,8 @@ char* zElf::find_symbol(const char *symbol_name) {
         return nullptr;
     }
     LOGE("find_symbol %s 0x%llx", symbol_name, symbol_offset);
-    return base_addr + symbol_offset;
+
+    return elf_mem_ptr + symbol_offset;
 }
 
 char *zElf::parse_elf_file(char *elf_path) {
@@ -267,32 +286,32 @@ char *zElf::parse_elf_file(char *elf_path) {
     LOGE("parse_elf_file %s", elf_path);
 
     // 打开文件，获取文件描述符
-    file_fd = open(elf_path, O_RDONLY);
-    if (file_fd == -1) {
+    elf_file_fd = open(elf_path, O_RDONLY);
+    if (elf_file_fd == -1) {
         // 处理文件打开失败的情况
         LOGE("parse_elf_file 1");
         return nullptr;
     }
     LOGE("parse_elf_file 11");
     // 获取文件大小
-    file_size = lseek(file_fd, 0, SEEK_END);
-    if (file_size == -1) {
+    elf_file_size = lseek(elf_file_fd, 0, SEEK_END);
+    if (elf_file_size == -1) {
         // 处理获取文件大小失败的情况
         LOGE("parse_elf_file 2");
-        close(file_fd);
+        close(elf_file_fd);
         return nullptr;
     }
     LOGE("parse_elf_file 22");
     // 将文件映射到内存中
-    file_ptr = (char *) mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, file_fd, 0);
-    if (file_ptr == MAP_FAILED) {
+    elf_file_ptr = (char *) mmap(NULL, elf_file_size, PROT_READ, MAP_PRIVATE, elf_file_fd, 0);
+    if (elf_file_ptr == MAP_FAILED) {
         // 处理映射失败的情况
         LOGE("parse_elf_file 3");
-        close(file_fd);
+        close(elf_file_fd);
         return nullptr;
     }
     LOGE("parse_elf_file 33");
-    return file_ptr;
+    return elf_file_ptr;
 }
 
 // 不回收内存的版本，仅用于测试
@@ -301,50 +320,72 @@ char *zElf::parse_elf_file_(char *elf_path) {
     LOGE("parse_elf_file %s", elf_path);
 
     // 打开文件，获取文件描述符
-    int file_fd = open(elf_path, O_RDONLY);
-    if (file_fd == -1) {
+    int elf_file_fd = open(elf_path, O_RDONLY);
+    if (elf_file_fd == -1) {
         // 处理文件打开失败的情况
         LOGE("parse_elf_file 1");
         return nullptr;
     }
     LOGE("parse_elf_file 11");
     // 获取文件大小
-    size_t file_size = lseek(file_fd, 0, SEEK_END);
-    if (file_size == -1) {
+    size_t elf_file_size = lseek(elf_file_fd, 0, SEEK_END);
+    if (elf_file_size == -1) {
         // 处理获取文件大小失败的情况
         LOGE("parse_elf_file 2");
-        close(file_fd);
+        close(elf_file_fd);
         return nullptr;
     }
     LOGE("parse_elf_file 22");
     // 将文件映射到内存中
-    char *file_ptr = (char *) mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, file_fd, 0);
-    if (file_ptr == MAP_FAILED) {
+    char *elf_file_ptr = (char *) mmap(NULL, elf_file_size, PROT_READ, MAP_PRIVATE, elf_file_fd, 0);
+    if (elf_file_ptr == MAP_FAILED) {
         // 处理映射失败的情况
         LOGE("parse_elf_file 3");
-        close(file_fd);
+        close(elf_file_fd);
         return nullptr;
     }
     LOGE("parse_elf_file 33");
-    return file_ptr;
+    return elf_file_ptr;
+}
+
+uint64_t zElf::get_text_segment_sum(){
+    char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
+
+    void* code_mem_ptr = (void*)(base_addr + loadable_rx_segment->p_vaddr);
+    Elf64_Xword code_mem_size = loadable_rx_segment->p_memsz;
+    LOGE("check_text_segment code_mem_ptr: %p, code_mem_size: %llx", code_mem_ptr, code_mem_size);
+
+    // 初始化累加和变量
+    uint64_t sum = 0;
+
+    // 遍历代码段内存区域，计算累加和
+    for (Elf64_Xword i = 0; i < code_mem_size; i++) {
+        // 获取当前字节的值
+        uint8_t byte = ((uint8_t*)code_mem_ptr)[i];
+        // 累加到总和中
+        sum += byte;
+    }
+    LOGE("check_text_segment code_mem_ptr: %p, code_mem_size: %llx", code_mem_ptr, code_mem_size);
+    LOGE("check_text_segment sum: %lu", sum);
+    return sum;
 }
 
 zElf::~zElf() {
-    if (file_ptr == nullptr) {
+    if (elf_file_ptr == nullptr) {
         return;
     }
-    munmap(file_ptr, file_size);
-    close(file_fd);
+    munmap(elf_file_ptr, elf_file_size);
+    close(elf_file_fd);
 }
 
 // 根据 plt 表判断是否为链接视图
-int zElf::is_link_view(uintptr_t base_addr) {
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *) base_addr;
+int zElf::is_link_view(uintptr_t elf_mem_ptr) {
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *) elf_mem_ptr;
     LOGE("[is_link_view] ELF magic: %02x %02x %02x %02x", ehdr->e_ident[0], ehdr->e_ident[1], ehdr->e_ident[2], ehdr->e_ident[3]);
     LOGE("[is_link_view] e_phoff: 0x%lx, e_phnum: %d", ehdr->e_phoff, ehdr->e_phnum);
     LOGE("[is_link_view] e_type: %d, e_entry: 0x%lx", ehdr->e_type, ehdr->e_entry);
 
-    Elf64_Phdr *phdrs = (Elf64_Phdr *) (base_addr + ehdr->e_phoff);
+    Elf64_Phdr *phdrs = (Elf64_Phdr *) (elf_mem_ptr + ehdr->e_phoff);
     uintptr_t load_vaddr = 0;
     for (int i = 0; i < ehdr->e_phnum; i++) {
         if (phdrs[i].p_type == PT_LOAD) {
@@ -358,7 +399,7 @@ int zElf::is_link_view(uintptr_t base_addr) {
     for (int i = 0; i < ehdr->e_phnum; i++) {
         LOGE("[is_link_view] phdr[%d]: type=%d, vaddr=0x%lx, offset=0x%lx", i, phdrs[i].p_type, phdrs[i].p_vaddr, phdrs[i].p_offset);
         if (phdrs[i].p_type == PT_DYNAMIC) {
-            dynamic = (Elf64_Dyn *) (base_addr + (phdrs[i].p_vaddr - load_vaddr));
+            dynamic = (Elf64_Dyn *) (elf_mem_ptr + (phdrs[i].p_vaddr - load_vaddr));
             LOGE("[is_link_view] Found PT_DYNAMIC at 0x%lx (mem: %p)", phdrs[i].p_vaddr, dynamic);
             break;
         }
@@ -398,11 +439,11 @@ int zElf::is_link_view(uintptr_t base_addr) {
 
     // 检查 .rela.dyn
     if (found_rela_dyn && rela_dyn_addr && rela_dyn_size) {
-        Elf64_Rela *rela = (Elf64_Rela *) (base_addr + (rela_dyn_addr - load_vaddr));
+        Elf64_Rela *rela = (Elf64_Rela *) (elf_mem_ptr + (rela_dyn_addr - load_vaddr));
         size_t count = rela_dyn_size / sizeof(Elf64_Rela);
         LOGE("[is_link_view] .rela.dyn count: %zu", count);
         for (size_t i = 0; i < count; i++) {
-            uintptr_t reloc_addr = base_addr + (rela[i].r_offset - load_vaddr);
+            uintptr_t reloc_addr = elf_mem_ptr + (rela[i].r_offset - load_vaddr);
             uintptr_t actual_val = *(uintptr_t *) reloc_addr;
             uintptr_t addend = rela[i].r_addend;
             uint32_t type = ELF64_R_TYPE(rela[i].r_info);
@@ -414,7 +455,7 @@ int zElf::is_link_view(uintptr_t base_addr) {
             if (type == R_AARCH64_RELATIVE || type == R_AARCH64_GLOB_DAT) {
                 if (actual_val != addend && actual_val != 0) {
                     // 检查值是否在合理的地址范围内
-                    if (actual_val >= base_addr && actual_val < (base_addr + 0x1000000)) {
+                    if (actual_val >= elf_mem_ptr && actual_val < (elf_mem_ptr + 0x1000000)) {
                         LOGE("[is_link_view] Found patched relocation in .rela.dyn");
                         return 1;
                     }
@@ -425,7 +466,7 @@ int zElf::is_link_view(uintptr_t base_addr) {
 
     // 检查 .rela.plt
     if (found_rela_plt && rela_plt_addr && rela_plt_size) {
-        Elf64_Rela *rela = (Elf64_Rela *) (base_addr + (rela_plt_addr - load_vaddr));
+        Elf64_Rela *rela = (Elf64_Rela *) (elf_mem_ptr + (rela_plt_addr - load_vaddr));
         size_t count = rela_plt_size / sizeof(Elf64_Rela);
         LOGE("[is_link_view] .rela.plt count: %zu", count);
 
@@ -433,7 +474,7 @@ int zElf::is_link_view(uintptr_t base_addr) {
         uintptr_t plt_start = 0, plt_end = 0;
         for (int i = 0; i < ehdr->e_phnum; i++) {
             if (phdrs[i].p_type == PT_LOAD && (phdrs[i].p_flags & PF_X)) {
-                plt_start = base_addr + (phdrs[i].p_vaddr - load_vaddr);
+                plt_start = elf_mem_ptr + (phdrs[i].p_vaddr - load_vaddr);
                 plt_end = plt_start + phdrs[i].p_memsz;
                 break;
             }
@@ -444,13 +485,13 @@ int zElf::is_link_view(uintptr_t base_addr) {
         for (int i = 0; i < ehdr->e_phnum; i++) {
             if (phdrs[i].p_type == PT_LOAD && (phdrs[i].p_flags & PF_X)) {
                 // PLT 解析器通常在第一个可执行段的开始
-                plt_resolver = base_addr + (phdrs[i].p_vaddr - load_vaddr);
+                plt_resolver = elf_mem_ptr + (phdrs[i].p_vaddr - load_vaddr);
                 break;
             }
         }
 
         for (size_t i = 0; i < count; i++) {
-            uintptr_t reloc_addr = base_addr + (rela[i].r_offset - load_vaddr);
+            uintptr_t reloc_addr = elf_mem_ptr + (rela[i].r_offset - load_vaddr);
             uintptr_t actual_val = *(uintptr_t *) reloc_addr;
             uintptr_t addend = rela[i].r_addend;
             uint32_t type = ELF64_R_TYPE(rela[i].r_info);
@@ -489,27 +530,25 @@ char *zElf::get_maps_base(char *so_name) {
     if (!fp) return nullptr;
 
     char line[1024];
-    char *base_addr = nullptr;
-//    dyn_base_addr 0x0x7fa7789180 = 0x0x7fa7756000 + 33180
+    char *elf_mem_ptr = nullptr;
+//    dyn_elf_mem_ptr 0x0x7fa7789180 = 0x0x7fa7756000 + 33180
     while (fgets(line, sizeof(line), fp)) {
-        LOGE("line:%s", line); sleep(0);
+        //LOGE("line:%s", line); sleep(0);
         if (!strstr(line, "p 00000000 ")) continue;
 
         if (!strstr(line, so_name)) continue;
 
-        LOGE("line2:%s", line); sleep(0);
+        //LOGE("line2:%s", line); sleep(0);
 
         char* start = (char *) (strtoul(strtok(line, "-"), NULL, 16));
 
         if (memcmp(start, "\x7f""ELF", 4) != 0) continue;
 
-        LOGE("line3:%s", line); sleep(0);
-//        7fa775e000
-//        7fa7783000
-        base_addr = start;
+        //LOGE("line3:%s", line); sleep(0);
+        elf_mem_ptr = start;
 
     }
-    LOGE("base_addr:%p", base_addr); sleep(0);
+    LOGE("elf_mem_ptr:%p", elf_mem_ptr); sleep(0);
     fclose(fp);
-    return base_addr;
+    return elf_mem_ptr;
 }

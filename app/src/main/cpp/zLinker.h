@@ -58,6 +58,8 @@ public:
     zElf find_lib(const char* so_name);
 
     std::vector<std::string> get_libpath_list();
+
+    static bool check_lib_hash(char* so_name);
 };
 
 

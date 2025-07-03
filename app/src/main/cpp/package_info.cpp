@@ -5,6 +5,7 @@
 #include "package_info.h"
 
 #include "root_file_info.h"
+#include "device_info.h"
 
 std::map<std::string, std::string> get_package_info(){
 
@@ -73,5 +74,6 @@ std::map<std::string, std::string> get_package_info(){
             info[key] = "absent";
         }
     }
+
     return info;
 }

@@ -8,10 +8,21 @@
 
 #include <linux/elf.h>
 #include <stddef.h>
+#include <string>
 
 class zElf {
 public:
-    char* base_addr = nullptr;
+    enum LINK_VIEW {
+        MEMORY_VIEW,
+        FILE_VIEW,
+        UNKNOWN_VIEW
+    };
+
+    LINK_VIEW link_view = UNKNOWN_VIEW;
+//    char* base_addr = nullptr;
+    char* elf_mem_ptr = nullptr;
+    char* elf_file_ptr = nullptr;
+    std::string real_path = "";
 
     zElf();
     zElf(char* elf_file_name);
@@ -22,6 +33,7 @@ public:
     Elf64_Phdr* program_header_table;
     Elf64_Half program_header_table_num = 0;
     Elf64_Half header_size = 0;
+    Elf64_Phdr* loadable_rx_segment = nullptr;
     void parse_elf_head();
 
     Elf64_Addr load_segment_virtual_offset = 0;
@@ -57,9 +69,9 @@ public:
     char* gnu_hash_table = nullptr;
     void parse_dynamic_table();
 
-    char* file_ptr = nullptr;
-    size_t file_size = 0;
-    int file_fd = 0;
+//    char* file_ptr = nullptr;
+    size_t elf_file_size = 0;
+    int elf_file_fd = 0;
     char* parse_elf_file(char* elf_path);
 
     static char* parse_elf_file_(char* elf_path);
@@ -72,6 +84,8 @@ public:
     static char* get_maps_base(char* so_name);
 
     static int is_link_view(uintptr_t base_addr);
+
+    uint64_t get_text_segment_sum();
 };
 
 
