@@ -17,4 +17,10 @@ std::string get_line(int fd);
 
 std::vector<std::string> get_file_lines(std::string path);
 
+std::vector<std::string> split_str(const std::string& str, const std::string& split);
+
+std::vector<std::string> split_str(const std::string& str, char delim);
+
+bool string_end_with(const char *str, const char *suffix);
+
 #endif //OVERT_UTIL_H

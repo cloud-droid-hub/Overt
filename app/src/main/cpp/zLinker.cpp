@@ -3,6 +3,7 @@
 //
 
 #include "zLinker.h"
+#include "util.h"
 #include <android/log.h>
 #include <regex>
 #define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
@@ -39,34 +40,13 @@ zLinker::zLinker() {
 //    }
 }
 
-/**
- * 判断字符串 str 是否以 suffix 结尾
- *
- * @param str     要检查的完整字符串
- * @param suffix  要判断的后缀字符串
- * @return        true 如果 str 以 suffix 结尾；否则 false
- */
-bool ends_with(const char *str, const char *suffix) {
-    if (!str || !suffix) {
-        return false;
-    }
-
-    size_t len_str = strlen(str);
-    size_t len_suffix = strlen(suffix);
-
-    if (len_suffix > len_str) {
-        return false;
-    }
-
-    return (strcmp(str + len_str - len_suffix, suffix) == 0);
-}
 
 char* zLinker::find_lib_base(const char* so_name){
     soinfo* soinfo = soinfo_head;
     while(soinfo->next != nullptr){
         char* real_path = soinfo_get_realpath(soinfo);
         LOGE("linker64 soinfo base:%p path:%s", soinfo->base, real_path);
-        if(ends_with(real_path, so_name)){
+        if(string_end_with(real_path, so_name)){
             return (char*)soinfo->base;
         }
         soinfo = soinfo->next;
@@ -79,7 +59,7 @@ zElf zLinker::find_lib(const char* so_name){
     while(soinfo->next != nullptr){
         char* real_path = soinfo_get_realpath(soinfo);
 //        LOGE("linker64 soinfo base:%p path:%s", soinfo->base, real_path);
-        if(ends_with(real_path, so_name)){
+        if(string_end_with(real_path, so_name)){
             LOGE("linker64 fins succeed soinfo base:%p path:%s", soinfo->base, real_path);
             zElf elf_file = zElf(real_path);
             elf_file.elf_mem_ptr = (char*)soinfo->base;

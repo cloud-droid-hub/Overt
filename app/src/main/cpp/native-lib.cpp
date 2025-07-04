@@ -51,13 +51,21 @@
 #include "package_info.h"
 #include "device_info.h"
 #include "class_loader_info.h"
+#include "zInlineHook.h"
 
-
+#define PAGE_START(x)  ((x) & PAGE_MASK)
 #define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
+
+void resampleTouchState(void *thiz, void *a, void *b, void *msg) {
+    LOGE("resampleTouchState is called");
+}
 
 extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     __android_log_print(6, "lxz", "JNI_OnLoad");
+
+//    zLinker::get_maps_base("libart.so");
+
 
     JNIEnv *env;
     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6)!= JNI_OK) {

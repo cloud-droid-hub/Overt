@@ -3,19 +3,17 @@
 //
 
 #include <linux/elf.h>
-
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <asm-generic/fcntl.h>
 #include <fcntl.h>
 #include <android/log.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <bits/elf_arm64.h>
 #include <elf.h>
 #include <vector>
 #include <link.h>
+#include "util.h"
 
 #define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
 
@@ -378,177 +376,33 @@ zElf::~zElf() {
     close(elf_file_fd);
 }
 
-// 根据 plt 表判断是否为链接视图
-int zElf::is_link_view(uintptr_t elf_mem_ptr) {
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *) elf_mem_ptr;
-    LOGE("[is_link_view] ELF magic: %02x %02x %02x %02x", ehdr->e_ident[0], ehdr->e_ident[1], ehdr->e_ident[2], ehdr->e_ident[3]);
-    LOGE("[is_link_view] e_phoff: 0x%lx, e_phnum: %d", ehdr->e_phoff, ehdr->e_phnum);
-    LOGE("[is_link_view] e_type: %d, e_entry: 0x%lx", ehdr->e_type, ehdr->e_entry);
-
-    Elf64_Phdr *phdrs = (Elf64_Phdr *) (elf_mem_ptr + ehdr->e_phoff);
-    uintptr_t load_vaddr = 0;
-    for (int i = 0; i < ehdr->e_phnum; i++) {
-        if (phdrs[i].p_type == PT_LOAD) {
-            load_vaddr = phdrs[i].p_vaddr;
-            LOGE("[is_link_view] First PT_LOAD vaddr: 0x%lx", load_vaddr);
-            break;
-        }
-    }
-
-    Elf64_Dyn *dynamic = NULL;
-    for (int i = 0; i < ehdr->e_phnum; i++) {
-        LOGE("[is_link_view] phdr[%d]: type=%d, vaddr=0x%lx, offset=0x%lx", i, phdrs[i].p_type, phdrs[i].p_vaddr, phdrs[i].p_offset);
-        if (phdrs[i].p_type == PT_DYNAMIC) {
-            dynamic = (Elf64_Dyn *) (elf_mem_ptr + (phdrs[i].p_vaddr - load_vaddr));
-            LOGE("[is_link_view] Found PT_DYNAMIC at 0x%lx (mem: %p)", phdrs[i].p_vaddr, dynamic);
-            break;
-        }
-    }
-    if (!dynamic) {
-        LOGE("[is_link_view] No PT_DYNAMIC found");
-        return -2;
-    }
-
-    // 打印 dynamic 段前10项内容
-    for (int i = 0; i < 10; i++) {
-        LOGE("[is_link_view] dynamic raw[%d]: tag=0x%lx, val=0x%lx", i, dynamic[i].d_tag, dynamic[i].d_un.d_val);
-        if (dynamic[i].d_tag == DT_NULL) break;
-    }
-
-    // 记录 .rela.dyn, .rela.plt
-    Elf64_Addr rela_dyn_addr = 0, rela_plt_addr = 0;
-    Elf64_Xword rela_dyn_size = 0, rela_plt_size = 0;
-    int found_rela_dyn = 0, found_rela_plt = 0;
-
-    for (Elf64_Dyn *dyn = dynamic; dyn->d_tag != DT_NULL; dyn++) {
-        LOGE("[is_link_view] dynamic tag: 0x%lx, val: 0x%lx", dyn->d_tag, dyn->d_un.d_val);
-        if (dyn->d_tag == DT_RELA) {
-            rela_dyn_addr = dyn->d_un.d_ptr;
-            found_rela_dyn = 1;
-        } else if (dyn->d_tag == DT_RELASZ) {
-            rela_dyn_size = dyn->d_un.d_val;
-        } else if (dyn->d_tag == DT_JMPREL) {
-            rela_plt_addr = dyn->d_un.d_ptr;
-            found_rela_plt = 1;
-        } else if (dyn->d_tag == DT_PLTRELSZ) {
-            rela_plt_size = dyn->d_un.d_val;
-        }
-    }
-    LOGE("[is_link_view] .rela.dyn addr: 0x%lx, size: 0x%lx", rela_dyn_addr, rela_dyn_size);
-    LOGE("[is_link_view] .rela.plt addr: 0x%lx, size: 0x%lx", rela_plt_addr, rela_plt_size);
-
-    // 检查 .rela.dyn
-    if (found_rela_dyn && rela_dyn_addr && rela_dyn_size) {
-        Elf64_Rela *rela = (Elf64_Rela *) (elf_mem_ptr + (rela_dyn_addr - load_vaddr));
-        size_t count = rela_dyn_size / sizeof(Elf64_Rela);
-        LOGE("[is_link_view] .rela.dyn count: %zu", count);
-        for (size_t i = 0; i < count; i++) {
-            uintptr_t reloc_addr = elf_mem_ptr + (rela[i].r_offset - load_vaddr);
-            uintptr_t actual_val = *(uintptr_t *) reloc_addr;
-            uintptr_t addend = rela[i].r_addend;
-            uint32_t type = ELF64_R_TYPE(rela[i].r_info);
-
-            LOGE("[is_link_view] .rela.dyn[%zu]: type=%u, reloc_addr=0x%lx, actual_val=0x%lx, addend=0x%lx",
-                 i, type, reloc_addr, actual_val, addend);
-
-            // 只检查特定类型的重定位
-            if (type == R_AARCH64_RELATIVE || type == R_AARCH64_GLOB_DAT) {
-                if (actual_val != addend && actual_val != 0) {
-                    // 检查值是否在合理的地址范围内
-                    if (actual_val >= elf_mem_ptr && actual_val < (elf_mem_ptr + 0x1000000)) {
-                        LOGE("[is_link_view] Found patched relocation in .rela.dyn");
-                        return 1;
-                    }
-                }
-            }
-        }
-    }
-
-    // 检查 .rela.plt
-    if (found_rela_plt && rela_plt_addr && rela_plt_size) {
-        Elf64_Rela *rela = (Elf64_Rela *) (elf_mem_ptr + (rela_plt_addr - load_vaddr));
-        size_t count = rela_plt_size / sizeof(Elf64_Rela);
-        LOGE("[is_link_view] .rela.plt count: %zu", count);
-
-        // 获取 PLT 段的地址范围
-        uintptr_t plt_start = 0, plt_end = 0;
-        for (int i = 0; i < ehdr->e_phnum; i++) {
-            if (phdrs[i].p_type == PT_LOAD && (phdrs[i].p_flags & PF_X)) {
-                plt_start = elf_mem_ptr + (phdrs[i].p_vaddr - load_vaddr);
-                plt_end = plt_start + phdrs[i].p_memsz;
-                break;
-            }
-        }
-
-        // 获取 PLT 解析器的地址
-        uintptr_t plt_resolver = 0;
-        for (int i = 0; i < ehdr->e_phnum; i++) {
-            if (phdrs[i].p_type == PT_LOAD && (phdrs[i].p_flags & PF_X)) {
-                // PLT 解析器通常在第一个可执行段的开始
-                plt_resolver = elf_mem_ptr + (phdrs[i].p_vaddr - load_vaddr);
-                break;
-            }
-        }
-
-        for (size_t i = 0; i < count; i++) {
-            uintptr_t reloc_addr = elf_mem_ptr + (rela[i].r_offset - load_vaddr);
-            uintptr_t actual_val = *(uintptr_t *) reloc_addr;
-            uintptr_t addend = rela[i].r_addend;
-            uint32_t type = ELF64_R_TYPE(rela[i].r_info);
-
-            LOGE("[is_link_view] .rela.plt[%zu]: type=%u, reloc_addr=0x%lx, actual_val=0x%lx, addend=0x%lx",
-                 i, type, reloc_addr, actual_val, addend);
-
-            // 只检查 JUMP_SLOT 类型的重定位
-            if (type == R_AARCH64_JUMP_SLOT) {
-                if (actual_val != addend && actual_val != 0) {
-                    // 检查值是否在 PLT 段范围内
-                    if (actual_val >= plt_start && actual_val < plt_end) {
-                        // 检查是否指向 PLT 条目的开始
-                        if ((actual_val - plt_start) % 16 == 0) {
-                            // 检查是否指向 PLT 解析器
-                            if (actual_val == plt_resolver) {
-                                // 这是正常的延时加载情况
-                                continue;
-                            }
-                            LOGE("[is_link_view] Found patched relocation in .rela.plt");
-                            return 1;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // 所有 reloc 都未 patch，说明不是 linker 映射
-    LOGE("[is_link_view] No patched relocations found");
-    return 0;
-}
 
 char *zElf::get_maps_base(const char *so_name) {
-    FILE *fp = fopen("/proc/self/maps", "r");
-    if (!fp) return nullptr;
-
-    char line[1024];
     char *elf_mem_ptr = nullptr;
-//    dyn_elf_mem_ptr 0x0x7fa7789180 = 0x0x7fa7756000 + 33180
-    while (fgets(line, sizeof(line), fp)) {
-        //LOGE("line:%s", line); sleep(0);
-        if (!strstr(line, "p 00000000 ")) continue;
 
-        if (!strstr(line, so_name)) continue;
+    std::vector<std::string> lines = get_file_lines("/proc/self/maps");
+    for(int i = 0; i < lines.size(); i++){
 
-        //LOGE("line2:%s", line); sleep(0);
+        if (!strstr(lines[i].c_str(), "p 00000000 ")) continue;
 
-        char* start = (char *) (strtoul(strtok(line, "-"), NULL, 16));
+        if (!strstr(lines[i].c_str(), so_name)) continue;
+
+        std::vector<std::string> split_line = split_str(lines[i], "-");
+
+        if(split_line.empty()){
+            LOGE("get_maps_base split_line is empty");
+            return nullptr;
+        }
+
+        char* start = (char *) (strtoul(split_line[0].c_str(), nullptr, 16));
 
         if (memcmp(start, "\x7f""ELF", 4) != 0) continue;
 
-        //LOGE("line3:%s", line); sleep(0);
         elf_mem_ptr = start;
 
     }
+
     LOGE("elf_mem_ptr:%p", elf_mem_ptr); sleep(0);
-    fclose(fp);
     return elf_mem_ptr;
+
 }

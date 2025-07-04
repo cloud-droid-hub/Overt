@@ -49,7 +49,7 @@ std::map<std::string, std::map<std::string, std::string>> get_class_info(JNIEnv*
     std::map<std::string, std::map<std::string, std::string>> info;
 
     std::vector<std::string> black_name_list = {
-//            "xposed", "lsposed", "lspd"
+            "xposed", "lsposed", "lspd"
             "XposedHooker"
     };
 

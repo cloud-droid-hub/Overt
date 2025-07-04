@@ -33,6 +33,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zLinker.cpp
         package_info.cpp
         class_loader_info.cpp
+        zInlineHook.cpp
         native-lib.cpp)
 
 #include_directories(zTraverseClassLoader)

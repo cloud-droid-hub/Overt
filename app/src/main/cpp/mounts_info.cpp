@@ -26,7 +26,6 @@ std::map<std::string, std::map<std::string, std::string>> get_mounts_info(){
                 LOGE("check_mounts error %d %s", i, mounts_lines[i].c_str());
                 info[mounts_lines[i].c_str()]["risk"] = "error";
                 info[mounts_lines[i].c_str()]["explain"] = "black name but in system path";
-
             }
         }
     }
