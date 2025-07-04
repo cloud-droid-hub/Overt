@@ -33,7 +33,6 @@
 std::optional<struct statx> get_file_statx(std::string path) {
     struct statx stx = {};
     int res = syscall(291, AT_FDCWD, path.c_str(), AT_STATX_SYNC_AS_STAT, STATX_BASIC_STATS, &stx);
-//    int res = statx(AT_FDCWD, path.c_str(), AT_STATX_SYNC_AS_STAT, STATX_BASIC_STATS, &stx);
     if (res == 0) {
         return stx;
     } else {

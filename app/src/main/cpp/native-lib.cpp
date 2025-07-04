@@ -5,7 +5,6 @@
 #include <asm-generic/fcntl.h>
 #include <linux/fcntl.h>
 #include <sys/stat.h>
-#include "libc.h"
 #include "string.h"
 #include <android/log.h>
 #include <map>
@@ -51,7 +50,7 @@
 #include "package_info.h"
 #include "device_info.h"
 #include "class_loader_info.h"
-#include "zInlineHook.h"
+
 
 #define PAGE_START(x)  ((x) & PAGE_MASK)
 #define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)

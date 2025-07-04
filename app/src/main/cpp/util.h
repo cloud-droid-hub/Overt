@@ -9,7 +9,6 @@
 #include <map>
 #include <vector>
 #include <asm-generic/fcntl.h>
-#include "libc.h"
 #include "android/log.h"
 #define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
 
@@ -22,5 +21,7 @@ std::vector<std::string> split_str(const std::string& str, const std::string& sp
 std::vector<std::string> split_str(const std::string& str, char delim);
 
 bool string_end_with(const char *str, const char *suffix);
+
+bool check_file_exist(std::string path);
 
 #endif //OVERT_UTIL_H

@@ -12,6 +12,7 @@
 #include <string>
 
 #include <android/log.h>
+#include "zLinker.h"
 #define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
 
 std::vector<std::string> classNameList = std::vector<std::string>();
@@ -145,8 +146,8 @@ std::vector<std::string> getClassNameList(JNIEnv *env, jobject classloader) {
         while (env->CallBooleanMethod(entries, hasMoreElementsMethodID)) {
             jstring className = (jstring) env->CallObjectMethod(entries, nextElementMethodID);
             const char *classNameStr = env->GetStringUTFChars(className, nullptr);
-            LOGE("Found class: %s", classNameStr);
-            sleep(0);
+//            LOGE("Found class: %s", classNameStr);
+//            sleep(0);
             classNameList.push_back(classNameStr);
             env->ReleaseStringUTFChars(className, classNameStr);
             env->DeleteLocalRef(className);
@@ -169,7 +170,7 @@ std::vector<std::string> getClassNameList(JNIEnv *env, jobject classloader) {
     return classNameList;
 }
 
-#include "zLinker.h"
+
 
 static jobject newLocalRef(JNIEnv *env, void *object) {
     static jobject (*NewLocalRef)(JNIEnv *, void *) = nullptr;

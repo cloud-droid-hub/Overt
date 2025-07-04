@@ -49,7 +49,7 @@ std::map<std::string, std::map<std::string, std::string>> get_class_info(JNIEnv*
     std::map<std::string, std::map<std::string, std::string>> info;
 
     std::vector<std::string> black_name_list = {
-            "xposed", "lsposed", "lspd"
+            "lsposed", "lspd"
             "XposedHooker"
     };
 
@@ -57,7 +57,7 @@ std::map<std::string, std::map<std::string, std::string>> get_class_info(JNIEnv*
         std::transform(className.begin(), className.end(), className.begin(), [](unsigned char c) { return std::tolower(c); });
         for(std::string black_name: black_name_list){
             std::transform(black_name.begin(), black_name.end(), black_name.begin(), [](unsigned char c) { return std::tolower(c); });
-            if(strstr(className.c_str(), black_name.c_str()) != 0){
+            if(strstr(className.c_str(), black_name.c_str())){
                 LOGE("className %s", className.c_str());
                 info[className]["risk"] = "error";
                 info[className]["explain"] = "Risk: blacklisted class";

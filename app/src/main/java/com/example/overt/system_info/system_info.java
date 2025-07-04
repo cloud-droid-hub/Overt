@@ -1,11 +1,9 @@
-package com.example.overt.device;
+package com.example.overt.system_info;
 
-import android.app.ActivityManager;
 import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -13,57 +11,122 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.os.BatteryManager;
 import android.os.Build;
-import android.os.SystemClock;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
+import com.example.overt.tee_info.TEEStatus;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.HashMap;
-import java.util.Locale;
-
-import javax.security.auth.login.LoginException;
+import java.util.Map;
 
 public class system_info {
 
-    static public HashMap<String, String> get_system_info(Context context) {
-        HashMap<String, String> hashMap = new HashMap<String, String>();
+    public static Map<String, Map<String, String>> get_system_info(Context context){
+        Map<String, Map<String, String>> map = new HashMap<String, Map<String, String>>();  // 使用 HashMap 实现 Map 接口
 
         if(isDeveloperModeEnabled(context)){
-            hashMap.put("isDeveloperModeEnabled", String.valueOf(isDeveloperModeEnabled(context)));
+            map.put("isDeveloperModeEnabled", new HashMap<String, String>() {{
+                put("risk", "error");  // 传递默认参数
+                put("explain", String.valueOf(isDeveloperModeEnabled(context)));  // 传递默认参数
+            }});
         }
+
         if(isUsbDebugEnabled(context)){
-            hashMap.put("isUsbDebugEnabled", String.valueOf(isUsbDebugEnabled(context)));
+            map.put("isUsbDebugEnabled", new HashMap<String, String>() {{
+                put("risk", "error");  // 传递默认参数
+                put("explain", String.valueOf(isUsbDebugEnabled(context)));  // 传递默认参数
+            }});
         }
+
         if(isAdbEnabled(context)){
-            hashMap.put("isAdbEnabled", String.valueOf(isAdbEnabled(context)));
+            map.put("isAdbEnabled", new HashMap<String, String>() {{
+                put("risk", "error");  // 传递默认参数
+                put("explain", String.valueOf(isAdbEnabled(context)));  // 传递默认参数
+            }});
         }
+
         if(!isSimExist(context)){
-            hashMap.put("isSimExist", String.valueOf(isSimExist(context)));
+            map.put("isSimExist", new HashMap<String, String>() {{
+                put("risk", "error");  // 传递默认参数
+                put("explain", String.valueOf(isSimExist(context)));  // 传递默认参数
+            }});
         }
-        if(isVPN(context)){
-            hashMap.put("isVPN", String.valueOf(isVPN(context)));
-        }
+
         if(isProxyEnabled()){
-            hashMap.put("isProxyEnabled", String.valueOf(isProxyEnabled()));
+            map.put("isProxyEnabled", new HashMap<String, String>() {{
+                put("risk", "error");  // 传递默认参数
+                put("explain", String.valueOf(isProxyEnabled()));  // 传递默认参数
+            }});
         }
+
         if(!isPasswordLocked(context)){
-            hashMap.put("isPasswordLocked", String.valueOf(isPasswordLocked(context)));
+            map.put("isPasswordLocked", new HashMap<String, String>() {{
+                put("risk", "error");  // 传递默认参数
+                put("explain", String.valueOf(isPasswordLocked(context)));  // 传递默认参数
+            }});
         }
+
         if(isAdbInstall(context)){
-            hashMap.put("isAdbInstall", String.valueOf(isAdbInstall(context)));
+            map.put("isAdbInstall", new HashMap<String, String>() {{
+                put("risk", "error");  // 传递默认参数
+                put("explain", String.valueOf(isAdbInstall(context)));  // 传递默认参数
+            }});
         }
+
         if(isCharging(context)){
-            hashMap.put("isCharging", String.valueOf(isCharging(context)));
+            map.put("isCharging", new HashMap<String, String>() {{
+                put("risk", "error");  // 传递默认参数
+                put("explain", String.valueOf(isCharging(context)));  // 传递默认参数
+            }});
         }
-//        if(isAppDebuggable(context)){
-            hashMap.put("isAppDebuggable", String.valueOf(isAppDebuggable(context)));
-//        }
-        return hashMap;
+
+        if(isAppDebuggable(context)){
+            map.put("isAppDebuggable", new HashMap<String, String>() {{
+                put("risk", "error");  // 传递默认参数
+                put("explain", String.valueOf(isAppDebuggable(context)));  // 传递默认参数
+            }});
+        }
+        return map;
     }
+
+//    static public HashMap<String, String> get_system_info(Context context) {
+//        HashMap<String, String> hashMap = new HashMap<String, String>();
+//
+//        if(isDeveloperModeEnabled(context)){
+//            hashMap.put("isDeveloperModeEnabled", String.valueOf(isDeveloperModeEnabled(context)));
+//        }
+//        if(isUsbDebugEnabled(context)){
+//            hashMap.put("isUsbDebugEnabled", String.valueOf(isUsbDebugEnabled(context)));
+//        }
+//        if(isAdbEnabled(context)){
+//            hashMap.put("isAdbEnabled", String.valueOf(isAdbEnabled(context)));
+//        }
+//        if(!isSimExist(context)){
+//            hashMap.put("isSimExist", String.valueOf(isSimExist(context)));
+//        }
+//        if(isVPN(context)){
+//            hashMap.put("isVPN", String.valueOf(isVPN(context)));
+//        }
+//        if(isProxyEnabled()){
+//            hashMap.put("isProxyEnabled", String.valueOf(isProxyEnabled()));
+//        }
+//        if(!isPasswordLocked(context)){
+//            hashMap.put("isPasswordLocked", String.valueOf(isPasswordLocked(context)));
+//        }
+//        if(isAdbInstall(context)){
+//            hashMap.put("isAdbInstall", String.valueOf(isAdbInstall(context)));
+//        }
+//        if(isCharging(context)){
+//            hashMap.put("isCharging", String.valueOf(isCharging(context)));
+//        }
+////        if(isAppDebuggable(context)){
+//            hashMap.put("isAppDebuggable", String.valueOf(isAppDebuggable(context)));
+////        }
+//        return hashMap;
+//    }
 
     public static boolean isCharging(Context context) {
         if (context == null) return false;

@@ -1,5 +1,6 @@
 package com.example.overt.tee_info;
 
+import android.os.Build;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Log;
@@ -10,6 +11,7 @@ import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.security.spec.ECGenParameterSpec;
 import java.util.HashMap;
+import java.util.Map;
 
 public class TEEStatus {
     private static final String TAG = "lxz_" + TEEStatus.class.getSimpleName();
@@ -37,12 +39,15 @@ public class TEEStatus {
             keyStore.load(null);
 
             // 创建密钥生成参数
-            KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(
-                    "tee_check_key",
-                    KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
-                    .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1"))
-                    .setDigests(KeyProperties.DIGEST_SHA256)
-                    .setAttestationChallenge("tee_check".getBytes());
+            KeyGenParameterSpec.Builder builder = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                builder = new KeyGenParameterSpec.Builder(
+                        "tee_check_key",
+                        KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                        .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1"))
+                        .setDigests(KeyProperties.DIGEST_SHA256)
+                        .setAttestationChallenge("tee_check".getBytes());
+            }
 
             // 生成密钥对
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(
@@ -166,14 +171,22 @@ public class TEEStatus {
     }
 
 
-    public HashMap<String, String> get_tee_info(){
-        HashMap<String, String> hashMap = new HashMap<String, String>();
+    public static Map<String, Map<String, String>> get_tee_info() {
+        Map<String, Map<String, String>> map = new HashMap<String, Map<String, String>>();  // 使用 HashMap 实现 Map 接口
+
         if(TEEStatus.getInstance().getDeviceLockedString() != "DeviceLocked"){
-            hashMap.put("DeviceLocked", TEEStatus.getInstance().getDeviceLockedString());
+            map.put("DeviceLocked:" + TEEStatus.getInstance().getDeviceLockedString(), new HashMap<String, String>() {{
+                put("risk", "error");  // 传递默认参数
+                put("explain", "tee is not locked");  // 传递默认参数
+            }});
         }
         if(TEEStatus.getInstance().getVerifiedBootStateString() != "Verified"){
-            hashMap.put("VerifiedBootState", TEEStatus.getInstance().getVerifiedBootStateString());
+            map.put("VerifiedBootState:" + TEEStatus.getInstance().getVerifiedBootStateString(), new HashMap<String, String>() {{
+                put("risk", "error");  // 传递默认参数
+                put("explain", "tee is not verified");  // 传递默认参数
+            }});
         }
-        return hashMap;
+
+        return map;
     }
 }

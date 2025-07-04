@@ -3,9 +3,9 @@
 //
 
 #include "package_info.h"
-
 #include "root_file_info.h"
 #include "device_info.h"
+#include "util.h"
 
 std::map<std::string, std::map<std::string, std::string>> get_package_info(){
     std::map<std::string, std::map<std::string, std::string>> info;
@@ -47,7 +47,7 @@ std::map<std::string, std::map<std::string, std::string>> get_package_info(){
 
     for (auto &[key, value] : black_map) {
         std::string path = "/storage/emulated/0/Android/data/" + key;
-        if (check_file_exist_2(path)) {
+        if (check_file_exist(path)) {
             info[key]["risk"] = "error";
             info[key]["explain"] = "black package name but install";
         }
@@ -55,7 +55,7 @@ std::map<std::string, std::map<std::string, std::string>> get_package_info(){
 
     for (auto &[key, value] : white_map) {
         std::string path = "/storage/emulated/0/Android/data/" + key;
-        if (check_file_exist_2(path)) {
+        if (!check_file_exist(path)) {
             info[key]["risk"] = "warn";
             info[key]["explain"] = "white package name but uninstall";
         }

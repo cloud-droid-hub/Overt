@@ -20,9 +20,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 
 add_library(${CMAKE_PROJECT_NAME} SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
-        libc.cpp
         util.cpp
-        string.cpp
         root_file_info.cpp
         mounts_info.cpp
         system_prop_info.cpp
@@ -33,7 +31,6 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zLinker.cpp
         package_info.cpp
         class_loader_info.cpp
-        zInlineHook.cpp
         native-lib.cpp)
 
 #include_directories(zTraverseClassLoader)
