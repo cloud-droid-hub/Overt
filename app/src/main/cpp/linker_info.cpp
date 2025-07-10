@@ -7,7 +7,7 @@
 #include "util.h"
 #include <android/log.h>
 
-#define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
+#include "zLog.h"
 
 
 std::map<std::string, std::map<std::string, std::string>> get_linker_info(){

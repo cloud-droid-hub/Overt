@@ -5,11 +5,13 @@
 #include "class_loader_info.h"
 #include "classloader.h"
 #include <android/log.h>
+#include "zJavaVm.h"
+#include "zLog.h"
 
-#define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
-
-std::map<std::string, std::map<std::string, std::string>> get_class_loader_info(JNIEnv* env){
+std::map<std::string, std::map<std::string, std::string>> get_class_loader_info(){
     std::map<std::string, std::map<std::string, std::string>> info;
+
+    JNIEnv *env = zJavaVm::getInstance()->getEnv();
 
     // 遍历类加载器
     traverseClassLoader(env);
@@ -45,7 +47,7 @@ std::map<std::string, std::map<std::string, std::string>> get_class_loader_info(
     return info;
 }
 
-std::map<std::string, std::map<std::string, std::string>> get_class_info(JNIEnv* env){
+std::map<std::string, std::map<std::string, std::string>> get_class_info(){
     std::map<std::string, std::map<std::string, std::string>> info;
 
     std::vector<std::string> black_name_list = {

@@ -8,7 +8,8 @@
 #include <unistd.h>
 #include "android/log.h"
 
-#define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
+#include "zLog.h"
+
 
 // 定义一个结构体来存储 value 和 serial
 struct PropertyValue {

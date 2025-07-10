@@ -6,7 +6,7 @@
 #include "util.h"
 #include <android/log.h>
 #include <regex>
-#define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
+#include "zLog.h"
 
 zLinker* zLinker::instance = nullptr;
 

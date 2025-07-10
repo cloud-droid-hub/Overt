@@ -50,37 +50,33 @@
 #include "package_info.h"
 #include "device_info.h"
 #include "class_loader_info.h"
+#include "zLog.h"
+#include "zJavaVm.h"
+#include "system_setting_info.h"
+#include "zDevice.h"
 
 
-#define PAGE_START(x)  ((x) & PAGE_MASK)
-#define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
+void __attribute__((constructor)) init_(void){
+    __android_log_print(6,"lxz","_init1");
 
-void resampleTouchState(void *thiz, void *a, void *b, void *msg) {
-    LOGE("resampleTouchState is called");
+    zDevice::getInstance()->get_device_info()["system_setting_info"] = get_system_setting_info();
+
+    zDevice::getInstance()->get_device_info()["class_loader_info"] = get_class_loader_info();
+    zDevice::getInstance()->get_device_info()["class_info"] = get_class_info();
+
+    zDevice::getInstance()->get_device_info()["system_setting_info"] = get_system_setting_info();
+    zDevice::getInstance()->get_device_info()["package_info"] = get_package_info();
+    zDevice::getInstance()->get_device_info()["root_file_info"] = get_root_file_info();
+    zDevice::getInstance()->get_device_info()["mounts_info"] = get_mounts_info();
+    zDevice::getInstance()->get_device_info()["system_prop_info"] = get_system_prop_info();
+    zDevice::getInstance()->get_device_info()["linker_info"] = get_linker_info();
+    zDevice::getInstance()->get_device_info()["time_info"] = get_time_info();
+
 }
 
 extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     __android_log_print(6, "lxz", "JNI_OnLoad");
-
-//    zLinker::get_maps_base("libart.so");
-
-
-    JNIEnv *env;
-    if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6)!= JNI_OK) {
-        LOGE("Failed to get the environment");
-        return -1;
-    }
-
-    device_info["package_info"] = get_package_info();
-    device_info["root_file_info"] = get_root_file_info();
-    device_info["mounts_info"] = get_mounts_info();
-    device_info["class_loader_info"] = get_class_loader_info(env);
-    device_info["class_info"] = get_class_info(env);
-    device_info["system_prop_info"] = get_system_prop_info();
-    device_info["linker_info"] = get_linker_info();
-    device_info["time_info"] = get_time_info();
-
     return JNI_VERSION_1_6;
 }
 
@@ -131,5 +127,5 @@ extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_example_overt_device_DeviceInfoProvider_get_1device_1info(JNIEnv *env, jobject thiz) {
     // TODO: implement get_device_info()
-    return cmap_to_jmap_nested_3(env,device_info);
+    return cmap_to_jmap_nested_3(env,zDevice::getInstance()->get_device_info());
 }

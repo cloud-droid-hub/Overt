@@ -3,11 +3,13 @@ package com.example.overt.device;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.cardview.widget.CardView;
+import androidx.core.content.ContextCompat;
 
 import com.example.overt.R;
 import com.example.overt.system_info.system_info;
@@ -29,7 +31,6 @@ public class DeviceInfoProvider {
         Map<String, Map<String, Map<String, String>>> device_info = get_device_info();
 
         device_info.put("tee_info", TEEStatus.get_tee_info());
-        device_info.put("system_info", system_info.get_system_info(context));
 
         // 添加信息项
         for (Map.Entry<String, Map<String, Map<String, String>>> entry : device_info.entrySet()) {
@@ -73,7 +74,12 @@ public class DeviceInfoProvider {
                 textView.setText(entry.getKey() + ": " + risk + ": " + explain);
 
                 textView.setTextSize(14);
-                textView.setTextColor(context.getResources().getColor(android.R.color.black));
+
+                // 根据当前主题模式设置合适的文字颜色
+                int textColor = isDarkMode(context) ? 0xFFFFFFFF : 0xFF000000;
+                textView.setTextColor(textColor);
+
+                // 设置间距
                 textView.setPadding(0, 0, 0, 8);
                 cardContent.addView(textView);
             }
@@ -84,6 +90,27 @@ public class DeviceInfoProvider {
         } catch (Exception e) {
             Log.e(TAG, "Error adding info card: " + title, e);
         }
+    }
+
+    /**
+     * 检测当前是否为深色模式
+     * @param context 上下文
+     * @return true表示深色模式，false表示浅色模式
+     */
+    private boolean isDarkMode(Context context) {
+        TypedValue typedValue = new TypedValue();
+        context.getTheme().resolveAttribute(android.R.attr.windowBackground, typedValue, true);
+        int backgroundColor = typedValue.data;
+        
+        // 计算背景色的亮度
+        int red = (backgroundColor >> 16) & 0xFF;
+        int green = (backgroundColor >> 8) & 0xFF;
+        int blue = backgroundColor & 0xFF;
+        
+        // 使用相对亮度公式
+        double luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255.0;
+        
+        return luminance < 0.5; // 亮度小于0.5认为是深色模式
     }
 
 } 

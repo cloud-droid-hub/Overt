@@ -13,7 +13,7 @@
 
 #include <android/log.h>
 #include "zLinker.h"
-#define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
+#include "zLog.h"
 
 std::vector<std::string> classNameList = std::vector<std::string>();
 std::vector<std::string> classLoaderStringList = std::vector<std::string>();

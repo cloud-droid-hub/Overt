@@ -92,42 +92,6 @@ public class system_info {
         return map;
     }
 
-//    static public HashMap<String, String> get_system_info(Context context) {
-//        HashMap<String, String> hashMap = new HashMap<String, String>();
-//
-//        if(isDeveloperModeEnabled(context)){
-//            hashMap.put("isDeveloperModeEnabled", String.valueOf(isDeveloperModeEnabled(context)));
-//        }
-//        if(isUsbDebugEnabled(context)){
-//            hashMap.put("isUsbDebugEnabled", String.valueOf(isUsbDebugEnabled(context)));
-//        }
-//        if(isAdbEnabled(context)){
-//            hashMap.put("isAdbEnabled", String.valueOf(isAdbEnabled(context)));
-//        }
-//        if(!isSimExist(context)){
-//            hashMap.put("isSimExist", String.valueOf(isSimExist(context)));
-//        }
-//        if(isVPN(context)){
-//            hashMap.put("isVPN", String.valueOf(isVPN(context)));
-//        }
-//        if(isProxyEnabled()){
-//            hashMap.put("isProxyEnabled", String.valueOf(isProxyEnabled()));
-//        }
-//        if(!isPasswordLocked(context)){
-//            hashMap.put("isPasswordLocked", String.valueOf(isPasswordLocked(context)));
-//        }
-//        if(isAdbInstall(context)){
-//            hashMap.put("isAdbInstall", String.valueOf(isAdbInstall(context)));
-//        }
-//        if(isCharging(context)){
-//            hashMap.put("isCharging", String.valueOf(isCharging(context)));
-//        }
-////        if(isAppDebuggable(context)){
-//            hashMap.put("isAppDebuggable", String.valueOf(isAppDebuggable(context)));
-////        }
-//        return hashMap;
-//    }
-
     public static boolean isCharging(Context context) {
         if (context == null) return false;
 

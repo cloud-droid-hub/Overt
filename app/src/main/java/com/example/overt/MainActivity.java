@@ -19,10 +19,7 @@ public class MainActivity extends AppCompatActivity {
     private DeviceInfoProvider deviceInfoProvider;
     private LinearLayout mainContainer;
 
-    // Used to load the 'overt' library on application startup.
-    static {
-        System.loadLibrary("overt");
-    }
+
 
 
     @Override

@@ -15,7 +15,7 @@
 #include <link.h>
 #include "util.h"
 
-#define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
+#include "zLog.h"
 
 #include "zElf.h"
 

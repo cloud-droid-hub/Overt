@@ -3,8 +3,8 @@
 //
 
 #include "time_info.h"
-#include <android/log.h>
-#define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
+#include "zLog.h"
+
 #include <unistd.h>
 #include <limits.h> // PATH_MAX
 #include <cstring>
