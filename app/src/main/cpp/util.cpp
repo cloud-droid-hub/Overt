@@ -4,7 +4,9 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <jni.h>
 #include "util.h"
+#include "zLog.h"
 
 std::string get_line(int fd) {
     char buffer;
@@ -102,7 +104,6 @@ bool string_end_with(const char *str, const char *suffix) {
     return (strcmp(str + len_str - len_suffix, suffix) == 0);
 }
 
-
 bool check_file_exist_1(std::string path) {
     int fd = open(path.c_str(), O_RDONLY);
     if (fd >= 0) {
@@ -135,4 +136,47 @@ bool check_file_exist(std::string path) {
     file_exist = exist1 || exist2;
 
     return file_exist;
+}
+
+// 将 std::map<std::string, std::string> 转换为 Java Map<String, String>
+jobject cmap_to_jmap(JNIEnv *env, std::map<std::string, std::string> cmap){
+    jobject jobjectMap = env->NewObject(env->FindClass("java/util/HashMap"), env->GetMethodID(env->FindClass("java/util/HashMap"), "<init>", "()V"));
+    for (auto &entry : cmap) {
+        env->CallObjectMethod(jobjectMap, env->GetMethodID(env->FindClass("java/util/HashMap"), "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"), env->NewStringUTF(entry.first.c_str()), env->NewStringUTF(entry.second.c_str()));
+    }
+    return jobjectMap;
+}
+
+// 将 std::map<std::string, std::map<std::string, std::string>> 转换为 Java Map<String, Map<String, String>>
+jobject cmap_to_jmap_nested(JNIEnv* env, const std::map<std::string, std::map<std::string, std::string>>& cmap) {
+    jclass hashMapClass = env->FindClass("java/util/HashMap");
+    jmethodID hashMapConstructor = env->GetMethodID(hashMapClass, "<init>", "()V");
+    jobject jmap = env->NewObject(hashMapClass, hashMapConstructor);
+
+    jmethodID putMethod = env->GetMethodID(hashMapClass, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+    for (const auto& entry : cmap) {
+        jstring jkey = env->NewStringUTF(entry.first.c_str());
+        jobject jvalue = cmap_to_jmap(env, entry.second); // 调用之前定义的 cmap_to_jmap 方法
+        env->CallObjectMethod(jmap, putMethod, jkey, jvalue);
+        env->DeleteLocalRef(jkey);
+        env->DeleteLocalRef(jvalue);
+    }
+    return jmap;
+}
+
+// 主函数：将 std::map<std::string, std::map<std::string, std::map<std::string, std::string>>> 转换为 Java Map<String, Map<String, Map<String, String>>>
+jobject cmap_to_jmap_nested_3(JNIEnv* env, const std::map<std::string, std::map<std::string, std::map<std::string, std::string>>>& cmap) {
+    jclass hashMapClass = env->FindClass("java/util/HashMap");
+    jmethodID hashMapConstructor = env->GetMethodID(hashMapClass, "<init>", "()V");
+    jobject jmap = env->NewObject(hashMapClass, hashMapConstructor);
+
+    jmethodID putMethod = env->GetMethodID(hashMapClass, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+    for (const auto& entry : cmap) {
+        jstring jkey = env->NewStringUTF(entry.first.c_str());
+        jobject jvalue = cmap_to_jmap_nested(env, entry.second);
+        env->CallObjectMethod(jmap, putMethod, jkey, jvalue);
+        env->DeleteLocalRef(jkey);
+        env->DeleteLocalRef(jvalue);
+    }
+    return jmap;
 }

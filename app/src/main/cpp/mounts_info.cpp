@@ -4,6 +4,7 @@
 
 #include "mounts_info.h"
 #include "util.h"
+#include "zLog.h"
 
 std::map<std::string, std::map<std::string, std::string>> get_mounts_info(){
     std::map<std::string, std::map<std::string, std::string>> info;

@@ -2,14 +2,9 @@
 // Created by lxz on 2025/6/6.
 //
 
-#include <asm-generic/fcntl.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <linux/fcntl.h>
+
 #include "root_file_info.h"
-#include "string.h"
 #include "util.h"
-#include <android/log.h>
 #include <fcntl.h>
 
 #include "zLog.h"

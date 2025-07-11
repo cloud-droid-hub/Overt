@@ -85,15 +85,13 @@ jobject constructContext(JNIEnv* env, const char* newAppClassName) {
     return env->NewGlobalRef(context);
 }
 
-std::map<std::string, std::map<std::string, std::string>> get_system_setting_info() {
+std::map<std::string, std::map<std::string, std::string>> get_system_setting_info(JNIEnv* env) {
     std::map<std::string, std::map<std::string, std::string>> info;
 
-    JNIEnv* env = zJavaVm::getInstance()->getEnv();
-    LOGE("env=%p", env);
-
-//    jclass activityThread = env->FindClass("android/app/ActivityThread");
-//    jmethodID currentApp = env->GetStaticMethodID(activityThread, "currentApplication", "()Landroid/app/Application;");
-//    jobject context = env->CallStaticObjectMethod(activityThread, currentApp);
+    if (env == nullptr) {
+        LOGE("Failed to get JNIEnv");
+        return info;
+    }
 
     jobject context =  constructContext(env, "com.example.overt.MainApplication");
 
@@ -108,7 +106,9 @@ std::map<std::string, std::map<std::string, std::string>> get_system_setting_inf
         info["battery"]["explain"] = "phone is being charged";
     }
 
-
-
     return info;
+}
+
+std::map<std::string, std::map<std::string, std::string>> get_system_setting_info() {
+    return get_system_setting_info(zJavaVm::getInstance()->getEnv());
 }

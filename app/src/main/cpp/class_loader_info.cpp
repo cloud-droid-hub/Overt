@@ -3,28 +3,15 @@
 //
 #include <jni.h>
 #include "class_loader_info.h"
-#include "classloader.h"
-#include <android/log.h>
+#include "zClassLoader.h"
 #include "zJavaVm.h"
 #include "zLog.h"
 
 std::map<std::string, std::map<std::string, std::string>> get_class_loader_info(){
     std::map<std::string, std::map<std::string, std::string>> info;
 
-    JNIEnv *env = zJavaVm::getInstance()->getEnv();
-
-    // 遍历类加载器
-    traverseClassLoader(env);
-
-    // 检查异常
-    if (env->ExceptionCheck()) {
-        env->ExceptionClear();
-        LOGE("get_class_loader_info: Exception occurred during traversal");
-        return info;
-    }
-
     // 处理类加载器列表
-    for(const std::string& str : classLoaderStringList) {
+    for(const std::string& str : zClassLoader::getInstance()->classLoaderStringList) {
         if (str.empty()) {
             continue;
         }
@@ -42,8 +29,6 @@ std::map<std::string, std::map<std::string, std::string>> get_class_loader_info(
             info[str]["explain"] = "Risk: blacklisted classloader";
         }
     }
-
-
     return info;
 }
 
@@ -55,7 +40,10 @@ std::map<std::string, std::map<std::string, std::string>> get_class_info(){
             "XposedHooker"
     };
 
-    for(std::string className : classNameList){
+    for(std::string className : zClassLoader::getInstance()->classNameList){
+        if (className.empty()) {
+            continue;
+        }
         std::transform(className.begin(), className.end(), className.begin(), [](unsigned char c) { return std::tolower(c); });
         for(std::string black_name: black_name_list){
             std::transform(black_name.begin(), black_name.end(), black_name.begin(), [](unsigned char c) { return std::tolower(c); });

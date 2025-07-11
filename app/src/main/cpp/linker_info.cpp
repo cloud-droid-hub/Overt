@@ -5,7 +5,6 @@
 #include "linker_info.h"
 #include "zLinker.h"
 #include "util.h"
-#include <android/log.h>
 
 #include "zLog.h"
 

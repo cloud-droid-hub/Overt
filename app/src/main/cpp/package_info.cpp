@@ -4,7 +4,6 @@
 
 #include "package_info.h"
 #include "root_file_info.h"
-#include "device_info.h"
 #include "util.h"
 
 std::map<std::string, std::map<std::string, std::string>> get_package_info(){

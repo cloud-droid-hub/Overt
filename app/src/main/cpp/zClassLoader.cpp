@@ -2,7 +2,7 @@
 // Created by lxz on 2025/4/24.
 //
 
-#include "classloader.h"
+#include "zClassLoader.h"
 
 #include <jni.h>
 #include <fcntl.h>
@@ -10,30 +10,30 @@
 #include "art.h"
 #include <vector>
 #include <string>
-
+#include "zJavaVm.h"
 #include <android/log.h>
 #include "zLinker.h"
 #include "zLog.h"
 
-std::vector<std::string> classNameList = std::vector<std::string>();
-std::vector<std::string> classLoaderStringList = std::vector<std::string>();
+zClassLoader* zClassLoader::instance = nullptr;
 
-void debug(C_JNIEnv *env, const char *format, jobject object) {
+
+void debug(JNIEnv *env, const char *format, jobject object) {
     if (object == nullptr) {
         LOGE(format, nullptr);
     } else {
-        jclass objectClass = (*env)->FindClass((JNIEnv *) env, "java/lang/Object");
-        jmethodID toString = (*env)->GetMethodID((JNIEnv *) env, objectClass, "toString", "()Ljava/lang/String;");
-        auto string = (jstring) (*env)->CallObjectMethod((JNIEnv *) env, object, toString);
-        const char *value = (*env)->GetStringUTFChars((JNIEnv *) env, string, nullptr);
+        jclass objectClass = env->FindClass("java/lang/Object");
+        jmethodID toString = env->GetMethodID(objectClass, "toString", "()Ljava/lang/String;");
+        auto string = (jstring) env->CallObjectMethod(object, toString);
+        const char *value = env->GetStringUTFChars(string, nullptr);
         LOGE(format, value);
-        (*env)->ReleaseStringUTFChars((JNIEnv *) env, string, value);
-        (*env)->DeleteLocalRef((JNIEnv *) env, string);
-        (*env)->DeleteLocalRef((JNIEnv *) env, objectClass);
+        env->ReleaseStringUTFChars(string, value);
+        env->DeleteLocalRef(string);
+        env->DeleteLocalRef(objectClass);
     }
 }
 
-std::string get_class_loader_info(JNIEnv* env, jobject object){
+std::string get_class_loader_string(JNIEnv* env, jobject object){
     std::string info = "";
     if (object == nullptr) {
         return info;
@@ -200,7 +200,13 @@ static void deleteLocalRef(JNIEnv *env, jobject object) {
 
 class ClassLoaderVisitor : public art::SingleRootVisitor {
 public:
+    std::vector<std::string> classLoaderStringList;
+    std::vector<std::string> classNameList;
+
+
     ClassLoaderVisitor(JNIEnv *env, jclass classLoader) : env_(env), classLoader_(classLoader) {
+        classLoaderStringList = std::vector<std::string>();
+        classNameList = std::vector<std::string>();
     }
 
     void VisitRoot(art::mirror::Object *root, const art::RootInfo &info ATTRIBUTE_UNUSED) final {
@@ -209,11 +215,13 @@ public:
             if (env_->IsInstanceOf(object, classLoader_)) {
                 std::string classLoaderName = getClassName((JNIEnv *) env_, object);
                 LOGE("ClassLoaderVisitor classLoaderName %s", classLoaderName.c_str());
-                std::string classLoaderInfo = get_class_loader_info(env_, object);
-                LOGE("ClassLoaderVisitor %s", classLoaderInfo.c_str());
+                std::string classLoaderString = get_class_loader_string(env_, object);
+                LOGE("ClassLoaderVisitor %s", classLoaderString.c_str());
                 std::vector<std::string> classLoaderClassNameList = getClassNameList((JNIEnv *) env_, object);
-                classLoaderStringList.push_back(classLoaderInfo);
+
+                classLoaderStringList.push_back(classLoaderString);
                 classNameList.insert(classNameList.end(), classLoaderClassNameList.begin(), classLoaderClassNameList.end());
+
             }else{
                 deleteLocalRef(env_, object);
             }
@@ -225,35 +233,45 @@ private:
     jclass classLoader_;
 };
 
-static void checkGlobalRef(JNIEnv *env, jclass clazz) {
+void zClassLoader::checkGlobalRef(JNIEnv *env, jclass clazz) {
     auto VisitRoots = (void (*)(void *, void *)) zLinker::getInstance()->find_lib("libart.so").find_symbol("_ZN3art9JavaVMExt10VisitRootsEPNS_11RootVisitorE");
 
     if (VisitRoots == nullptr) {
+        LOGE("Failed to find method 'VisitRoots' in JavaVMExt");
         return;
     }
     JavaVM *jvm;
     env->GetJavaVM(&jvm);
     ClassLoaderVisitor visitor(env, clazz);
     VisitRoots(jvm, &visitor);
-    __android_log_print(6, "lxz", "checkGlobalRef end");
+
+    classLoaderStringList.insert(classLoaderStringList.end(), visitor.classLoaderStringList.begin(), visitor.classLoaderStringList.end());
+    classNameList.insert(classNameList.end(), visitor.classNameList.begin(), visitor.classNameList.end());
+
+    LOGE("ClassLoaderVisitor classLoaderStringList size %zu", visitor.classLoaderStringList.size());
 }
 
 
 class WeakClassLoaderVisitor : public art::IsMarkedVisitor {
 public :
+    std::vector<std::string> classLoaderStringList;
+    std::vector<std::string> classNameList;
+
     WeakClassLoaderVisitor(JNIEnv *env, jclass classLoader) : env_(env), classLoader_(classLoader) {
+        classLoaderStringList = std::vector<std::string>();
+        classNameList = std::vector<std::string>();
     }
 
     art::mirror::Object *IsMarked(art::mirror::Object *obj) override {
         jobject object = newLocalRef(env_, (jobject) obj);
         if (object != nullptr) {
             if (env_->IsInstanceOf(object, classLoader_)) {
-                std::string classLoaderName = getClassName((JNIEnv *) env_, object);
+                std::string classLoaderName = getClassName(env_, object);
                 LOGE("WeakClassLoaderVisitor classLoaderName %s", classLoaderName.c_str());
-                std::string classLoaderInfo = get_class_loader_info(env_, object);
-                classLoaderStringList.push_back(get_class_loader_info(env_, object));
-                LOGE("WeakClassLoaderVisitor %s", classLoaderInfo.c_str());
-                std::vector<std::string> classLoaderClassNameList = getClassNameList((JNIEnv *) env_, object);
+                std::string classLoaderSting = get_class_loader_string(env_, object);
+                classLoaderStringList.push_back(get_class_loader_string(env_, object));
+                LOGE("WeakClassLoaderVisitor %s", classLoaderSting.c_str());
+                std::vector<std::string> classLoaderClassNameList = getClassNameList(env_, object);
                 classNameList.insert(classNameList.end(), classLoaderClassNameList.begin(), classLoaderClassNameList.end());
             }
             deleteLocalRef(env_, object);
@@ -266,7 +284,7 @@ private:
     jclass classLoader_;
 };
 
-static void checkWeakGlobalRef(JNIEnv *env, jclass clazz) {
+void zClassLoader::checkWeakGlobalRef(JNIEnv *env, jclass clazz) {
     // auto SweepJniWeakGlobals = (void (*)(void *, void *)) plt_dlsym("_ZN3art9JavaVMExt19SweepJniWeakGlobalsEPNS_15IsMarkedVisitorE", nullptr);
     auto SweepJniWeakGlobals = (void (*)(void *, void *)) zLinker::getInstance()->find_lib("libart.so").find_symbol("_ZN3art9JavaVMExt19SweepJniWeakGlobalsEPNS_15IsMarkedVisitorE");
 
@@ -277,38 +295,59 @@ static void checkWeakGlobalRef(JNIEnv *env, jclass clazz) {
     env->GetJavaVM(&jvm);
     WeakClassLoaderVisitor visitor(env, clazz);
     SweepJniWeakGlobals(jvm, &visitor);
+    classLoaderStringList.insert(classLoaderStringList.end(), visitor.classLoaderStringList.begin(), visitor.classLoaderStringList.end());
+    classNameList.insert(classNameList.end(), visitor.classNameList.begin(), visitor.classNameList.end());
+    LOGE("WeakClassLoaderVisitor classLoaderStringList size %zu", visitor.classLoaderStringList.size());
 }
 
-void traverseClassLoader(JNIEnv* env) {
+void zClassLoader::traverseClassLoader(JNIEnv* env) {
     __android_log_print(6, "lxz", "checkClassloader11");
+
+    if (env == nullptr){
+        LOGE("traverseClassLoader env is null");
+        return;
+    }
+
     char buffer[100];
     __system_property_get("ro.build.version.sdk", buffer);
     int sdk_version = atoi(buffer);
 
     if (sdk_version < 21) {
+        LOGE("traverseClassLoader sdk_version < 21");
         return;
     }
 
-    __android_log_print(6, "lxz", "checkClassloader1");
+    LOGE("traverseClassLoader start");
 
     jclass clazz = env->FindClass("dalvik/system/BaseDexClassLoader");
     if (env->ExceptionCheck()) {
         env->ExceptionClear();
     }
 
-    __android_log_print(6, "lxz", "checkClassloader2");
     if (clazz == nullptr) {
-        __android_log_print(6, "lxz", "checkClassloader3");
+        LOGE("traverseClassLoader clazz is null");
         return;
     }
 
-    __android_log_print(6, "lxz", "checkClassloader5");
+    LOGE("traverseClassLoader checkGlobalRef");
     checkGlobalRef(env, clazz);
 
-    __android_log_print(6, "lxz", "checkClassloader6");
+    LOGE("traverseClassLoader checkWeakGlobalRef");
     checkWeakGlobalRef(env, clazz);
 
-    __android_log_print(6, "lxz", "checkClassloader7");
+    LOGE("traverseClassLoader end");
     env->DeleteLocalRef(clazz);
 
 }
+
+zClassLoader::zClassLoader(){
+    classNameList = std::vector<std::string>();
+    classLoaderStringList = std::vector<std::string>();
+    traverseClassLoader(zJavaVm::getInstance()->getEnv());
+}
+
+
+zClassLoader::~zClassLoader() {
+
+}
+
