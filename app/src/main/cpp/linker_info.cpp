@@ -8,7 +8,6 @@
 
 #include "zLog.h"
 
-
 std::map<std::string, std::map<std::string, std::string>> get_linker_info(){
     std::map<std::string, std::map<std::string, std::string>> info;
     std::vector<std::string> libpath_list = zLinker::getInstance()->get_libpath_list();

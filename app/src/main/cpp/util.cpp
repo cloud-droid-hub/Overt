@@ -82,7 +82,10 @@ std::vector<std::string> split_str(const std::string& str, char delim) {
 
     for (size_t i = 0; i <= len; ++i) {
         if (s[i] == delim || s[i] == '\0') {
-            result.emplace_back(s + start, i - start);
+            // 只有当子串不为空时才添加到结果中
+            if (i > start) {
+                result.emplace_back(s + start, i - start);
+            }
             start = i + 1;
         }
     }

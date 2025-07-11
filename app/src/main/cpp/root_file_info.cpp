@@ -8,7 +8,7 @@
 #include <fcntl.h>
 
 #include "zLog.h"
-
+#include "zFile.h"
 
 
 std::map<std::string, std::map<std::string, std::string>> get_root_file_info(){
@@ -28,7 +28,8 @@ std::map<std::string, std::map<std::string, std::string>> get_root_file_info(){
     };
 
     for (const char* path : paths) {
-        if (check_file_exist(path)) {
+        zFile file(path);
+        if(file.exists()){
             info[path]["risk"] = "error";
             info[path]["explain"] = "black file but exist";
         }

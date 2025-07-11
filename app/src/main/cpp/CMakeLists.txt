@@ -34,6 +34,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zJavaVm.cpp
         system_setting_info.cpp
         zDevice.cpp
+        zFile.cpp
+        maps_info.cpp
         native-lib.cpp)
 
 #include_directories(zTraverseClassLoader)

@@ -7,7 +7,7 @@ import android.util.Log;
 public class MainApplication extends Application {
 
     static {
-        Log.e("lxz", "MainApplication static");
+        Log.e("lxz", "MainApplication static System.loadLibrary overt");
         System.loadLibrary("overt");
     }
 
@@ -15,12 +15,11 @@ public class MainApplication extends Application {
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
         Log.e("lxz", "MainApplication attachBaseContext");
-
     }
 
     @Override
     public void onCreate() {
-        Log.e("lxz", "MainApplication onCreate");
         super.onCreate();
+        Log.e("lxz", "MainApplication onCreate");
     }
 }

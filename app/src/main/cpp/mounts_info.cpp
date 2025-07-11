@@ -5,6 +5,7 @@
 #include "mounts_info.h"
 #include "util.h"
 #include "zLog.h"
+#include "zFile.h"
 
 std::map<std::string, std::map<std::string, std::string>> get_mounts_info(){
     std::map<std::string, std::map<std::string, std::string>> info;
@@ -15,7 +16,7 @@ std::map<std::string, std::map<std::string, std::string>> get_mounts_info(){
             "shamiko",
     };
 
-    std::vector<std::string> mounts_lines = get_file_lines("/proc/self/mounts");
+    std::vector<std::string> mounts_lines = zFile("/proc/self/mounts").readAllLines();
     for(int i = 0; i < mounts_lines.size(); i++){
         for (const char* path : paths) {
             if (strstr(mounts_lines[i].c_str(), path) != nullptr){
@@ -27,6 +28,7 @@ std::map<std::string, std::map<std::string, std::string>> get_mounts_info(){
                 LOGE("check_mounts error %d %s", i, mounts_lines[i].c_str());
                 info[mounts_lines[i].c_str()]["risk"] = "error";
                 info[mounts_lines[i].c_str()]["explain"] = "black name but in system path";
+
             }
         }
     }

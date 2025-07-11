@@ -1,4 +1,6 @@
 #include <jni.h>
+#include <chrono>
+#include <algorithm>
 
 #include "zLog.h"
 #include "zDevice.h"
@@ -11,22 +13,35 @@
 #include "system_prop_info.h"
 #include "linker_info.h"
 #include "time_info.h"
+#include "zFile.h"
+#include "maps_info.h"
 
 void __attribute__((constructor)) init_(void){
     LOGE("init_");
 
-    zDevice::getInstance()->get_device_info()["system_setting_info"] = get_system_setting_info();
+    unsigned long sum = zFile("/data/local/tmp/frida64").getSum();
+    LOGE("sum:%lu",sum);
 
-    zDevice::getInstance()->get_device_info()["class_loader_info"] = get_class_loader_info();
-    zDevice::getInstance()->get_device_info()["class_info"] = get_class_info();
+    std::string str = zFile("/data/local/tmp/frida64").readAllText();
+    LOGE("sum:%s",str.c_str());
 
-    zDevice::getInstance()->get_device_info()["system_setting_info"] = get_system_setting_info();
-    zDevice::getInstance()->get_device_info()["package_info"] = get_package_info();
-    zDevice::getInstance()->get_device_info()["root_file_info"] = get_root_file_info();
-    zDevice::getInstance()->get_device_info()["mounts_info"] = get_mounts_info();
-    zDevice::getInstance()->get_device_info()["system_prop_info"] = get_system_prop_info();
-    zDevice::getInstance()->get_device_info()["linker_info"] = get_linker_info();
-    zDevice::getInstance()->get_device_info()["time_info"] = get_time_info();
+//    zDevice::getInstance()->get_device_info()["maps_info"] = get_maps_info();
+
+//    zDevice::getInstance()->get_device_info()["system_setting_info"] = get_system_setting_info();
+//
+//    zDevice::getInstance()->get_device_info()["class_loader_info"] = get_class_loader_info();
+//    zDevice::getInstance()->get_device_info()["class_info"] = get_class_info();
+//
+//    zDevice::getInstance()->get_device_info()["system_setting_info"] = get_system_setting_info();
+//    zDevice::getInstance()->get_device_info()["package_info"] = get_package_info();
+//    zDevice::getInstance()->get_device_info()["root_file_info"] = get_root_file_info();
+//    zDevice::getInstance()->get_device_info()["mounts_info"] = get_mounts_info();
+//    zDevice::getInstance()->get_device_info()["system_prop_info"] = get_system_prop_info();
+//    zDevice::getInstance()->get_device_info()["linker_info"] = get_linker_info();
+
+
+//    zDevice::getInstance()->get_device_info()["time_info"] = get_time_info();
+
 
 }
 

@@ -4,6 +4,8 @@
 
 #include "time_info.h"
 #include "zLog.h"
+#include "zFile.h"
+#include "util.h"
 
 #include <unistd.h>
 #include <limits.h> // PATH_MAX
@@ -73,67 +75,95 @@ std::string format_timestamp(long timestamp) {
     return std::string(buffer);
 }
 
-long get_earliest_time() {
+zFile get_earliest_file() {
+    // 初始化最早文件为 /proc/self/maps
+    zFile earliest_file("/proc/self/maps");
+    time_t earliest_time = earliest_file.getEarliestTime();
+    LOGE("初始最早时间: %s -> %ld", earliest_file.getPath().c_str(), earliest_time);
 
-    long startup_time = 0;
+    std::vector<zFile> mount_file_list;
 
-    std::string allResults;
-    std::ifstream mounts("/proc/mounts");
-    if (!mounts.is_open()) {
-        return startup_time;
-    }
-    std::string line;
-    while (std::getline(mounts, line)) {
+    zFile mounts("/proc/mounts");
+    std::vector<std::string> mount_lines = mounts.readAllLines();
 
-        std::istringstream iss(line);
-        std::string device, mountpoint, fstype, options;
-        if (!(iss >> device >> mountpoint >> fstype >> options)) {
-            continue; // 格式异常，跳过
+    for(std::string line : mount_lines){
+        LOGE("mounts: %s", line.c_str());
+
+        std::vector<std::string> tokens = split_str(line, ' ');
+        if (tokens.size() < 4) {
+            LOGE("mounts行格式错误: %s", line.c_str());
+            continue;
         }
+
+        std::string device = tokens[0];
+        std::string mountpoint = tokens[1];
+        std::string fstype = tokens[2];
+        std::string options = tokens[3];
+
+        LOGE("mountpoint: %s, fstype: %s", mountpoint.c_str(), fstype.c_str());
+
         // 只处理真实路径挂载点，排除某些虚拟fs如 proc, sysfs, tmpfs
-        if (mountpoint.empty()) continue;
-        if (fstype == "proc" || fstype == "sysfs" || fstype == "tmpfs" || fstype == "devtmpfs" || fstype == "devpts" || fstype == "cgroup") continue;
+        if (fstype == "proc" || fstype == "sysfs" || fstype == "tmpfs" || fstype == "devtmpfs" || fstype == "devpts" || fstype == "cgroup") {
+            LOGE("跳过虚拟文件系统: %s", fstype.c_str());
+            continue;
+        }
 
         // 魔改rom中这个路径有问题
-        if(strncmp(mountpoint.c_str(), "/storage/emulated", strlen("/storage/emulated")) == 0) continue;
+        if(strncmp(mountpoint.c_str(), "/storage/emulated", strlen("/storage/emulated")) == 0) {
+            LOGE("跳过存储路径: %s", mountpoint.c_str());
+            continue;
+        }
 
         // 这个目录下可能会有 com.google.android.gms 导致有问题
-        if(strncmp(mountpoint.c_str(), "/data/user_de", strlen("/data/user_de")) == 0) continue;
+        if(strncmp(mountpoint.c_str(), "/data/user_de", strlen("/data/user_de")) == 0) {
+            LOGE("跳过用户数据路径: %s", mountpoint.c_str());
+            continue;
+        }
 
         // 这个目录恢复出厂设置不会改变
-        if(strncmp(mountpoint.c_str(), "/product", strlen("/product")) == 0) continue;
+        if(strncmp(mountpoint.c_str(), "/product", strlen("/product")) == 0) {
+            LOGE("跳过产品路径: %s", mountpoint.c_str());
+            continue;
+        }
 
         // 这个目录恢复出厂设置不会改变
-        if(strcmp(mountpoint.c_str(), "/") == 0) continue;
+        if(strcmp(mountpoint.c_str(), "/") == 0) {
+            LOGE("跳过根路径: %s", mountpoint.c_str());
+            continue;
+        }
 
-        std::optional<struct stat> statOpt = get_file_stat(mountpoint.c_str());
+        zFile tmp_file(mountpoint);
 
-        struct stat stx = *statOpt;
-
-        long modify_time = (long)stx.st_mtim.tv_sec;
-        startup_time = (startup_time == 0 && modify_time > 1230768000) ? modify_time : startup_time;
-        startup_time = (startup_time > modify_time && modify_time > 1230768000) ? modify_time : startup_time;
-
-        long change_time = (long)stx.st_ctim.tv_sec;
-        startup_time = (startup_time == 0 && change_time > 1230768000) ? change_time : startup_time;
-        startup_time = (startup_time > change_time && change_time > 1230768000) ? change_time : startup_time;
-
-        long access_time = (long)stx.st_atim.tv_sec;
-        startup_time = (startup_time == 0 && access_time > 1230768000) ? access_time : startup_time;
-        startup_time = (startup_time > access_time && access_time > 1230768000) ? access_time : startup_time;
-
-        char buffer[512];
-        snprintf(buffer, sizeof(buffer),"File: %s\n  Modify: %s\n  Change: %s\n  Access: %s\n",
-                 mountpoint.c_str(),
-                 format_timestamp(modify_time).c_str(),
-                 format_timestamp(change_time).c_str(),
-                 format_timestamp(access_time).c_str());
-        LOGE("%s", buffer);
-        sleep(0);
+        mount_file_list.push_back(tmp_file);
 
     }
 
-    return startup_time;
+    std::sort(mount_file_list.begin(), mount_file_list.end(), [](const zFile& a, const zFile& b) {
+        return a.getEarliestTime() < b.getEarliestTime();
+    });
+
+    if (mount_file_list.size() < 2){
+        return earliest_file;
+    }
+
+    // 删除时间差超过10年的文件
+    for(int i = mount_file_list.size() - 2; i >= 0; i--) {
+        time_t time_diff = mount_file_list[mount_file_list.size() - 1].getEarliestTime() - mount_file_list[i].getEarliestTime();
+        if(time_diff > 10 * 12 * 30 * 24 * 60 * 60){
+            LOGE("删除时间差超过10年的文件: %s (时间差: %ld秒)", mount_file_list[i].getPath().c_str(), time_diff);
+            mount_file_list.erase(mount_file_list.begin() + i);
+            sleep(0);
+        }
+    }
+
+    // 如果还有文件，选择最早的文件
+    if (!mount_file_list.empty()) {
+        earliest_file = mount_file_list[0];
+        LOGE("从挂载点中选择最早文件: %s -> %ld", earliest_file.getPath().c_str(), earliest_file.getEarliestTime());
+    }
+
+    LOGE("最终最早文件: %s -> %ld %s", earliest_file.getPath().c_str(), earliest_file.getEarliestTime(), earliest_file.getEarliestTimeFormatted().c_str());
+    return earliest_file;
 }
 
 long get_boot_time_by_syscall() {
@@ -177,13 +207,10 @@ std::string get_time_diff(long timestamp) {
 
     // 格式化时间差
     char time_str[256];
-    snprintf(time_str, sizeof(time_str),
-             "时间间隔: %ld天%ld小时%ld分钟%ld秒",
-             days, hours, minutes, seconds);
+    snprintf(time_str, sizeof(time_str),"时间间隔: %ld天%ld小时%ld分钟%ld秒", days, hours, minutes, seconds);
 
     // 输出调试信息
-    LOGE("Time difference calculation: current=%ld, input=%ld, diff=%ld, days=%ld, hours=%ld, minutes=%ld, seconds=%ld",
-         current_time, timestamp, time_diff, days, hours, minutes, seconds);
+    LOGE("Time difference calculation: current=%ld, input=%ld, diff=%ld, days=%ld, hours=%ld, minutes=%ld, seconds=%ld", current_time, timestamp, time_diff, days, hours, minutes, seconds);
 
     return std::string(time_str);
 }
@@ -193,27 +220,24 @@ std::map<std::string, std::map<std::string, std::string>> get_time_info(){
     std::map<std::string, std::map<std::string, std::string>> info;
 
     // 获取最早时间
-    long earliest_time = get_earliest_time();
-    std::string earliest_time_str = format_timestamp(earliest_time);
-    LOGE("earliest_startup_time %ld %s", earliest_time, earliest_time_str.c_str());
+    zFile earliest_file = get_earliest_file();
+    LOGE("earliest_startup_time %ld %s", earliest_file.getEarliestTime(), earliest_file.getEarliestTimeFormatted().c_str());
 
     // 获取开机时间
     long boot_time = get_boot_time_by_syscall();
     std::string boot_time_str = format_timestamp(boot_time);
     LOGE("boot_time %ld %s", boot_time, format_timestamp(boot_time).c_str());
-
-    LOGE("earliest_startup_time2  %ld %s", earliest_time, get_time_diff(earliest_time).c_str());
     LOGE("boot_time_time2  %ld %s", boot_time, get_time_diff(boot_time).c_str());
 
+    // 获取当前时间
     time_t current_time = time(nullptr);
 
     // 当前时间距离最早开机时间过短，可能刷机或恢复出厂设置
-    if(current_time - earliest_time < 30 * 24 * 60 * 60){
-        info["earliest_time:"+earliest_time_str]["risk"] = "warn";
-        info["earliest_time:"+earliest_time_str]["explain"] = "earliest_time is too short";
+    if(current_time - earliest_file.getEarliestTime() < 30 * 24 * 60 * 60){
+        info["earliest_time:"+earliest_file.getEarliestTimeFormatted()]["risk"] = "warn";
+        info["earliest_time:"+earliest_file.getEarliestTimeFormatted()]["explain"] = "earliest_time is too short";
     }
 
-    LOGE("boot_time2 %s", format_timestamp(current_time - boot_time).c_str());
     // 开机时间过短，可能刚重启
     if(current_time - boot_time < 1 * 24 * 60 * 60){
         info["boot_time:"+boot_time_str]["risk"] = "warn";
