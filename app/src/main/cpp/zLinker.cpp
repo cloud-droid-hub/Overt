@@ -7,6 +7,7 @@
 #include <android/log.h>
 #include <regex>
 #include "zLog.h"
+#include "zFile.h"
 
 zLinker* zLinker::instance = nullptr;
 
@@ -82,16 +83,16 @@ std::vector<std::string> zLinker::get_libpath_list(){
     return libpath_list;
 }
 
-bool zLinker::check_lib_hash(const char* so_name){
+bool zLinker::check_lib_crc(const char* so_name){
     LOGE("check_lib_hash so_name: %s", so_name);
     zElf elf_lib_file = zLinker::getInstance()->find_lib(so_name);
-    uint64_t elf_lib_file_sum = elf_lib_file.get_text_segment_sum();
+    uint64_t elf_lib_file_crc = elf_lib_file.get_elf_header_crc() + elf_lib_file.get_program_header_crc() + elf_lib_file.get_text_segment_crc();
 
     zElf elf_lib_mem = zElf((void*)zLinker::get_maps_base(so_name));
-    uint64_t elf_lib_mem_sum = elf_lib_mem.get_text_segment_sum();
+    uint64_t elf_lib_mem_crc = elf_lib_mem.get_elf_header_crc() + elf_lib_mem.get_program_header_crc() + elf_lib_mem.get_text_segment_crc();
 
-    LOGE("check_lib_hash elf_lib_file: %p sum1: %lu", elf_lib_file.elf_file_ptr, elf_lib_file_sum);
-    LOGE("check_lib_hash elf_lib_mem: %p sum2: %lu", elf_lib_mem.elf_mem_ptr, elf_lib_mem_sum);
+    LOGE("check_lib_hash elf_lib_file: %p crc: %lu", elf_lib_file.elf_file_ptr, elf_lib_file_crc);
+    LOGE("check_lib_hash elf_lib_mem: %p crc: %lu", elf_lib_mem.elf_mem_ptr, elf_lib_mem_crc);
 
-    return elf_lib_file_sum != elf_lib_mem_sum;
+    return elf_lib_file_crc != elf_lib_mem_crc;
 }

@@ -33,11 +33,11 @@ std::map<std::string, std::map<std::string, std::string>> get_linker_info(){
         std::string so_path = so_list[i];
         std::string so_name = so_path.substr(so_path.rfind('/') + 1);
         if(string_end_with(so_name.c_str(), ".so")){
-            int ret = zLinker::check_lib_hash(so_name.c_str());
-            LOGE("check_lib_hash %s %d", so_name.c_str(), ret);
+            int ret = zLinker::check_lib_crc(so_name.c_str());
+            LOGE("check_lib_crc %s %d", so_name.c_str(), ret);
             if (ret!= 0){
                 info[so_name]["risk"] = "error";
-                info[so_name]["explain"] = "check_lib_hash error";
+                info[so_name]["explain"] = "check_lib_crc error";
             }
         }
     }

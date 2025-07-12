@@ -36,6 +36,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zDevice.cpp
         zFile.cpp
         maps_info.cpp
+        fd_info.cpp
+        crc.cpp
         native-lib.cpp)
 
 #include_directories(zTraverseClassLoader)

@@ -15,16 +15,11 @@ std::map<std::string, std::map<std::string, std::string>> get_class_loader_info(
         if (str.empty()) {
             continue;
         }
-
+        LOGE("classloader：%s", str.c_str());
         if(strstr(str.c_str(), "LspModuleClassLoader")) {
             info[str]["risk"] = "black";
             info[str]["explain"] = "Risk: blacklisted classloader";
-        }
-        if(strstr(str.c_str(), "InMemoryDexClassLoader") && strstr(str.c_str(), "nativeLibraryDirectories=[/system/lib64, /system_ext/lib64]")) {
-            info[str]["risk"] = "black";
-            info[str]["explain"] = "Risk: blacklisted classloader";
-        }
-        if(strstr(str.c_str(), "InMemoryDexClassLoader") && strstr(str.c_str(), "nativeLibraryDirectories=[/system/lib64, /system/system_ext/lib64]")) {
+        }else if(strstr(str.c_str(), "InMemoryDexClassLoader") && strstr(str.c_str(), "InMemoryDexFile[cookie=[0, -")) {
             info[str]["risk"] = "black";
             info[str]["explain"] = "Risk: blacklisted classloader";
         }

@@ -32,7 +32,7 @@ public:
     Elf64_Ehdr* elf_header = nullptr;
     Elf64_Phdr* program_header_table;
     Elf64_Half program_header_table_num = 0;
-    Elf64_Half header_size = 0;
+    Elf64_Half elf_header_size = 0;
     Elf64_Phdr* loadable_rx_segment = nullptr;
     void parse_elf_head();
 
@@ -85,7 +85,10 @@ public:
 
     static int is_link_view(uintptr_t base_addr);
 
-    uint64_t get_text_segment_sum();
+    uint64_t get_elf_header_crc();
+    uint64_t get_program_header_crc();
+    uint64_t get_text_segment_crc();
+
 };
 
 

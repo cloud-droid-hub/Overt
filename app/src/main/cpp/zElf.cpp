@@ -18,7 +18,7 @@
 #include "zLog.h"
 
 #include "zElf.h"
-
+#include "crc.h"
 
 zElf::zElf() {
     // 空实现，因为所有成员变量都已经在类定义中初始化
@@ -45,13 +45,13 @@ static ElfW(Dyn) *find_dyn_by_tag2(ElfW(Dyn) *dyn, ElfW(Sxword) tag) {
 zElf::zElf(char *elf_file_name) {
     if (strncmp(elf_file_name, "lib", 3) == 0) {
         link_view = LINK_VIEW::MEMORY_VIEW;
-        this->real_path = elf_file_name;
         this->elf_mem_ptr = get_maps_base(elf_file_name);
         parse_elf_head();
         parse_program_header_table();
         parse_dynamic_table();
     } else {
         link_view = LINK_VIEW::FILE_VIEW;
+        this->real_path = std::string(elf_file_name);;
         this->elf_file_ptr = parse_elf_file(elf_file_name);
         parse_elf_head();
         parse_program_header_table();
@@ -66,7 +66,7 @@ void zElf::parse_elf_head() {
     elf_header = (Elf64_Ehdr *) base_addr;
     LOGE("elf_header->e_shoff 0x%llx", elf_header->e_shoff);
     LOGE("elf_header->e_shnum %x", elf_header->e_shnum);
-    header_size = elf_header->e_ehsize;
+    elf_header_size = elf_header->e_ehsize;
     program_header_table = (Elf64_Phdr*)(base_addr + elf_header->e_phoff);
     program_header_table_num = elf_header->e_phnum;
 }
@@ -346,26 +346,46 @@ char *zElf::parse_elf_file_(char *elf_path) {
     return elf_file_ptr;
 }
 
-uint64_t zElf::get_text_segment_sum(){
+uint64_t zElf::get_text_segment_crc(){
     char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
 
     void* code_mem_ptr = (void*)(base_addr + loadable_rx_segment->p_vaddr);
     Elf64_Xword code_mem_size = loadable_rx_segment->p_memsz;
-    LOGE("check_text_segment code_mem_ptr: %p, code_mem_size: %llx", code_mem_ptr, code_mem_size);
+    LOGE("check_text_segment offset:%llx code_mem_ptr: %p, code_mem_size: %llx", loadable_rx_segment->p_vaddr, code_mem_ptr, code_mem_size);
 
     // 初始化累加和变量
-    uint64_t sum = 0;
-
-    // 遍历代码段内存区域，计算累加和
-    for (Elf64_Xword i = 0; i < code_mem_size; i++) {
-        // 获取当前字节的值
-        uint8_t byte = ((uint8_t*)code_mem_ptr)[i];
-        // 累加到总和中
-        sum += byte;
-    }
+    uint64_t crc = crc32c_fold(code_mem_ptr, code_mem_size);
     LOGE("check_text_segment code_mem_ptr: %p, code_mem_size: %llx", code_mem_ptr, code_mem_size);
-    LOGE("check_text_segment sum: %lu", sum);
-    return sum;
+    LOGE("check_text_segment crc: %lu", crc);
+    return crc;
+}
+
+uint64_t zElf::get_elf_header_crc(){
+    char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
+
+    void* code_mem_ptr = (void*)(base_addr);
+    Elf64_Xword code_mem_size = elf_header_size;
+    LOGE("get_elf_header_crc offset:%llx code_mem_ptr: %p, code_mem_size: %llx", 0, code_mem_ptr, code_mem_size);
+
+    // 初始化累加和变量
+    uint64_t crc = crc32c_fold(code_mem_ptr, code_mem_size);
+    LOGE("get_elf_header_crc code_mem_ptr: %p, code_mem_size: %llx", code_mem_ptr, code_mem_size);
+    LOGE("get_elf_header_crc crc: %lu", crc);
+    return crc;
+}
+
+uint64_t zElf::get_program_header_crc(){
+    char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
+
+    void* code_mem_ptr = (void*)(base_addr + elf_header_size);
+    Elf64_Xword code_mem_size = sizeof(Elf64_Phdr) * program_header_table_num;
+    LOGE("get_program_header_crc offset:%llx code_mem_ptr: %p, code_mem_size: %llx", 0, code_mem_ptr, code_mem_size);
+
+    // 初始化累加和变量
+    uint64_t crc = crc32c_fold(code_mem_ptr, code_mem_size);
+    LOGE("get_program_header_crc code_mem_ptr: %p, code_mem_size: %llx", code_mem_ptr, code_mem_size);
+    LOGE("get_program_header_crc crc: %lu", crc);
+    return crc;
 }
 
 zElf::~zElf() {

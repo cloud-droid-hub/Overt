@@ -16,53 +16,62 @@
 #include <cctype>
 
 // 构造函数
-zFile::zFile() : m_path(""), m_fd(-1), m_is_directory(false) {
+zFile::zFile() : m_path("") {
+    LOGE("zFile()");
 }
 
-zFile::zFile(const std::string& path) : m_path(path), m_fd(-1), m_is_directory(false) {
-    if (!m_path.empty()) {
-        // 先检查是否为目录
-        m_is_directory = checkIsDirectory();
-        if (m_is_directory) {
-            LOGE("路径是目录: %s", m_path.c_str());
-            openDirectory();
-        } else {
-            LOGE("路径是文件: %s", m_path.c_str());
-            openFile();
-        }
+zFile::zFile(const std::string& path) : m_path(path) {
+    LOGE("zFile(const std::string& path)");
+    if(m_path.empty()) return;
 
-        earliest_time = getEarliestTime();
+    // 设置属性（文件/目录）
+    setAttribute();
+
+    // 设置文件描述符
+    setFd();
+
+}
+
+void zFile::setAttribute(){
+
+    st_ret = stat(m_path.c_str(), &st);
+
+    if (st_ret != 0) return;
+
+    earliest_time = st.st_mtim.tv_sec < st.st_ctim.tv_sec ? st.st_mtim.tv_sec : st.st_ctim.tv_sec;
+
+    earliest_time = st.st_atim.tv_sec < earliest_time ? st.st_atim.tv_sec : earliest_time;
+
+}
+
+void zFile::setFd(){
+    if (m_fd >= 0) {
+        close(m_fd);
+        m_fd = -1;
     }
+
+    if (m_path.empty()) return;
+
+    int flag = isDir() ? (O_RDONLY | O_DIRECTORY) : O_RDONLY;
+
+    m_fd = open(m_path.c_str(), flag);
+
+    if (m_fd < 0) {
+        LOGE("Failed to setFd %s: %s (errno=%d, %s)", isDir() ? "directory" : "file", m_path.c_str(), errno, strerror(errno));
+    }else{
+        LOGE("setFd succeed %s  %s %d", m_path.c_str(), isDir() ? "directory" : "file", m_fd);
+    }
+}
+
+
+long zFile::getEarliestTime() const {
+    return earliest_time;
 }
 
 // 析构函数
 zFile::~zFile() {
     if (m_fd >= 0) {
         close(m_fd);
-    }
-}
-
-// 文件路径相关
-void zFile::setPath(const std::string& path) {
-    // 关闭当前文件
-    if (m_fd >= 0) {
-        close(m_fd);
-        m_fd = -1;
-    }
-    
-    m_path = path;
-    m_is_directory = false;
-    
-    // 检查新路径
-    if (!m_path.empty()) {
-        m_is_directory = checkIsDirectory();
-        
-        if (m_is_directory) {
-            LOGE("路径是目录: %s", m_path.c_str());
-            openDirectory();
-        } else {
-            openFile();
-        }
     }
 }
 
@@ -101,95 +110,90 @@ std::string zFile::getDirectory() const {
     return m_path.substr(0, lastSlash);
 }
 
+bool zFile::pathEquals(std::string path) const {
+    return m_path == path;
+}
+
+bool zFile::pathStartWith(std::string path) const {
+    if (path.empty()) {
+        return true;
+    }
+    if (m_path.length() < path.length()) {
+        return false;
+    }
+    return m_path.substr(0, path.length()) == path;
+}
+
+bool zFile::pathEndWith(std::string path) const {
+    if (path.empty()) {
+        return true;
+    }
+    if (m_path.length() < path.length()) {
+        return false;
+    }
+    return m_path.substr(m_path.length() - path.length()) == path;
+}
+
+bool zFile::fileNameEquals(std::string fileName) const {
+    return getFileName() == fileName;
+}
+
+bool zFile::fileNameStartWith(std::string fileName) const {
+    std::string currentFileName = getFileName();
+    if (fileName.empty()) {
+        return true;
+    }
+    if (currentFileName.length() < fileName.length()) {
+        return false;
+    }
+    return currentFileName.substr(0, fileName.length()) == fileName;
+}
+
+bool zFile::fileNameEndWith(std::string fileName) const {
+    std::string currentFileName = getFileName();
+    if (fileName.empty()) {
+        return true;
+    }
+    if (currentFileName.length() < fileName.length()) {
+        return false;
+    }
+    return currentFileName.substr(currentFileName.length() - fileName.length()) == fileName;
+}
+
 // 文件存在性检查
 bool zFile::exists() const {
-    if (m_is_directory) {
-        return true; // 目录存在
+    if(m_fd >= 0){
+        return true;
     }
-    return m_fd >= 0; // 文件存在
-}
-
-bool zFile::isFile() const {
-    return !m_is_directory && m_fd >= 0;
-}
-
-bool zFile::isDirectory() const {
-    return m_is_directory;
-}
-
-bool zFile::isOpen() const {
-    return m_is_directory || m_fd >= 0;
+    if (access(m_path.c_str(), F_OK) != -1) {
+        return true;
+    }
+    return false;
 }
 
 // 文件属性
-long zFile::getFileSize() const {
-    if (m_is_directory || m_fd < 0) {
+long zFile::getFileSize(){
+
+    setAttribute();
+
+    setFd();
+
+    if (isDir() || m_fd < 0) {
         return -1;
     }
-    
-    struct stat st;
-    if (fstat(m_fd, &st) != 0) {
-        LOGE("getFileSize: fstat failed, errno=%d", errno);
-        return -1;
-    }
-    LOGE("getFileSize: 文件大小=%ld", st.st_size);
+
     return st.st_size;
-}
-
-time_t zFile::getLastModifiedTime() const {
-    if (m_is_directory || m_fd < 0) {
-        return 0;
-    }
-    
-    struct stat st;
-    if (fstat(m_fd, &st) != 0) {
-        return 0;
-    }
-    return st.st_mtime;
-}
-
-long zFile::getEarliestTime() const{
-    long earliest_time = 0;
-
-    if (m_path.empty()) {
-        LOGE("getEarliestTime: 路径为空");
-        return earliest_time;
-    }
-    
-    // 对于目录，使用 stat() 而不是 fstat()
-    struct stat stx;
-    int stat_result;
-    
-    if (m_is_directory) {
-        stat_result = stat(m_path.c_str(), &stx);
-    } else if (m_fd >= 0) {
-        stat_result = fstat(m_fd, &stx);
-    } else {
-        LOGE("getEarliestTime: 文件未打开且不是目录 %s", m_path.c_str());
-        return 0;
-    }
-    
-    if (stat_result != 0) {
-        LOGE("getEarliestTime: stat failed, errno=%d, path=%s", errno, m_path.c_str());
-        return 0;
-    }
-
-    earliest_time = stx.st_mtim.tv_sec < stx.st_ctim.tv_sec ? stx.st_mtim.tv_sec : stx.st_ctim.tv_sec;
-
-    earliest_time = stx.st_atim.tv_sec < earliest_time ? stx.st_atim.tv_sec : earliest_time;
-
-    return earliest_time;
 }
 
 std::string zFile::getEarliestTimeFormatted() const {
 
     long timestamp = getEarliestTime();
-    
+
     struct tm* timeinfo = localtime(&timestamp);
     if (!timeinfo) {
         return "Invalid";
     }
-    
+
     char buffer[64];
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
     return std::string(buffer);
@@ -197,7 +201,7 @@ std::string zFile::getEarliestTimeFormatted() const {
 
 // 文件读取操作
 std::string zFile::readAllText() {
-    if (m_is_directory || m_fd < 0) {
+    if (isDir() || m_fd < 0) {
         return "";
     }
 
@@ -209,17 +213,17 @@ std::string zFile::readAllText() {
 
     // 读取整个文件到内存
     std::vector<uint8_t> data = readBytes(0, getFileSize());
-    
+
     // 将 vector<uint8_t> 转换为 string
     return std::string(data.begin(), data.end());
 }
 
 std::vector<std::string> zFile::readAllLines() {
     std::vector<std::string> lines;
-    
+
     // 复用 readAllText 获取文件内容
     std::string content = readAllText();
-    
+
     if (content.empty()) {
         return lines;
     }
@@ -237,7 +241,7 @@ std::vector<std::string> zFile::readAllLines() {
             current_line += c;
         }
     }
-    
+
     // 添加最后一行（如果没有换行符结尾）
     if (!current_line.empty()) {
         lines.push_back(current_line);
@@ -247,7 +251,7 @@ std::vector<std::string> zFile::readAllLines() {
 }
 
 std::string zFile::readLine() {
-    if (m_is_directory || m_fd < 0) {
+    if (isDir() || m_fd < 0) {
         return "";
     }
     return getLine(m_fd);
@@ -256,15 +260,15 @@ std::string zFile::readLine() {
 std::vector<uint8_t> zFile::readBytes(long start_offset, size_t size){
     std::vector<uint8_t> data;
 
-    if (m_is_directory || m_fd < 0) {
+    if (isDir() || m_fd < 0) {
         return data;
     }
 
     // 保存当前位置
     off_t current_pos = lseek(m_fd, 0, SEEK_CUR);
 
-    if(getDevice() == 4){
-        LOGE("设备为 4 伪内核文件, 需要特殊处理");
+    if(getDevice() == 4 || getDevice() == 20){
+        LOGE("getDevice == 4/1904 伪内核文件");
 
         // 移动到指定偏移位置
         if (start_offset > 0) {
@@ -274,19 +278,19 @@ std::vector<uint8_t> zFile::readBytes(long start_offset, size_t size){
         char buffer[4096];
         ssize_t total_read = 0;
         size_t max_read = (size == 0) ? SIZE_MAX : size; // 如果size为0，读取所有数据
-        
+
         while (total_read < max_read) {
             size_t read_size = std::min(sizeof(buffer), max_read - total_read);
             ssize_t bytesRead = read(m_fd, buffer, read_size);
-            
+
             if (bytesRead <= 0) {
                 break;
             }
-            
+
             // 将读取的数据添加到返回vector中
             data.insert(data.end(), buffer, buffer + bytesRead);
             total_read += bytesRead;
-            
+
             LOGE("伪内核文件读取: 本次读取 %ld 字节, 总计 %ld 字节", bytesRead, total_read);
         }
 
@@ -302,10 +306,10 @@ std::vector<uint8_t> zFile::readBytes(long start_offset, size_t size){
 
         struct stat st;
         if (fstat(m_fd, &st) == 0) {
-            size = st.st_size < size ? st.st_size : size;
-            data.resize(size);
-            ssize_t bytesRead = read(m_fd, data.data(), size);
-            if (bytesRead != size) {
+            size_t actual_size = st.st_size < size ? st.st_size : size;
+            data.resize(actual_size);
+            ssize_t bytesRead = read(m_fd, data.data(), actual_size);
+            if (bytesRead != actual_size) {
                 data.clear();
             }
         }
@@ -317,80 +321,104 @@ std::vector<uint8_t> zFile::readBytes(long start_offset, size_t size){
     return data;
 }
 
-
 std::vector<uint8_t> zFile::readAllBytes() {
     return readBytes(0, getFileSize());
 }
 
+// 目录操作
 std::vector<std::string> zFile::listFiles() const {
     std::vector<std::string> files;
-    DIR* dir = opendir(m_path.c_str());
-    if (!dir) {
-        LOGE("Failed to open directory: %s (errno: %d)", m_path.c_str(), errno);
+    
+    if (!isDir()) {
+        LOGE("listFiles: %s 不是目录", m_path.c_str());
         return files;
     }
-
+    
+    DIR* dir = opendir(m_path.c_str());
+    if (!dir) {
+        LOGE("listFiles: 无法打开目录 %s (errno: %d)", m_path.c_str(), errno);
+        return files;
+    }
+    
     struct dirent* entry;
-    int total_entries = 0;
-    int file_entries = 0;
     while ((entry = readdir(dir)) != nullptr) {
-        total_entries++;
-        LOGE("Found entry: %s (type: %d)", entry->d_name, entry->d_type);
-        if (entry->d_type == DT_REG) { // 普通文件
+        // 跳过 . 和 ..
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        
+        // 只添加普通文件
+        if (entry->d_type == DT_REG) {
             files.push_back(entry->d_name);
-            file_entries++;
         }
     }
-    LOGE("Total entries: %d, Files: %d", total_entries, file_entries);
+    
     closedir(dir);
+    LOGE("listFiles: 在 %s 中找到 %zu 个文件", m_path.c_str(), files.size());
     return files;
 }
 
 std::vector<std::string> zFile::listDirectories() const {
     std::vector<std::string> dirs;
-    DIR* dir = opendir(m_path.c_str());
-    if (!dir) {
-        LOGE("Failed to open directory: %s (errno: %d)", m_path.c_str(), errno);
+    
+    if (!isDir()) {
+        LOGE("listDirectories: %s 不是目录", m_path.c_str());
         return dirs;
     }
-
+    
+    DIR* dir = opendir(m_path.c_str());
+    if (!dir) {
+        LOGE("listDirectories: 无法打开目录 %s (errno: %d)", m_path.c_str(), errno);
+        return dirs;
+    }
+    
     struct dirent* entry;
-    int dir_entries = 0;
     while ((entry = readdir(dir)) != nullptr) {
-        if (entry->d_type == DT_DIR && 
-            strcmp(entry->d_name, ".") != 0 && 
-            strcmp(entry->d_name, "..") != 0) {
+        // 跳过 . 和 ..
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        
+        // 只添加目录
+        if (entry->d_type == DT_DIR) {
             dirs.push_back(entry->d_name);
-            dir_entries++;
         }
     }
-    LOGE("Directory entries: %d", dir_entries);
+    
     closedir(dir);
+    LOGE("listDirectories: 在 %s 中找到 %zu 个目录", m_path.c_str(), dirs.size());
     return dirs;
 }
 
 std::vector<std::string> zFile::listAll() const {
     std::vector<std::string> all;
-    DIR* dir = opendir(m_path.c_str());
-    if (!dir) {
-        LOGE("Failed to open directory: %s (errno: %d)", m_path.c_str(), errno);
+    
+    if (!isDir()) {
+        LOGE("listAll: %s 不是目录", m_path.c_str());
         return all;
     }
-
-    struct dirent* entry;
-    int all_entries = 0;
-    while ((entry = readdir(dir)) != nullptr) {
-        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
-            all.push_back(entry->d_name);
-            all_entries++;
-        }
+    
+    DIR* dir = opendir(m_path.c_str());
+    if (!dir) {
+        LOGE("listAll: 无法打开目录 %s (errno: %d)", m_path.c_str(), errno);
+        return all;
     }
-    LOGE("All entries (excluding . and ..): %d", all_entries);
+    
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != nullptr) {
+        // 跳过 . 和 ..
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        
+        // 添加所有条目（文件、目录、符号链接等）
+        all.push_back(entry->d_name);
+    }
+    
     closedir(dir);
+    LOGE("listAll: 在 %s 中找到 %zu 个条目", m_path.c_str(), all.size());
     return all;
 }
-
-
 
 // 文件格式检查
 bool zFile::endsWith(const std::string& suffix) const {
@@ -407,79 +435,24 @@ bool zFile::startsWith(const std::string& prefix) const {
     return m_path.compare(0, prefix.length(), prefix) == 0;
 }
 
-
-// 私有辅助方法
-void zFile::openFile() {
-    if (m_fd >= 0) {
-        close(m_fd);
-        m_fd = -1;
-    }
-    
-    if (m_path.empty()) {
-        return;
-    }
-    
-    m_fd = open(m_path.c_str(), O_RDONLY);
-    if (m_fd < 0) {
-        LOGE("Failed to open file: %s", m_path.c_str());
-    }
-}
-
-// 私有辅助方法
-void zFile::openDirectory() {
-    if (m_fd >= 0) {
-        close(m_fd);
-        m_fd = -1;
-    }
-
-    if (m_path.empty()) {
-        return;
-    }
-
-    m_fd = open(m_path.c_str(), O_RDONLY | O_DIRECTORY);
-    if (m_fd < 0) {
-        LOGE("Failed to openDirectory file: %s", m_path.c_str());
-    }
-}
-
-void zFile::closeFile() {
-    if (m_fd >= 0) {
-        close(m_fd);
-        m_fd = -1;
-    }
-}
-
 std::string zFile::getLine(int fd) const {
     char buffer;
     std::string line = "";
     int read_count = 0;
     const int max_read = 8192; // 最大读取8KB，防止无限循环
-    
+
     while (read_count < max_read) {
         ssize_t bytes_read = read(fd, &buffer, sizeof(buffer));
         if (bytes_read <= 0) break;
-        
+
         line += buffer;
         read_count++;
-        
+
         if (buffer == '\n') break;
     }
-    
+
     return line;
 }
-
-bool zFile::checkAccess(int mode) const {
-    return ::access(m_path.c_str(), mode) == 0;
-}
-
-bool zFile::checkIsDirectory() const {
-    struct stat st;
-    if (stat(m_path.c_str(), &st) != 0) {
-        return false;
-    }
-    return S_ISDIR(st.st_mode);
-}
-
 
 // UTF-8相关辅助方法
 bool zFile::isValidUTF8Sequence(const char* data, int remaining_bytes) const {
@@ -537,6 +510,8 @@ int zFile::getUTF8CharLength(unsigned char first_byte) const {
 }
 
 bool zFile::isTextFile() {
+    return true;
+    
     if (m_fd < 0) {
         return false;
     }
@@ -588,7 +563,9 @@ bool zFile::isTextFile() {
 
 unsigned long zFile::getSum(long start_offset, size_t size){
     unsigned long sum = 0;
+    LOGE("111111111111 %d", m_fd);
     std::vector<uint8_t> data = readBytes(start_offset, size);
+    LOGE("222222222222 %d", data.size());
     for(int i = 0; i < data.size(); i++){
         sum += data[i];
     }
@@ -597,15 +574,4 @@ unsigned long zFile::getSum(long start_offset, size_t size){
 
 unsigned long zFile::getSum(){
     return getSum(0, getFileSize());
-}
-
-unsigned long zFile::getDevice(){
-    struct stat st;
-    if (stat(m_path.c_str(), &st) == 0) {
-        LOGE("getDevice: Device=%lx, Mode=%o, Size=%ld, Path=%s", 
-             (unsigned long)st.st_dev, st.st_mode, st.st_size, m_path.c_str());
-        return st.st_dev;
-    }
-    LOGE("getDevice: stat failed for path=%s, errno=%d", m_path.c_str(), errno);
-    return 0;
 }
