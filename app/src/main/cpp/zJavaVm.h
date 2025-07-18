@@ -21,6 +21,7 @@ private:
     static zJavaVm* instance;
     JavaVM* jvm = nullptr;
     JNIEnv *env = nullptr;
+    jobject context = nullptr;
 
 public:
 
@@ -30,6 +31,8 @@ public:
     JavaVM* getJvm();
 
     JNIEnv* getEnv();
+
+    jobject getContext();
 
     void exit();
 

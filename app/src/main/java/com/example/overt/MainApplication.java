@@ -8,7 +8,7 @@ public class MainApplication extends Application {
 
     static {
         Log.e("lxz", "MainApplication static System.loadLibrary overt");
-        System.loadLibrary("overt");
+        System.loadLibrary("overt"); // 注意不能在 attachBaseContext 中调用，否则会卡住
     }
 
     @Override
@@ -21,5 +21,6 @@ public class MainApplication extends Application {
     public void onCreate() {
         super.onCreate();
         Log.e("lxz", "MainApplication onCreate");
+
     }
 }

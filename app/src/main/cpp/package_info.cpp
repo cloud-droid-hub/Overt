@@ -5,8 +5,64 @@
 #include "package_info.h"
 #include "root_file_info.h"
 #include "util.h"
+#include "zJavaVm.h"
+#include "zFile.h"
 
-std::map<std::string, std::map<std::string, std::string>> get_package_info(){
+bool isAppInstalledByContext(JNIEnv *env, jobject context, const char* packageNameCStr) {
+    // 1. 将 C 字符串转换为 jstring
+    jstring packageName = env->NewStringUTF(packageNameCStr);
+
+    // 2. 获取 Context 类
+    jclass contextClass = env->GetObjectClass(context);
+    jmethodID getPackageManager = env->GetMethodID(contextClass, "getPackageManager", "()Landroid/content/pm/PackageManager;");
+    jobject packageManager = env->CallObjectMethod(context, getPackageManager);
+
+    // 3. 获取 PackageManager 类及方法
+    jclass pmClass = env->GetObjectClass(packageManager);
+    jmethodID getApplicationInfo = env->GetMethodID(pmClass, "getApplicationInfo", "(Ljava/lang/String;I)Landroid/content/pm/ApplicationInfo;");
+    jmethodID getLaunchIntentForPackage = env->GetMethodID(pmClass, "getLaunchIntentForPackage", "(Ljava/lang/String;)Landroid/content/Intent;");
+
+    // 4. 先调用 getApplicationInfo
+    jboolean installed = false;
+    jobject appInfo = env->CallObjectMethod(packageManager, getApplicationInfo, packageName, 0);
+    if (!env->ExceptionCheck()) {
+        installed = true;
+    } else {
+        env->ExceptionClear();
+    }
+
+    // 5. 如果失败，再尝试 getLaunchIntentForPackage
+    if (!installed) {
+        jobject intent = env->CallObjectMethod(packageManager, getLaunchIntentForPackage, packageName);
+        if (intent != nullptr) {
+            installed = true;
+        }
+    }
+
+    // 6. 清理局部引用
+    env->DeleteLocalRef(packageName);
+
+    return installed;
+}
+
+bool isAppInstalledByPath(const char* packageName) {
+    std::vector<std::string> dir_list = {
+            "/data/data",
+            "/data/user/0",
+            "/data/user_de/0",
+            "/storage/emulated/0/Android/data/"
+    };
+    for(std::string dir : dir_list){
+        std::string path = "/storage/emulated/0/Android/data/" + std::string(packageName);
+        if(zFile(path).exists()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+std::map<std::string, std::map<std::string, std::string>> get_package_info(JNIEnv *env, jobject context){
     std::map<std::string, std::map<std::string, std::string>> info;
 
     std::map<std::string, std::string> black_map = {
@@ -31,34 +87,36 @@ std::map<std::string, std::map<std::string, std::string>> get_package_info(){
             {"de.blinkt.openvpn", "OpenVPN"},
             {"net.openvpn.openvpn", "OpenVPN Connect"},
             {"com.github.kr328.clash", "Clash for Android"},
-            {"com.tencent.mobileqq", "QQ"},
-            {"com.tencent.mm", "微信"},
-            {"com.eg.android.AlipayGphone", "支付宝"},
-
+            {"me.weishu.kernelsu", "KernelSU"},
     };
 
     std::map<std::string, std::string> white_map = {
-            {"com.tencent.mobileqq", "QQ"},
             {"com.tencent.mm", "微信"},
             {"com.eg.android.AlipayGphone", "支付宝"},
-            {"com.ss.android.ugc.aweme", "抖音"},
     };
 
-    for (auto &[key, value] : black_map) {
-        std::string path = "/storage/emulated/0/Android/data/" + key;
-        if (check_file_exist(path)) {
-            info[key]["risk"] = "error";
-            info[key]["explain"] = "black package name but install";
+    for (auto &[package_name, app_name] : black_map) {
+        if(isAppInstalledByPath(package_name.c_str())){
+            info[package_name]["risk"] = "error";
+            info[package_name]["explain"] = "black package name but install " + app_name;
+        }else if(isAppInstalledByContext(env, context, package_name.c_str())){
+            info[package_name]["risk"] = "error";
+            info[package_name]["explain"] = "black package name but install " + app_name;
         }
     }
 
-    for (auto &[key, value] : white_map) {
-        std::string path = "/storage/emulated/0/Android/data/" + key;
-        if (!check_file_exist(path)) {
-            info[key]["risk"] = "warn";
-            info[key]["explain"] = "white package name but uninstall";
+    for (auto &[package_name, app_name] : white_map) {
+        bool is_installed_by_path = isAppInstalledByPath(package_name.c_str());
+        bool is_installed_by_context = isAppInstalledByContext(env, context,package_name.c_str());
+        if(!is_installed_by_path && !is_installed_by_context){
+            info[package_name]["risk"] = "warn";
+            info[package_name]["explain"] = "white package name but uninstall " + app_name;
         }
     }
 
     return info;
+};
+
+std::map<std::string, std::map<std::string, std::string>> get_package_info(){
+    return get_package_info(zJavaVm::getInstance()->getEnv(), zJavaVm::getInstance()->getContext());
 };

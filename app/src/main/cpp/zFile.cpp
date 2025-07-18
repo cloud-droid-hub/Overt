@@ -201,10 +201,13 @@ std::string zFile::getEarliestTimeFormatted() const {
 
 // 文件读取操作
 std::string zFile::readAllText() {
+    LOGE("readAllText %d %d", isDir(), m_fd);
     if (isDir() || m_fd < 0) {
+        LOGE("readAllText3");
         return "";
     }
 
+    LOGE("readAllText2");
     // 检查是否为文本文件
     if (!isTextFile()) {
         LOGE("readAllText: 文件不是文本文件: %s", m_path.c_str());
@@ -256,70 +259,66 @@ std::string zFile::readLine() {
     }
     return getLine(m_fd);
 }
-
-std::vector<uint8_t> zFile::readBytes(long start_offset, size_t size){
+std::vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
     std::vector<uint8_t> data;
-
+    LOGE("readBytes start_offset: %ld, size: %zu", start_offset, size);
     if (isDir() || m_fd < 0) {
         return data;
     }
 
     // 保存当前位置
     off_t current_pos = lseek(m_fd, 0, SEEK_CUR);
+    LOGE("当前偏移: %ld", current_pos);
 
-    if(getDevice() == 4 || getDevice() == 20){
-        LOGE("getDevice == 4/1904 伪内核文件");
+    // 移动到指定偏移位置
+    if (start_offset > 0) {
+        lseek(m_fd, start_offset, SEEK_SET);
+    }
 
-        // 移动到指定偏移位置
-        if (start_offset > 0) {
-            lseek(m_fd, start_offset, SEEK_SET);
-        }
+    if (size == 0) {
+        // size 为 0，读取全部
+        LOGE("size 为 0，执行全量读取");
 
         char buffer[4096];
         ssize_t total_read = 0;
-        size_t max_read = (size == 0) ? SIZE_MAX : size; // 如果size为0，读取所有数据
 
-        while (total_read < max_read) {
-            size_t read_size = std::min(sizeof(buffer), max_read - total_read);
-            ssize_t bytesRead = read(m_fd, buffer, read_size);
+        while (true) {
+            ssize_t bytesRead = read(m_fd, buffer, sizeof(buffer));
+            if (bytesRead <= 0) break;
 
-            if (bytesRead <= 0) {
-                break;
-            }
-
-            // 将读取的数据添加到返回vector中
             data.insert(data.end(), buffer, buffer + bytesRead);
             total_read += bytesRead;
 
-            LOGE("伪内核文件读取: 本次读取 %ld 字节, 总计 %ld 字节", bytesRead, total_read);
+            LOGE("循环读取: 本次读取 %ld 字节, 总计 %ld 字节", bytesRead, total_read);
         }
 
         if (total_read == 0) {
-            LOGE("伪内核文件读取失败或无数据");
+            LOGE("读取失败或无数据");
         } else {
-            LOGE("伪内核文件读取完成: 总计 %zu 字节", data.size());
+            LOGE("全量读取完成: 总计 %zu 字节", data.size());
         }
 
-    }else{
-        // 移动到文件开头
-        lseek(m_fd, start_offset, SEEK_SET);
-
-        struct stat st;
-        if (fstat(m_fd, &st) == 0) {
-            size_t actual_size = st.st_size < size ? st.st_size : size;
-            data.resize(actual_size);
-            ssize_t bytesRead = read(m_fd, data.data(), actual_size);
-            if (bytesRead != actual_size) {
-                data.clear();
-            }
+    } else {
+        // size > 0，读取固定长度
+        LOGE("读取指定大小: %zu 字节", size);
+        data.resize(size);
+        ssize_t bytesRead = read(m_fd, data.data(), size);
+        if (bytesRead < 0) {
+            perror("read");
+            data.clear();
+        } else if ((size_t)bytesRead < size) {
+            data.resize(bytesRead);  // 只读到部分内容，缩小
+            LOGE("部分读取: 实际读取 %zd 字节", bytesRead);
+        } else {
+            LOGE("成功读取 %zu 字节", size);
         }
     }
 
-    // 恢复位置
+    // 恢复原始偏移
     lseek(m_fd, current_pos, SEEK_SET);
-
     return data;
 }
+
 
 std::vector<uint8_t> zFile::readAllBytes() {
     return readBytes(0, getFileSize());
@@ -339,18 +338,27 @@ std::vector<std::string> zFile::listFiles() const {
         LOGE("listFiles: 无法打开目录 %s (errno: %d)", m_path.c_str(), errno);
         return files;
     }
-    
+
+    char link_real_path[PATH_MAX] = {0};
     struct dirent* entry;
     while ((entry = readdir(dir)) != nullptr) {
         // 跳过 . 和 ..
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
         }
-        
-        // 只添加普通文件
-        if (entry->d_type == DT_REG) {
-            files.push_back(entry->d_name);
+
+        std::string fullPath = m_path + "/" + entry->d_name;
+
+        if(entry->d_type == DT_LNK){
+            ssize_t len =readlink(fullPath.c_str(), link_real_path, sizeof(link_real_path)-1);
+            if (len > 0) {
+                link_real_path[len] = '\0';
+                files.emplace_back(link_real_path);
+            }
+        }else if (entry->d_type == DT_REG){\
+            files.push_back(fullPath);
         }
+
     }
     
     closedir(dir);

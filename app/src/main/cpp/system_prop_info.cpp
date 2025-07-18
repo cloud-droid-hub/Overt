@@ -74,39 +74,60 @@ std::map<std::string, std::map<std::string, std::string>> get_system_prop_info()
             "ro.build.type",
     };
 
-    std::map<std::string, std::string> prop_map{
-            {"ro.secure",                   "1"},
-            {"ro.debuggable",               "0"},
-            {"ro.boot.flash.locked",        "1"},
-            {"ro.dalvik.vm.native.bridge",  "0"},
-            {"ro.boot.vbmeta.device_state", "locked"},
-            {"ro.boot.verifiedbootstate",   "green"},
-            {"ro.boot.veritymode",          "enforcing"},
-            {"ro.boot.verifiedbootstate",   "green"},
-            {"ro.build.tags",               "release-keys"},
-            {"ro.build.type",               "user"},
-            {"init.svc.adbd",               "stopped"},
-            {"persist.sys.usb.config",      "none"},
-            {"persist.security.adbinput",      "0"},
+//    std::map<std::string, std::string> prop_map{
+//            {"ro.secure",                   "1"},
+//            {"ro.debuggable",               "0"},
+//            {"ro.boot.flash.locked",        "1"},
+//            {"ro.dalvik.vm.native.bridge",  "0"},
+//            {"ro.boot.vbmeta.device_state", "locked"},
+//            {"ro.boot.verifiedbootstate",   "green"},
+//            {"ro.boot.veritymode",          "enforcing"},
+//            {"ro.boot.verifiedbootstate",   "green"},
+//            {"ro.build.tags",               "release-keys"},
+//            {"ro.build.type",               "user"},
+//            {"init.svc.adbd",               "stopped"},
+//            {"persist.sys.usb.config",      "none"},
+//            {"persist.security.adbinput",      "0"},
+//    };
+
+
+    std::map<std::string, std::vector<std::string>> prop_map{
+            {"ro.secure",                   {"1"}},
+            {"ro.debuggable",               {"0"}},
+            {"ro.boot.flash.locked",        {"1"}},
+            {"ro.dalvik.vm.native.bridge",  {"0"}},
+            {"ro.boot.vbmeta.device_state", {"locked"}},
+            {"ro.boot.verifiedbootstate",   {"green"}},
+            {"ro.boot.veritymode",          {"enforcing"}},
+            {"ro.boot.verifiedbootstate",   {"green"}},
+            {"ro.build.tags",               {"release-keys"}},
+            {"ro.build.type",               {"user"}},
+            {"init.svc.adbd",               {"stopped"}},
+            {"persist.sys.usb.config",      {"none", ""}},
+            {"persist.security.adbinput",   {"0"}}
     };
 
     for(const auto& [key, value] : prop_map){
-        if(properties.find(key) != properties.end()) {
-            if(properties[key.c_str()].value != value) {
-                char buffer[100] = {0};
-                sprintf(buffer, ":value[%s]", properties[key.c_str()].value.c_str());
-                info[key+buffer]["risk"] = "error";
-                info[key+buffer]["explain"] = "value is not correct";
-            }
+        if(properties.find(key) == properties.end()) {
+            continue;
+        }
+        if(std::find(value.begin(), value.end(), properties[key.c_str()].value) == value.end()){
+            char buffer[100] = {0};
+            sprintf(buffer, ":value[%s]", properties[key.c_str()].value.c_str());
+            info[key+buffer]["risk"] = "error";
+            info[key+buffer]["explain"] = "value is not correct";
+
         }
     }
 
     for(const std::string& key : prop_list){
-        if(properties[key.c_str()].serial_version != 0){
-            char buffer[100] = {0};
-            sprintf(buffer, ":serial[%d]", properties[key.c_str()].serial_version);
-            info[key+buffer]["risk"] = "error";
-            info[key+buffer]["explain"] = "serial_version is not 0";
+        if(properties.find(key) != properties.end()) {
+            if(properties[key.c_str()].serial_version != 0){
+                char buffer[100] = {0};
+                sprintf(buffer, ":serial[%d]", properties[key.c_str()].serial_version);
+                info[key+buffer]["risk"] = "error";
+                info[key+buffer]["explain"] = "serial_version is not 0";
+            }
         }
     }
 

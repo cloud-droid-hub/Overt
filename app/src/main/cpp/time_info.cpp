@@ -201,9 +201,7 @@ std::map<std::string, std::map<std::string, std::string>> get_time_info(){
 
     std::map<std::string, std::map<std::string, std::string>> info;
 
-    // 获取最早时间
-    zFile earliest_file = get_earliest_file();
-    LOGE("earliest_startup_time %ld %s", earliest_file.getEarliestTime(), earliest_file.getEarliestTimeFormatted().c_str());
+    time_t current_time = time(nullptr);
 
     // 获取开机时间
     long boot_time = get_boot_time_by_syscall();
@@ -211,20 +209,22 @@ std::map<std::string, std::map<std::string, std::string>> get_time_info(){
     LOGE("boot_time %ld %s", boot_time, format_timestamp(boot_time).c_str());
     LOGE("boot_time_time2  %ld %s", boot_time, get_time_diff(boot_time).c_str());
 
-    // 获取当前时间
-    time_t current_time = time(nullptr);
-
-    // 当前时间距离最早开机时间过短，可能刷机或恢复出厂设置
-//    if(current_time - earliest_file.getEarliestTime() < 30 * 24 * 60 * 60){
-        info["earliest_time:"+earliest_file.getEarliestTimeFormatted()]["risk"] = "warn";
-        info["earliest_time:"+earliest_file.getEarliestTimeFormatted()]["explain"] = "earliest_time is too short";
-//    }
-
     // 开机时间过短，可能刚重启
     if(current_time - boot_time < 1 * 24 * 60 * 60){
         info["boot_time:"+boot_time_str]["risk"] = "warn";
         info["boot_time:"+boot_time_str]["explain"] = "boot_time is too short";
     }
+
+//    获取文件的最早时间，不太稳定，或许有问题
+//    // 获取最早时间
+//    zFile earliest_file = get_earliest_file();
+//    LOGE("earliest_startup_time %ld %s", earliest_file.getEarliestTime(), earliest_file.getEarliestTimeFormatted().c_str());
+
+//    // 当前时间距离最早开机时间过短，可能刷机或恢复出厂设置
+//    if(current_time - earliest_file.getEarliestTime() < 30 * 24 * 60 * 60){
+//        info["earliest_time:"+earliest_file.getEarliestTimeFormatted()]["risk"] = "warn";
+//        info["earliest_time:"+earliest_file.getEarliestTimeFormatted()]["explain"] = "earliest_time is too short";
+//    }
 
     return info;
 }

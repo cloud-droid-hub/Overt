@@ -1,4 +1,4 @@
-package com.example.overt.device;
+package com.example.overt;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -7,14 +7,7 @@ import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-
 import androidx.cardview.widget.CardView;
-import androidx.core.content.ContextCompat;
-
-import com.example.overt.R;
-import com.example.overt.system_info.system_info;
-import com.example.overt.tee_info.TEEStatus;
-
 import java.util.Map;
 
 public class DeviceInfoProvider {
@@ -29,8 +22,6 @@ public class DeviceInfoProvider {
         Log.d(TAG, "DeviceInfoProvider initialized with context and container");
 
         Map<String, Map<String, Map<String, String>>> device_info = get_device_info();
-
-        device_info.put("tee_info", TEEStatus.get_tee_info());
 
         // 添加信息项
         for (Map.Entry<String, Map<String, Map<String, String>>> entry : device_info.entrySet()) {

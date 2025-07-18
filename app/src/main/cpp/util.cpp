@@ -107,40 +107,6 @@ bool string_end_with(const char *str, const char *suffix) {
     return (strcmp(str + len_str - len_suffix, suffix) == 0);
 }
 
-bool check_file_exist_1(std::string path) {
-    int fd = open(path.c_str(), O_RDONLY);
-    if (fd >= 0) {
-        close(fd);
-        return true;
-    }
-    return false;
-}
-
-bool check_file_exist_2(std::string path) {
-    if (access(path.c_str(), F_OK) != -1) {
-        return true;
-    }
-    return false;
-}
-
-// 综合检查函数
-bool check_file_exist(std::string path) {
-    bool file_exist = false;
-
-    // 使用多种方法检查文件是否存在
-    bool exist1 = check_file_exist_1(path);
-    bool exist2 = check_file_exist_2(path.c_str());
-
-    // 记录每种方法的检查结果
-    LOGE("check_file_1 (ifstream): %d", exist1);
-    LOGE("check_file_2 (access): %d", exist2);
-
-    // 如果任一方法检测到文件存在，则认为文件存在
-    file_exist = exist1 || exist2;
-
-    return file_exist;
-}
-
 // 将 std::map<std::string, std::string> 转换为 Java Map<String, String>
 jobject cmap_to_jmap(JNIEnv *env, std::map<std::string, std::string> cmap){
     jobject jobjectMap = env->NewObject(env->FindClass("java/util/HashMap"), env->GetMethodID(env->FindClass("java/util/HashMap"), "<init>", "()V"));

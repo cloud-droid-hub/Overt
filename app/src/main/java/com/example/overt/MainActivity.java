@@ -2,17 +2,10 @@ package com.example.overt;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.LinearLayout;
 import android.widget.Toast;
-
-import com.example.overt.device.DeviceInfoProvider;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "lxz_MainActivity";
