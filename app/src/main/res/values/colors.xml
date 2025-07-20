@@ -8,6 +8,9 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     
+    <!-- 夜间模式文字颜色（更暗的白色） -->
+    <color name="dark_text">#FFE0E0E0</color>
+    
     <!-- 风险等级颜色 -->
     <color name="risk_error">#FFFF0000</color>
     <color name="risk_warn">#FFFF8C00</color>
@@ -16,4 +19,7 @@
     <!-- 风险等级背景色（半透明） -->
     <color name="risk_error_bg">#1AFF0000</color>
     <color name="risk_warn_bg">#1AFF8C00</color>
+    
+    <!-- 夜间模式背景色 -->
+    <color name="dark_surface">#FF121212</color>
 </resources>

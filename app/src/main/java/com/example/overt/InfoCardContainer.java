@@ -2,245 +2,242 @@ package com.example.overt;
 
 import android.content.Context;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.cardview.widget.CardView;
+import androidx.core.content.ContextCompat;
+import androidx.core.widget.NestedScrollView;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
  * 信息卡片容器类
- * 负责管理多个卡片的显示和间距控制
+ * 全屏容器，构造时直接传递数据，返回View供Activity直接绑定
  */
 public class InfoCardContainer {
     private static final String TAG = "InfoCardContainer";
     
     private Context context;
+    private NestedScrollView scrollView;
     private LinearLayout container;
+    private String mainTitle;
     private List<InfoCard> cards;
-    private String mainTitle; // 总标题
+    private TextView mainTitleView;
     
-    // 卡片间距配置
-    private int cardMarginTop = 0;
-    private int cardMarginBottom = 1;
+    // 卡片间距
+    private int cardMarginTop = 4;
+    private int cardMarginBottom = 4;
     private int cardMarginStart = 4;
     private int cardMarginEnd = 4;
 
     /**
-     * 构造函数
+     * 构造函数 - 全屏容器
      * @param context 上下文
-     * @param container 容器视图
-     */
-    public InfoCardContainer(Context context, LinearLayout container) {
-        this.context = context;
-        this.container = container;
-        this.cards = new ArrayList<>();
-        this.mainTitle = "信息检测"; // 默认标题
-    }
-
-    /**
-     * 构造函数（带间距配置）
-     * @param context 上下文
-     * @param container 容器视图
-     * @param cardMarginTop 卡片顶部间距
-     * @param cardMarginBottom 卡片底部间距
-     * @param cardMarginStart 卡片左侧间距
-     * @param cardMarginEnd 卡片右侧间距
-     */
-    public InfoCardContainer(Context context, LinearLayout container, 
-                           int cardMarginTop, int cardMarginBottom, 
-                           int cardMarginStart, int cardMarginEnd) {
-        this.context = context;
-        this.container = container;
-        this.cards = new ArrayList<>();
-        this.cardMarginTop = cardMarginTop;
-        this.cardMarginBottom = cardMarginBottom;
-        this.cardMarginStart = cardMarginStart;
-        this.cardMarginEnd = cardMarginEnd;
-        this.mainTitle = "设备信息检测"; // 默认标题
-    }
-
-    /**
-     * 构造函数（带总标题）
-     * @param context 上下文
-     * @param container 容器视图
      * @param mainTitle 总标题
+     * @param cardData 卡片数据 Map<String, Map<String, Map<String, String>>>
      */
-    public InfoCardContainer(Context context, LinearLayout container, String mainTitle) {
+    public InfoCardContainer(Context context, String mainTitle, Map<String, Map<String, Map<String, String>>> cardData) {
         this.context = context;
-        this.container = container;
+        this.mainTitle = mainTitle;
         this.cards = new ArrayList<>();
-        this.mainTitle = mainTitle != null ? mainTitle : "设备信息检测";
+        
+        // 创建全屏容器
+        createContainer();
+        
+        // 初始化总标题
+        initMainTitle();
+        
+        // 直接添加所有卡片数据
+        addAllCards(cardData);
+        
+        // 显示所有卡片
+        showAllCards();
     }
 
     /**
-     * 构造函数（完整配置）
+     * 构造函数 - 使用默认标题
      * @param context 上下文
-     * @param container 容器视图
-     * @param mainTitle 总标题
-     * @param cardMarginTop 卡片顶部间距
-     * @param cardMarginBottom 卡片底部间距
-     * @param cardMarginStart 卡片左侧间距
-     * @param cardMarginEnd 卡片右侧间距
+     * @param cardData 卡片数据
      */
-    public InfoCardContainer(Context context, LinearLayout container, String mainTitle,
-                           int cardMarginTop, int cardMarginBottom, 
-                           int cardMarginStart, int cardMarginEnd) {
-        this.context = context;
-        this.container = container;
-        this.cards = new ArrayList<>();
-        this.mainTitle = mainTitle != null ? mainTitle : "设备信息检测";
-        this.cardMarginTop = cardMarginTop;
-        this.cardMarginBottom = cardMarginBottom;
-        this.cardMarginStart = cardMarginStart;
-        this.cardMarginEnd = cardMarginEnd;
+    public InfoCardContainer(Context context, Map<String, Map<String, Map<String, String>>> cardData) {
+        this(context, "Overt", cardData);
     }
 
     /**
-     * 设置总标题
-     * @param mainTitle 总标题
+     * 创建全屏容器
      */
-    public void setMainTitle(String mainTitle) {
-        this.mainTitle = mainTitle != null ? mainTitle : "设备信息检测";
+    private void createContainer() {
+        // 创建ScrollView作为根容器
+        scrollView = new NestedScrollView(context);
+        scrollView.setLayoutParams(new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.MATCH_PARENT
+        ));
+        scrollView.setBackgroundColor(getBackgroundColor());
+        scrollView.setFillViewport(true); // 确保内容填充整个视口
+        scrollView.setOverScrollMode(android.view.View.OVER_SCROLL_ALWAYS); // 允许过度滚动
+        
+        // 创建LinearLayout作为内容容器
+        container = new LinearLayout(context);
+        container.setOrientation(LinearLayout.VERTICAL);
+        // 关键：使用WRAP_CONTENT确保容器能够根据内容扩展
+        LinearLayout.LayoutParams containerParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        container.setLayoutParams(containerParams);
+        container.setPadding(16, 16, 16, 16);
+        
+        // 将LinearLayout添加到ScrollView
+        scrollView.addView(container);
+        
+        Log.d(TAG, "Container created with ScrollView and LinearLayout");
     }
 
     /**
-     * 获取总标题
-     * @return 总标题
+     * 获取背景颜色（适配夜间模式）
+     * @return 背景颜色
      */
-    public String getMainTitle() {
-        return mainTitle;
+    private int getBackgroundColor() {
+        if (isDarkMode()) {
+            return ContextCompat.getColor(context, R.color.dark_surface);
+        } else {
+            return ContextCompat.getColor(context, R.color.white);
+        }
     }
 
     /**
-     * 添加卡片
-     * @param title 卡片标题
-     * @param info 卡片信息数据
+     * 初始化总标题
      */
-    public void addCard(String title, Map<String, Map<String, String>> info) {
-        InfoCard card = new InfoCard(context, title, info);
-        cards.add(card);
+    private void initMainTitle() {
+        if (container == null) return;
+        
+        // 创建总标题视图
+        mainTitleView = new TextView(context);
+        mainTitleView.setText(mainTitle);
+        mainTitleView.setTextSize(24);
+        mainTitleView.setTextColor(getTextColorPrimary());
+        mainTitleView.setGravity(android.view.Gravity.CENTER);
+        
+        // 设置总标题的布局参数
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        titleParams.setMargins(16, 16, 16, 16);
+        mainTitleView.setLayoutParams(titleParams);
+        
+        // 添加总标题到容器
+        container.addView(mainTitleView);
     }
 
     /**
-     * 添加卡片（使用InfoCard对象）
-     * @param card InfoCard对象
+     * 获取主题文字颜色（适配夜间模式）
+     * @return 文字颜色
      */
-    public void addCard(InfoCard card) {
-        cards.add(card);
+    private int getTextColorPrimary() {
+        if (isDarkMode()) {
+            return ContextCompat.getColor(context, R.color.dark_text);
+        } else {
+            return ContextCompat.getColor(context, R.color.black);
+        }
     }
 
     /**
-     * 批量添加卡片
-     * @param cardData 卡片数据Map
+     * 检测当前是否为深色模式
+     * @return true表示深色模式，false表示浅色模式
      */
-    public void addCards(Map<String, Map<String, Map<String, String>>> cardData) {
+    private boolean isDarkMode() {
+        android.util.TypedValue typedValue = new android.util.TypedValue();
+        context.getTheme().resolveAttribute(android.R.attr.windowBackground, typedValue, true);
+        int backgroundColor = typedValue.data;
+        
+        // 计算背景色的亮度
+        int red = (backgroundColor >> 16) & 0xFF;
+        int green = (backgroundColor >> 8) & 0xFF;
+        int blue = backgroundColor & 0xFF;
+        
+        // 使用相对亮度公式
+        double luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255.0;
+        
+        return luminance < 0.5; // 亮度小于0.5认为是深色模式
+    }
+
+    /**
+     * 添加所有卡片数据
+     * @param cardData 卡片数据
+     */
+    private void addAllCards(Map<String, Map<String, Map<String, String>>> cardData) {
+        if (cardData == null) return;
+        
         for (Map.Entry<String, Map<String, Map<String, String>>> entry : cardData.entrySet()) {
-            addCard(entry.getKey(), entry.getValue());
+            String title = entry.getKey();
+            Map<String, Map<String, String>> info = entry.getValue();
+            
+            InfoCard card = new InfoCard(context, title, info);
+            cards.add(card);
         }
     }
 
     /**
      * 显示所有卡片
      */
-    public void show() {
-        if (container == null) {
-            Log.e(TAG, "Container is null");
-            return;
-        }
-
-        // 清空容器
-        container.removeAllViews();
-
-        // 添加总标题
-        addMainTitle();
-
-        // 显示所有卡片
+    private void showAllCards() {
+        if (container == null) return;
+        
+        int totalHeight = 0;
         for (InfoCard card : cards) {
             CardView cardView = card.show();
-            if (cardView != null) {
-                // 设置卡片间距
-                setCardMargins(cardView);
-                
-                // 添加到容器
-                container.addView(cardView);
-                Log.d(TAG, "Added card: " + card.getTitle());
-            }
-        }
-    }
-
-    /**
-     * 添加总标题
-     */
-    private void addMainTitle() {
-        if (mainTitle != null && !mainTitle.isEmpty()) {
-            TextView titleView = new TextView(context);
-            titleView.setText(mainTitle);
-            titleView.setTextSize(24);
-            titleView.setTextColor(context.getResources().getColor(android.R.color.black, context.getTheme()));
-            titleView.setTypeface(null, android.graphics.Typeface.BOLD);
-            titleView.setGravity(android.view.Gravity.CENTER);
             
-            // 设置标题间距
-            LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+            // 设置卡片间距
+            LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             );
-            titleParams.setMargins(0, 8, 0, 8);
-            titleView.setLayoutParams(titleParams);
+            cardParams.setMargins(cardMarginStart, cardMarginTop, cardMarginEnd, cardMarginBottom);
+            cardView.setLayoutParams(cardParams);
             
-            container.addView(titleView);
-        }
-    }
-
-    /**
-     * 设置卡片间距
-     * @param cardView 卡片视图
-     */
-    private void setCardMargins(CardView cardView) {
-        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) cardView.getLayoutParams();
-        if (params == null) {
-            params = new ViewGroup.MarginLayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            );
+            // 添加卡片到容器
+            container.addView(cardView);
+            
+            // 计算预估高度
+            totalHeight += 100; // 预估每个卡片高度
+            Log.d(TAG, "Added card: " + card.getTitle() + ", estimated height: " + totalHeight);
         }
         
-        params.setMargins(cardMarginStart, cardMarginTop, cardMarginEnd, cardMarginBottom);
-        cardView.setLayoutParams(params);
+        // 添加调试信息
+        Log.d(TAG, "Added " + cards.size() + " cards to container, total estimated height: " + totalHeight);
     }
 
     /**
-     * 设置卡片间距
-     * @param top 顶部间距
-     * @param bottom 底部间距
-     * @param start 左侧间距
-     * @param end 右侧间距
+     * 获取容器View - 供Activity直接绑定
+     * @return 容器View (ScrollView)
      */
-    public void setCardMargins(int top, int bottom, int start, int end) {
-        this.cardMarginTop = top;
-        this.cardMarginBottom = bottom;
-        this.cardMarginStart = start;
-        this.cardMarginEnd = end;
+    public NestedScrollView getContainerView() {
+        return scrollView;
     }
 
     /**
-     * 设置卡片间距（统一设置）
-     * @param margin 统一间距值
+     * 刷新容器（主题切换时使用）
      */
-    public void setCardMargins(int margin) {
-        setCardMargins(margin, margin, margin, margin);
-    }
-
-    /**
-     * 清空所有卡片
-     */
-    public void clear() {
-        cards.clear();
-        if (container != null) {
-            container.removeAllViews();
+    public void refresh() {
+        if (scrollView == null) return;
+        
+        // 刷新背景色
+        scrollView.setBackgroundColor(getBackgroundColor());
+        
+        // 刷新标题颜色
+        if (mainTitleView != null) {
+            mainTitleView.setTextColor(getTextColorPrimary());
+        }
+        
+        // 刷新所有卡片
+        for (InfoCard card : cards) {
+            card.refreshBorder();
+            card.refreshTextColors();
         }
     }
 
@@ -253,7 +250,7 @@ public class InfoCardContainer {
     }
 
     /**
-     * 获取指定位置的卡片
+     * 获取指定索引的卡片
      * @param index 卡片索引
      * @return InfoCard对象
      */
@@ -270,46 +267,5 @@ public class InfoCardContainer {
      */
     public List<InfoCard> getAllCards() {
         return new ArrayList<>(cards);
-    }
-
-    /**
-     * 移除指定位置的卡片
-     * @param index 卡片索引
-     */
-    public void removeCard(int index) {
-        if (index >= 0 && index < cards.size()) {
-            cards.remove(index);
-        }
-    }
-
-    /**
-     * 移除指定标题的卡片
-     * @param title 卡片标题
-     */
-    public void removeCard(String title) {
-        cards.removeIf(card -> title.equals(card.getTitle()));
-    }
-
-    /**
-     * 刷新显示
-     */
-    public void refresh() {
-        show();
-    }
-
-    /**
-     * 获取容器视图
-     * @return LinearLayout容器
-     */
-    public LinearLayout getContainer() {
-        return container;
-    }
-
-    /**
-     * 设置容器视图
-     * @param container LinearLayout容器
-     */
-    public void setContainer(LinearLayout container) {
-        this.container = container;
     }
 } 

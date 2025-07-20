@@ -37,6 +37,7 @@ void __attribute__((constructor)) init_(void){
     zDevice::getInstance()->get_device_info()["port_info"] = get_port_info();
     zDevice::getInstance()->get_device_info()["package_info"] = get_package_info();
     zDevice::getInstance()->get_device_info()["system_setting_info"] = get_system_setting_info();
+    zDevice::getInstance()->get_device_info()["tee_info"] = get_tee_info();
 
     LOGE("init_ over");
 }
@@ -44,17 +45,11 @@ void __attribute__((constructor)) init_(void){
 extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     LOGE("JNI_OnLoad");
-
     return JNI_VERSION_1_6;
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
-Java_com_example_overt_DeviceInfoProvider_get_1device_1info(JNIEnv *env, jobject thiz) {
-    // TODO: implement get_device_info()
-    LOGE("get_device_info");
-
-    zDevice::getInstance()->get_device_info()["tee_info"] = get_tee_info();
-
+Java_com_example_overt_MainActivity_get_1device_1info(JNIEnv *env, jobject thiz) {
     return cmap_to_jmap_nested_3(env,zDevice::getInstance()->get_device_info());
 }

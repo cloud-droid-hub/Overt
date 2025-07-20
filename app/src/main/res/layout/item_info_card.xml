@@ -5,23 +5,20 @@
     android:layout_height="wrap_content"
     app:cardCornerRadius="4dp"
     app:cardElevation="0dp"
-    app:cardUseCompatPadding="false"
-    app:cardBackgroundColor="@android:color/white">
+    app:cardUseCompatPadding="false">
 
     <LinearLayout
         android:id="@+id/card_content"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="12dp"
-        android:background="@drawable/card_border_background">
+        android:padding="12dp">
 
         <TextView
             android:id="@+id/card_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="16sp"
-            android:textStyle="bold"
             android:textColor="@android:color/black"
             android:layout_marginBottom="8dp"
             android:drawablePadding="8dp"/>
