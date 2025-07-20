@@ -20,13 +20,13 @@ zClassLoader* zClassLoader::instance = nullptr;
 
 void debug(JNIEnv *env, const char *format, jobject object) {
     if (object == nullptr) {
-        LOGE(format, nullptr);
+        LOGE(format);
     } else {
         jclass objectClass = env->FindClass("java/lang/Object");
         jmethodID toString = env->GetMethodID(objectClass, "toString", "()Ljava/lang/String;");
         auto string = (jstring) env->CallObjectMethod(object, toString);
         const char *value = env->GetStringUTFChars(string, nullptr);
-        LOGE(format, value);
+        LOGE(format);
         env->ReleaseStringUTFChars(string, value);
         env->DeleteLocalRef(string);
         env->DeleteLocalRef(objectClass);

@@ -21,6 +21,7 @@
 #include "tee_info.h"
 #include "zJavaVm.h"
 
+
 void __attribute__((constructor)) init_(void){
     LOGE("init_ start");
 

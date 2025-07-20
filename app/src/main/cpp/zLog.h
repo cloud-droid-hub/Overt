@@ -9,25 +9,33 @@
 #include <deque>
 #include <vector>
 #include <android/log.h>
+#include <unistd.h>
 
 #define DEBUG
 
-#ifdef DEBUG
-#define LOGE(...)  __android_log_print(6, "lxz", __VA_ARGS__)
-#else
-#define LOGE(...)  // Define LOGE as an empty macro when DEBUG is not defined
-#endif
+
+
+
 
 
 #define LOGS(...)  zLogStore(__VA_ARGS__)// Define LOGE as an empty macro when DEBUG is not defined
 
 
-extern "C"
-void zLogPrint(const char *format, ...);
+extern "C" void zLogPrint(const char *format, ...);
 
-extern "C"
-void zLogStore(const char *format, ...);
+extern "C" void zLogStore(const char *format, ...);
 
+#ifdef DEBUG
+#define LOGT(...) zLogPrint(__VA_ARGS__)
+#else
+#define LOGT(...)
+#endif
+
+#ifdef DEBUG
+#define LOGE(...)  zLogPrint(__VA_ARGS__);
+#else
+#define LOGE(...)  // Define LOGE as an empty macro when DEBUG is not defined
+#endif
 
 class zLog {
 public:

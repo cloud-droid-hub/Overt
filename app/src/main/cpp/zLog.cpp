@@ -10,6 +10,7 @@
 #include <regex>
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 size_t zLog::maxSize = 1000;
 std::string zLog::path = "";
@@ -55,6 +56,7 @@ void zLog::print(std::string logText){
     // zLog::loger->enqueue(logText);
 
     __android_log_print(6,"lxz","%s", logText.c_str());
+    sleep(0);
 }
 
 void zLog::print(const char *format, ...){
@@ -82,6 +84,31 @@ void zLog::print(const char *format, ...){
     free(buffer);
 }
 
+extern "C"
+void zLogTagPrint(const char* tag, const char *format, ...){
+    va_list args;
+    va_start(args, format);
+
+    // 计算格式化后的字符串长度
+    int len = vsnprintf(NULL, 0, format, args) + 1;
+    va_end(args);
+
+    // 分配足够的内存来存储格式化后的字符串
+    char *buffer = (char *)malloc(len);
+    if (buffer == NULL) {
+        // 内存分配失败，退出函数
+        return;
+    }
+
+    // 再次初始化可变参数列表
+    va_start(args, format);
+    vsnprintf(buffer, len, format, args);
+    va_end(args);
+
+    __android_log_print(6, tag,"%s", buffer);
+
+    free(buffer);
+}
 
 extern "C"
 void zLogPrint(const char *format, ...){

@@ -11,66 +11,33 @@
 #include "zJavaVm.h"
 #include <map>
 #include <string>
+#include <android/log.h>
 
+// Include our C++-based certificate parser
+#include "tee_cert_parser.h"
 
+// Define LOGT macro if not already defined
+#include "zLog.h"
 
-jbyteArray Asn1Utils_getByteArrayFromAsn1(JNIEnv *env, jobject asn1Encodable) {
-    jclass cls_DEROctetString = env->FindClass("org/bouncycastle/asn1/DEROctetString");
+// Verified boot states
+#define VERIFIED_BOOT_STATE_VERIFIED 0
+#define VERIFIED_BOOT_STATE_SELF_SIGNED 1
+#define VERIFIED_BOOT_STATE_UNVERIFIED 2
+#define VERIFIED_BOOT_STATE_FAILED 3
 
-    if (!env->IsInstanceOf(asn1Encodable, cls_DEROctetString)) {
-        jclass exception = env->FindClass("java/security/cert/CertificateParsingException");
-        env->ThrowNew(exception, "Expected DEROctetString");
-        return nullptr;
+// Convert byte array to hex string
+std::string bytes_to_hex(const unsigned char* data, size_t len) {
+    std::string result;
+    char buf[3];
+    for (size_t i = 0; i < len; ++i) {
+        snprintf(buf, sizeof(buf), "%02x", data[i]);
+        result += buf;
     }
-
-    jmethodID mid_getOctets = env->GetMethodID(cls_DEROctetString, "getOctets", "()[B");
-    return (jbyteArray) env->CallObjectMethod(asn1Encodable, mid_getOctets);
+    return result;
 }
 
-jint Asn1Utils_getIntegerFromAsn1(JNIEnv *env, jobject asn1Value) {
-    jclass cls_ASN1Integer = env->FindClass("org/bouncycastle/asn1/ASN1Integer");
-    jclass cls_ASN1Enumerated = env->FindClass("org/bouncycastle/asn1/ASN1Enumerated");
-
-    if (env->IsInstanceOf(asn1Value, cls_ASN1Integer) || env->IsInstanceOf(asn1Value, cls_ASN1Enumerated)) {
-        jmethodID mid_getValue = env->GetMethodID(env->GetObjectClass(asn1Value), "getValue", "()Ljava/math/BigInteger;");
-        jobject bigInt = env->CallObjectMethod(asn1Value, mid_getValue);
-        jclass cls_BigInteger = env->FindClass("java/math/BigInteger");
-        jmethodID intValue = env->GetMethodID(cls_BigInteger, "intValue", "()I");
-        return env->CallIntMethod(bigInt, intValue);
-    }
-
-    jclass exception = env->FindClass("java/security/cert/CertificateParsingException");
-    env->ThrowNew(exception, "Integer value expected");
-    return -1;
-}
-
-jboolean Asn1Utils_getBooleanFromAsn1(JNIEnv *env, jobject value) {
-    jclass cls_ASN1Boolean = env->FindClass("org/bouncycastle/asn1/ASN1Boolean");
-    if (!env->IsInstanceOf(value, cls_ASN1Boolean)) {
-        jclass exception = env->FindClass("java/security/cert/CertificateParsingException");
-        env->ThrowNew(exception, "Expected ASN1Boolean");
-        return JNI_FALSE;
-    }
-
-    jfieldID fid_TRUE = env->GetStaticFieldID(cls_ASN1Boolean, "TRUE", "Lorg/bouncycastle/asn1/ASN1Boolean;");
-    jfieldID fid_FALSE = env->GetStaticFieldID(cls_ASN1Boolean, "FALSE", "Lorg/bouncycastle/asn1/ASN1Boolean;");
-
-    jobject trueObj = env->GetStaticObjectField(cls_ASN1Boolean, fid_TRUE);
-    jobject falseObj = env->GetStaticObjectField(cls_ASN1Boolean, fid_FALSE);
-
-    if (env->IsSameObject(value, trueObj)) {
-        return JNI_TRUE;
-    } else if (env->IsSameObject(value, falseObj)) {
-        return JNI_FALSE;
-    } else {
-        jclass exception = env->FindClass("java/security/cert/CertificateParsingException");
-        env->ThrowNew(exception, "Invalid ASN1Boolean value");
-        return JNI_FALSE;
-    }
-}
-
-// 修改：增加 context 参数
-static std::vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context) {
+// Get attestation certificate from Android KeyStore using JNI
+std::vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context) {
     std::vector<uint8_t> result;
     LOGE("[JNI] Start get_attestation_cert_from_java");
 
@@ -181,6 +148,12 @@ static std::vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject 
         result.resize(len);
         env->GetByteArrayRegion(certBytes, 0, len, reinterpret_cast<jbyte*>(result.data()));
         LOGE("[JNI] Got DER cert, size: %d", (int)len);
+        
+        // Log the first few bytes to verify data integrity
+        if (len > 0) {
+            std::string hex_data = bytes_to_hex(result.data(), std::min((size_t)len, (size_t)32));
+            LOGE("[JNI] First 32 bytes of cert: %s", hex_data.c_str());
+        }
     } else {
         LOGE("[JNI] DER cert is empty");
     }
@@ -188,184 +161,10 @@ static std::vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject 
     return result;
 }
 
-// 获取 attestationRecord ASN1Sequence
-jobject get_attestation_record_asn1_sequence(JNIEnv* env, const std::vector<uint8_t>& cert) {
-    // 1. 用 CertificateFactory 解析 DER 证书为 X509Certificate
-    jclass clsCertFactory = env->FindClass("java/security/cert/CertificateFactory");
-    jmethodID midGetInstance = env->GetStaticMethodID(clsCertFactory, "getInstance", "(Ljava/lang/String;)Ljava/security/cert/CertificateFactory;");
-    jstring jX509 = env->NewStringUTF("X.509");
-    jobject certFactory = env->CallStaticObjectMethod(clsCertFactory, midGetInstance, jX509);
-    jclass clsByteArrayIS = env->FindClass("java/io/ByteArrayInputStream");
-    jmethodID midBAISCtor = env->GetMethodID(clsByteArrayIS, "<init>", "([B)V");
-    jbyteArray jCertBytes = env->NewByteArray(cert.size());
-    env->SetByteArrayRegion(jCertBytes, 0, cert.size(), (const jbyte*)cert.data());
-    jobject inputStream = env->NewObject(clsByteArrayIS, midBAISCtor, jCertBytes);
-    jmethodID midGenCert = env->GetMethodID(clsCertFactory, "generateCertificate", "(Ljava/io/InputStream;)Ljava/security/cert/Certificate;");
-    jobject x509Cert = env->CallObjectMethod(certFactory, midGenCert, inputStream);
-    jclass clsX509 = env->FindClass("java/security/cert/X509Certificate");
-    if (!env->IsInstanceOf(x509Cert, clsX509)) {
-        LOGE("[JNI] x509Cert is not instance of X509Certificate!");
-        return nullptr;
-    }
-    // 2. getExtensionValue("1.3.6.1.4.1.11129.2.1.17")
-    jmethodID midGetExt = env->GetMethodID(clsX509, "getExtensionValue", "(Ljava/lang/String;)[B");
-    jstring jOid = env->NewStringUTF("1.3.6.1.4.1.11129.2.1.17");
-    jbyteArray extBytes = (jbyteArray)env->CallObjectMethod(x509Cert, midGetExt, jOid);
-    if (!extBytes || env->GetArrayLength(extBytes) == 0) {
-        LOGE("[JNI] 未找到attestation extension");
-        return nullptr;
-    }
-    // 3. ASN1InputStream asn1InputStream = new ASN1InputStream(new ByteArrayInputStream(extBytes));
-    jclass clsASN1InputStream = env->FindClass("org/bouncycastle/asn1/ASN1InputStream");
-    jobject extInputStream = env->NewObject(clsByteArrayIS, midBAISCtor, extBytes);
-    jmethodID midASN1ISCtor = env->GetMethodID(clsASN1InputStream, "<init>", "(Ljava/io/InputStream;)V");
-    jobject asn1InputStream = env->NewObject(clsASN1InputStream, midASN1ISCtor, extInputStream);
-    jmethodID midReadObject = env->GetMethodID(clsASN1InputStream, "readObject", "()Lorg/bouncycastle/asn1/ASN1Primitive;");
-    jobject asn1Obj = env->CallObjectMethod(asn1InputStream, midReadObject); // ASN1OctetString
-
-    jbyteArray octets = Asn1Utils_getByteArrayFromAsn1(env, asn1Obj);
-    if (!octets || env->GetArrayLength(octets) == 0) {
-        LOGE("[JNI] octets is empty!");
-        return nullptr;
-    }
-    // 4. ASN1InputStream asn1InputStream2 = new ASN1InputStream(new ByteArrayInputStream(octets));
-    jobject octetInputStream = env->NewObject(clsByteArrayIS, midBAISCtor, octets);
-    jobject asn1InputStream2 = env->NewObject(clsASN1InputStream, midASN1ISCtor, octetInputStream);
-    jobject asn1SeqObj = env->CallObjectMethod(asn1InputStream2, midReadObject); // ASN1Sequence
-    jclass clsASN1Sequence = env->FindClass("org/bouncycastle/asn1/ASN1Sequence");
-    if (!env->IsInstanceOf(asn1SeqObj, clsASN1Sequence)) {
-        LOGE("[JNI] asn1SeqObj is not ASN1Sequence!");
-        return nullptr;
-    }
-    return asn1SeqObj;
-}
-
-// 获取 asn1Sequence.getObjectAt(id)
-jobject get_asn1_sequence_object_at(JNIEnv* env, jobject asn1Sequence, int id) {
-    if (!asn1Sequence) {
-        LOGE("[JNI] get_asn1_sequence_object_at: asn1Sequence is null!");
-        return nullptr;
-    }
-    jclass clsASN1Sequence = env->FindClass("org/bouncycastle/asn1/ASN1Sequence");
-    jmethodID midGetObjectAt = env->GetMethodID(clsASN1Sequence, "getObjectAt", "(I)Lorg/bouncycastle/asn1/ASN1Encodable;");
-    jobject obj = env->CallObjectMethod(asn1Sequence, midGetObjectAt, id);
-    LOGE("[JNI] get_asn1_sequence_object_at: id=%d, obj=%p", id, obj);
-    return obj;
-}
-
-// 获取安全级别（securityLevel）
-int get_security_level_from_asn1_sequence(JNIEnv* env, jobject attestation_1) {
-    if (!attestation_1) {
-        LOGE("[JNI] get_security_level_from_asn1_sequence: input is null!");
-        return -1;
-    }
-    jclass clsASN1Integer = env->FindClass("org/bouncycastle/asn1/ASN1Integer");
-    jclass clsASN1Enumerated = env->FindClass("org/bouncycastle/asn1/ASN1Enumerated");
-    if (env->IsInstanceOf(attestation_1, clsASN1Integer) || env->IsInstanceOf(attestation_1, clsASN1Enumerated)) {
-        int securityLevel = Asn1Utils_getIntegerFromAsn1(env, attestation_1);
-        LOGE("[JNI] get_security_level_from_asn1_sequence: %d", securityLevel);
-        return securityLevel;
-    } else {
-        LOGE("[JNI] get_security_level_from_asn1_sequence: not ASN1Integer or ASN1Enumerated!");
-        return -1;
-    }
-}
-
-// 从 AuthorizationList (ASN1Sequence) 解析 RootOfTrust 的 ASN1Primitive value
-jobject get_root_of_trust_primitive_from_authorization_list(JNIEnv* env, jobject attestation_n) {
-    if (!attestation_n) {
-        LOGE("[JNI] get_root_of_trust_primitive_from_authorization_list: input is null!");
-        return nullptr;
-    }
-    LOGE("[JNI] get_root_of_trust_primitive_from_authorization_list: start, attestation_6=%p", attestation_n);
-    jclass clsASN1Sequence = env->FindClass("org/bouncycastle/asn1/ASN1Sequence");
-    jmethodID midSize = env->GetMethodID(clsASN1Sequence, "size", "()I");
-    jmethodID midGetObjectAt = env->GetMethodID(clsASN1Sequence, "getObjectAt", "(I)Lorg/bouncycastle/asn1/ASN1Encodable;");
-    jint size = env->CallIntMethod(attestation_n, midSize);
-    LOGE("[JNI] get_root_of_trust_primitive_from_authorization_list: sequence size=%d", size);
-    jclass clsASN1TaggedObject = env->FindClass("org/bouncycastle/asn1/ASN1TaggedObject");
-    jmethodID midGetTagNo = env->GetMethodID(clsASN1TaggedObject, "getTagNo", "()I");
-    const int KEYMASTER_TAG_TYPE_MASK = 0x0FFFFFFF;
-    const int KM_BYTES = 9 << 28;
-    const int KM_TAG_ROOT_OF_TRUST = KM_BYTES | 704;
-    for (int i = 0; i < size; ++i) {
-        jobject element = env->CallObjectMethod(attestation_n, midGetObjectAt, i);
-        LOGE("[JNI] get_root_of_trust_primitive_from_authorization_list: i=%d, element=%p", i, element);
-        if (!env->IsInstanceOf(element, clsASN1TaggedObject)) {
-            LOGE("[JNI] get_root_of_trust_primitive_from_authorization_list: element %d is not ASN1TaggedObject!", i);
-            return nullptr;
-        }
-        jint tag = env->CallIntMethod(element, midGetTagNo);
-        LOGE("[JNI] get_root_of_trust_primitive_from_authorization_list: i=%d, tag=%d", i, tag);
-        if ((tag & KEYMASTER_TAG_TYPE_MASK) == (KM_TAG_ROOT_OF_TRUST & KEYMASTER_TAG_TYPE_MASK)) {
-            jclass elementClass = env->GetObjectClass(element);
-            jmethodID midGetBaseObject = env->GetMethodID(elementClass, "getBaseObject", "()Lorg/bouncycastle/asn1/ASN1Object;");
-            if (!midGetBaseObject) {
-                LOGE("[JNI] get_root_of_trust_primitive_from_authorization_list: neither getBaseObject nor getObject found!");
-                return nullptr;
-            }
-            jobject baseObj = env->CallObjectMethod(element, midGetBaseObject);
-            LOGE("[JNI] get_root_of_trust_primitive_from_authorization_list: i=%d, baseObj=%p", i, baseObj);
-            jclass baseObjClass = env->GetObjectClass(baseObj);
-            jmethodID midToASN1Primitive = env->GetMethodID(baseObjClass, "toASN1Primitive", "()Lorg/bouncycastle/asn1/ASN1Primitive;");
-            jobject value = env->CallObjectMethod(baseObj, midToASN1Primitive);
-            LOGE("[JNI] get_root_of_trust_primitive_from_authorization_list: found RootOfTrust ASN1Primitive at %d, value=%p", i, value);
-            return value;
-        }
-    }
-    LOGE("[JNI] get_root_of_trust_primitive_from_authorization_list: not found!");
-    return nullptr;
-}
-
-struct RootOfTrustFields {
-    std::string verifiedBootKeyHex;
-    bool deviceLocked;
-    int verifiedBootState;
-    bool valid;
-};
-
-RootOfTrustFields parse_root_of_trust_from_asn1_sequence(JNIEnv* env, jobject rootOfTrustSeq) {
-    RootOfTrustFields result;
-    result.valid = false;
-    if (!rootOfTrustSeq) {
-        LOGE("[JNI] parse_root_of_trust_from_asn1_sequence: input is null!");
-        return result;
-    }
-    jclass clsASN1Sequence = env->FindClass("org/bouncycastle/asn1/ASN1Sequence");
-    jmethodID midGetObjectAt = env->GetMethodID(clsASN1Sequence, "getObjectAt", "(I)Lorg/bouncycastle/asn1/ASN1Encodable;");
-
-    // 1. verifiedBootKey
-    jobject verifiedBootKeyObj = env->CallObjectMethod(rootOfTrustSeq, midGetObjectAt, 0);
-    jbyteArray vbkArr = Asn1Utils_getByteArrayFromAsn1(env, verifiedBootKeyObj);
-    std::vector<uint8_t> vbk;
-    if (vbkArr && env->GetArrayLength(vbkArr) > 0) {
-        jsize len = env->GetArrayLength(vbkArr);
-        vbk.resize(len);
-        env->GetByteArrayRegion(vbkArr, 0, len, reinterpret_cast<jbyte*>(vbk.data()));
-    }
-    char buf[3];
-    for (size_t i = 0; i < vbk.size(); ++i) {
-        snprintf(buf, sizeof(buf), "%02x", vbk[i]);
-        result.verifiedBootKeyHex += buf;
-    }
-
-    // 2. deviceLocked
-    jobject deviceLockedObj = env->CallObjectMethod(rootOfTrustSeq, midGetObjectAt, 1);
-    result.deviceLocked = Asn1Utils_getBooleanFromAsn1(env, deviceLockedObj);
-
-    // 3. verifiedBootState
-    jobject verifiedBootStateObj = env->CallObjectMethod(rootOfTrustSeq, midGetObjectAt, 2);
-    result.verifiedBootState = Asn1Utils_getIntegerFromAsn1(env, verifiedBootStateObj);
-
-    result.valid = true;
-    LOGE("[JNI] parse_root_of_trust_from_asn1_sequence: verifiedBootKey=%s, deviceLocked=%d, verifiedBootState=%d",
-         result.verifiedBootKeyHex.c_str(), result.deviceLocked, result.verifiedBootState);
-    return result;
-}
-
-// 通过 JNI 步步反射解析 attestation extension，提取 RootOfTrust 字段
-std::map<std::string, std::map<std::string, std::string>> get_tee_info(JNIEnv* env, jobject context) {
+// Main function to get TEE info using our C parser
+std::map<std::string, std::map<std::string, std::string>> get_tee_info_openssl(JNIEnv* env, jobject context) {
     std::map<std::string, std::map<std::string, std::string>> info;
+    
     if (!env) {
         LOGE("JNIEnv is null, 请确保JNIEnv可用");
         return info;
@@ -375,50 +174,73 @@ std::map<std::string, std::map<std::string, std::string>> get_tee_info(JNIEnv* e
         LOGE("context is null, 请确保Context可用");
         return info;
     }
-
-    std::vector<uint8_t> cert = get_attestation_cert_from_java(env, context);
-    if (cert.empty()) {
+    
+    // Get attestation certificate from Java
+    std::vector<uint8_t> cert_data = get_attestation_cert_from_java(env, context);
+    if (cert_data.empty()) {
         LOGE("获取证书失败");
+        info["tee_statue"]["risk"] = "error";
+        info["tee_statue"]["explain"] = "tee_statue is damage";
         return info;
     }
-
-    std::vector<uint8_t> certs = get_attestation_cert_from_java(env, context);
-
-    jobject attestation = get_attestation_record_asn1_sequence(env, certs);
-
-    jobject attestation_1 = get_asn1_sequence_object_at(env, attestation, 1);
-    jobject attestation_6 = get_asn1_sequence_object_at(env, attestation, 6);
-    jobject attestation_7 = get_asn1_sequence_object_at(env, attestation, 7);
-
-    // 解析 attestation_1: attestation_1.getObjectAt(1) -> securityLevel
-    int securityLevel = get_security_level_from_asn1_sequence(env, attestation_1);
-    LOGE("securityLevel: %d", securityLevel);
-
-    jobject attestation_6_value = get_root_of_trust_primitive_from_authorization_list(env, attestation_6);
-
-    jobject attestation_7_value = get_root_of_trust_primitive_from_authorization_list(env, attestation_7);
-
-    jobject sequence = attestation_6_value ? attestation_6_value : attestation_7_value;
-
-    RootOfTrustFields rootOfTrust = parse_root_of_trust_from_asn1_sequence(env, sequence);
-
-    LOGE("RootOfTrust6: %s, deviceLocked: %d, verifiedBootState: %d", rootOfTrust.verifiedBootKeyHex.c_str(), rootOfTrust.deviceLocked, rootOfTrust.verifiedBootState);
-
-    if (!rootOfTrust.deviceLocked && rootOfTrust.verifiedBootState != 0){
-        info["deviceLocked"]["risk"] = "error";
-        info["deviceLocked"]["explain"] = "设备已解锁 启动验证未通过";
-    }else if (!rootOfTrust.deviceLocked){
-        info["deviceLocked"]["risk"] = "error";
-        info["deviceLocked"]["explain"] = "设备已解锁";
-    }else if (rootOfTrust.verifiedBootState != 0){
-        info["deviceLocked"]["risk"] = "error";
-        info["deviceLocked"]["explain"] = "启动验证未通过";
+    
+    // Test our C parser with the certificate data
+    LOGE("[Native-TEE] Testing certificate parsing with %zu bytes", cert_data.size());
+    
+    // Log first 64 bytes of certificate for debugging
+    if (cert_data.size() > 0) {
+        std::string hex_data = bytes_to_hex(cert_data.data(), std::min(cert_data.size(), (size_t)64));
+        LOGE("[Native-TEE] Certificate data (first 64 bytes): %s", hex_data.c_str());
     }
-
+    
+    // Parse certificate using our C parser
+    tee_info_t tee_info;
+    int result = parse_tee_certificate(cert_data.data(), cert_data.size(), &tee_info);
+    
+    if (result != 0) {
+        LOGE("[Native-TEE] Failed to parse certificate, result: %d", result);
+        return info;
+    }
+    
+    LOGE("[Native-TEE] Successfully parsed certificate");
+    LOGE("[Native-TEE] Security level: %d", tee_info.security_level);
+    LOGE("[Native-TEE] Has attestation extension: %d", tee_info.has_attestation_extension);
+    
+    // Log detailed parsing results
+    if (tee_info.has_attestation_extension) {
+        LOGE("[Native-TEE] Found TEE attestation extension");
+    } else {
+        LOGE("[Native-TEE] No TEE attestation extension found");
+    }
+    
+    if (tee_info.root_of_trust.valid) {
+        LOGE("[Native-TEE] RootOfTrust: %s, security_level: %d, deviceLocked: %d, verifiedBootState: %d",
+             tee_info.root_of_trust.verified_boot_key_hex,
+             tee_info.security_level,
+             tee_info.root_of_trust.device_locked, 
+             tee_info.root_of_trust.verified_boot_state);
+        // Check security conditions
+        if (!tee_info.root_of_trust.device_locked) {
+            info["device_locked"]["risk"] = "error";
+            info["device_locked"]["explain"] = "device_locked is unsafe";
+        }
+        if (tee_info.root_of_trust.verified_boot_state != VERIFIED_BOOT_STATE_VERIFIED) {
+            info["verified_boot_state"]["risk"] = "error";
+            info["verified_boot_state"]["explain"] = "verified_boot_state is unsafe";
+        }
+    } else {
+        LOGE("[Native-TEE] RootOfTrust not valid");
+    }
+    
     return info;
 }
 
-// 主入口，增加 context 参数
+// Legacy function for backward compatibility
+std::map<std::string, std::map<std::string, std::string>> get_tee_info(JNIEnv* env, jobject context) {
+    return get_tee_info_openssl(env, context);
+}
+
+// Main entry point
 std::map<std::string, std::map<std::string, std::string>> get_tee_info() {
-    return get_tee_info(zJavaVm::getInstance()->getEnv(), zJavaVm::getInstance()->getContext());
+    return get_tee_info_openssl(zJavaVm::getInstance()->getEnv(), zJavaVm::getInstance()->getContext());
 }

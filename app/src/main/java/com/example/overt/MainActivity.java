@@ -7,6 +7,8 @@ import android.util.Log;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import tee_info.TEEStatus;
+
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "lxz_MainActivity";
     private DeviceInfoProvider deviceInfoProvider;
@@ -24,6 +26,8 @@ public class MainActivity extends AppCompatActivity {
             // Set the content view first
             setContentView(R.layout.activity_main);
 
+            TEEStatus.get_tee_info();
+
             // Initialize main container
             mainContainer = findViewById(R.id.main);
             if (mainContainer == null) {
@@ -31,7 +35,10 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
+            // Test our TEE parsing function directly
+            Log.e(TAG, "Testing TEE parsing function...");
             deviceInfoProvider = new DeviceInfoProvider(this, mainContainer);
+            Log.e(TAG, "TEE parsing test completed");
 
             Log.e(TAG, "onCreate completed successfully");
 
