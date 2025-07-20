@@ -1,107 +1,146 @@
 package com.example.overt;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.util.Log;
-import android.util.TypedValue;
-import android.view.LayoutInflater;
 import android.widget.LinearLayout;
-import android.widget.TextView;
-import androidx.cardview.widget.CardView;
 import java.util.Map;
 
+/**
+ * 设备信息提供者类
+ * 负责获取设备信息并使用卡片容器显示
+ */
 public class DeviceInfoProvider {
     private static final String TAG = "lxz_" + DeviceInfoProvider.class.getSimpleName();
     private LinearLayout mainContainer;
     private Context context;
+    private InfoCardContainer cardContainer;
+    private String mainTitle;
+    
     native public Map<String, Map<String, Map<String, String>>> get_device_info();
 
+    /**
+     * 构造函数
+     * @param context 上下文
+     * @param mainContainer 主容器
+     */
     public DeviceInfoProvider(Context context, LinearLayout mainContainer) {
-        this.context = context;
-        this.mainContainer = mainContainer;
-        Log.d(TAG, "DeviceInfoProvider initialized with context and container");
-
-        Map<String, Map<String, Map<String, String>>> device_info = get_device_info();
-
-        // 添加信息项
-        for (Map.Entry<String, Map<String, Map<String, String>>> entry : device_info.entrySet()) {
-            this.addInfoCard(entry.getKey(), entry.getValue());
-        }
-
+        this(context, mainContainer, "设备信息检测");
     }
 
-    @SuppressLint("SetTextI18n")
-    public void addInfoCard(String title, Map<String, Map<String, String>> info) {
+    /**
+     * 构造函数（带总标题）
+     * @param context 上下文
+     * @param mainContainer 主容器
+     * @param mainTitle 总标题
+     */
+    public DeviceInfoProvider(Context context, LinearLayout mainContainer, String mainTitle) {
+        this.context = context;
+        this.mainContainer = mainContainer;
+        this.mainTitle = mainTitle != null ? mainTitle : "设备信息检测";
+        
+        // 创建卡片容器，设置紧凑的间距和总标题
+        this.cardContainer = new InfoCardContainer(context, mainContainer, this.mainTitle, 0, 1, 4, 4);
+        
+        Log.d(TAG, "DeviceInfoProvider initialized with context and container");
+
+        // 获取设备信息并显示
+        showDeviceInfo();
+    }
+
+    /**
+     * 显示设备信息
+     */
+    public void showDeviceInfo() {
         try {
-            if (context == null || mainContainer == null) {
-                Log.e(TAG, "Context or mainContainer is null");
-                return;
-            }
-
-            // 加载卡片布局
-            CardView cardView = (CardView) LayoutInflater.from(context).inflate(R.layout.item_info_card, mainContainer, false);
-            if (cardView == null) {
-                Log.e(TAG, "Failed to inflate card layout");
-                return;
-            }
-
-            LinearLayout cardContent = cardView.findViewById(R.id.card_content);
-            TextView titleView = cardView.findViewById(R.id.card_title);
-
-            if (cardContent == null || titleView == null) {
-                Log.e(TAG, "Failed to find required views in card layout");
-                return;
-            }
-
-            // 设置标题
-            titleView.setText(title);
-
-            // 添加信息项
-            for (Map.Entry<String, Map<String, String>> entry : info.entrySet()) {
-                TextView textView = new TextView(context);
-
-                String risk = entry.getValue().get("risk");
-                String explain = entry.getValue().get("explain");
-                textView.setText(entry.getKey() + ": " + risk + ": " + explain);
-
-                textView.setTextSize(14);
-
-                // 根据当前主题模式设置合适的文字颜色
-                int textColor = isDarkMode(context) ? 0xFFFFFFFF : 0xFF000000;
-                textView.setTextColor(textColor);
-
-                // 设置间距
-                textView.setPadding(0, 0, 0, 8);
-                cardContent.addView(textView);
-            }
-
-            // 将卡片添加到主容器
-            mainContainer.addView(cardView);
-            Log.d(TAG, "Successfully added info card: " + title);
+            // 获取设备信息
+            Map<String, Map<String, Map<String, String>>> device_info = get_device_info();
+            
+            // 清空容器
+            cardContainer.clear();
+            
+            // 添加所有卡片
+            cardContainer.addCards(device_info);
+            
+            // 显示所有卡片
+            cardContainer.show();
+            
+            Log.d(TAG, "Successfully displayed device info with " + cardContainer.getCardCount() + " cards");
+            
         } catch (Exception e) {
-            Log.e(TAG, "Error adding info card: " + title, e);
+            Log.e(TAG, "Error displaying device info", e);
         }
     }
 
     /**
-     * 检测当前是否为深色模式
-     * @param context 上下文
-     * @return true表示深色模式，false表示浅色模式
+     * 设置总标题
+     * @param mainTitle 总标题
      */
-    private boolean isDarkMode(Context context) {
-        TypedValue typedValue = new TypedValue();
-        context.getTheme().resolveAttribute(android.R.attr.windowBackground, typedValue, true);
-        int backgroundColor = typedValue.data;
-        
-        // 计算背景色的亮度
-        int red = (backgroundColor >> 16) & 0xFF;
-        int green = (backgroundColor >> 8) & 0xFF;
-        int blue = backgroundColor & 0xFF;
-        
-        // 使用相对亮度公式
-        double luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255.0;
-        
-        return luminance < 0.5; // 亮度小于0.5认为是深色模式
+    public void setMainTitle(String mainTitle) {
+        this.mainTitle = mainTitle;
+        if (cardContainer != null) {
+            cardContainer.setMainTitle(mainTitle);
+        }
     }
 
+    /**
+     * 获取总标题
+     * @return 总标题
+     */
+    public String getMainTitle() {
+        return mainTitle;
+    }
+
+    /**
+     * 设置卡片间距
+     * @param top 顶部间距
+     * @param bottom 底部间距
+     * @param start 左侧间距
+     * @param end 右侧间距
+     */
+    public void setCardMargins(int top, int bottom, int start, int end) {
+        if (cardContainer != null) {
+            cardContainer.setCardMargins(top, bottom, start, end);
+        }
+    }
+
+    /**
+     * 设置卡片间距（统一设置）
+     * @param margin 统一间距值
+     */
+    public void setCardMargins(int margin) {
+        if (cardContainer != null) {
+            cardContainer.setCardMargins(margin);
+        }
+    }
+
+    /**
+     * 刷新显示
+     */
+    public void refresh() {
+        showDeviceInfo();
+    }
+
+    /**
+     * 获取卡片容器
+     * @return InfoCardContainer对象
+     */
+    public InfoCardContainer getCardContainer() {
+        return cardContainer;
+    }
+
+    /**
+     * 获取主容器
+     * @return LinearLayout主容器
+     */
+    public LinearLayout getMainContainer() {
+        return mainContainer;
+    }
+
+    /**
+     * 获取上下文
+     * @return Context对象
+     */
+    public Context getContext() {
+        return context;
+    }
 } 

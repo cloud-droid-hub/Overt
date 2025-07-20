@@ -17,11 +17,11 @@ std::map<std::string, std::map<std::string, std::string>> get_class_loader_info(
         }
         LOGE("classloader：%s", str.c_str());
         if(strstr(str.c_str(), "LspModuleClassLoader")) {
-            info[str]["risk"] = "black";
-            info[str]["explain"] = "Risk: blacklisted classloader";
+            info[str]["risk"] = "error";
+            info[str]["explain"] = "black classloader";
         }else if(strstr(str.c_str(), "InMemoryDexClassLoader") && strstr(str.c_str(), "InMemoryDexFile[cookie=[0, -")) {
-            info[str]["risk"] = "black";
-            info[str]["explain"] = "Risk: blacklisted classloader";
+            info[str]["risk"] = "error";
+            info[str]["explain"] = "black classloader";
         }
     }
     return info;
@@ -31,21 +31,21 @@ std::map<std::string, std::map<std::string, std::string>> get_class_info(){
     std::map<std::string, std::map<std::string, std::string>> info;
 
     std::vector<std::string> black_name_list = {
-            "lsposed", "lspd"
-            "XposedHooker"
+            "lsposed", "lspd", "XposedHooker", "XposedHelpers", "io.github.libxposed.api", "XposedInit", "XposedBridge"
     };
 
     for(std::string className : zClassLoader::getInstance()->classNameList){
         if (className.empty()) {
             continue;
         }
-        std::transform(className.begin(), className.end(), className.begin(), [](unsigned char c) { return std::tolower(c); });
+        // std::transform(className.begin(), className.end(), className.begin(), [](unsigned char c) { return std::tolower(c); });
         for(std::string black_name: black_name_list){
-            std::transform(black_name.begin(), black_name.end(), black_name.begin(), [](unsigned char c) { return std::tolower(c); });
+            // std::transform(black_name.begin(), black_name.end(), black_name.begin(), [](unsigned char c) { return std::tolower(c); });
             if(strstr(className.c_str(), black_name.c_str())){
-                LOGE("className %s", className.c_str());
+                LOGE("get_class_info className %s is find", className.c_str());
                 info[className]["risk"] = "error";
-                info[className]["explain"] = "Risk: blacklisted class";
+                info[className]["explain"] = "Risk: black class";
+                continue;
             }
         }
     }

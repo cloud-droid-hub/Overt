@@ -7,4 +7,13 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    
+    <!-- 风险等级颜色 -->
+    <color name="risk_error">#FFFF0000</color>
+    <color name="risk_warn">#FFFF8C00</color>
+    <color name="risk_safe">#FF4CAF50</color>
+    
+    <!-- 风险等级背景色（半透明） -->
+    <color name="risk_error_bg">#1AFF0000</color>
+    <color name="risk_warn_bg">#1AFF8C00</color>
 </resources>

@@ -1,4 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="background">#121212</color>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    
+    <!-- 夜间模式下的风险等级颜色 -->
+    <color name="risk_error">#FFFF6B6B</color>
+    <color name="risk_warn">#FFFFB74D</color>
+    <color name="risk_safe">#FF81C784</color>
+    
+    <!-- 夜间模式下的风险等级背景色（半透明） -->
+    <color name="risk_error_bg">#2AFF6B6B</color>
+    <color name="risk_warn_bg">#2AFFB74D</color>
 </resources> 
