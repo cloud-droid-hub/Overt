@@ -5,56 +5,54 @@
 #ifndef TESTPOST_LOGQUEUE_H
 #define TESTPOST_LOGQUEUE_H
 
+#include <string>
+#include <android/log.h>
 
+// 全局日志开关 - 可以通过修改这个宏来控制日志输出
+#define ENABLE_LOGGING
 
-//#include "config.h"
+// 日志级别定义
+#define LOG_LEVEL_VERBOSE 0
+#define LOG_LEVEL_DEBUG   1
+#define LOG_LEVEL_INFO    2
+#define LOG_LEVEL_WARN    3
+#define LOG_LEVEL_ERROR   4
 
-#define DEBUG
+// 当前日志级别 - 可以通过修改这个值来控制日志输出级别
+#define CURRENT_LOG_LEVEL LOG_LEVEL_DEBUG
 
+// 日志标签
+#define LOG_TAG "Overt"
 
-#define LOGS(...)  zLogStore(__VA_ARGS__)// Define LOGE as an empty macro when DEBUG is not defined
-
-
-//extern "C" void zLogPrint(const char *format, ...);
-//
-//extern "C" void zLogStore(const char *format, ...);
-
-#ifdef DEBUG
-#define LOGT(...) zLogPrint(__VA_ARGS__)
+// 日志宏定义
+#ifdef ENABLE_LOGGING
+    #define LOGV(...) zLogPrint(LOG_LEVEL_VERBOSE, LOG_TAG, __VA_ARGS__)
+    #define LOGD(...)
+    #define LOGI(...) zLogPrint(LOG_LEVEL_INFO, LOG_TAG, __VA_ARGS__)
+    #define LOGW(...) zLogPrint(LOG_LEVEL_WARN, LOG_TAG, __VA_ARGS__)
+    #define LOGE(...) zLogPrint(LOG_LEVEL_ERROR, LOG_TAG, __VA_ARGS__)
+    
+    // 带标签的日志
+    #define LOGT(tag, ...) zLogPrint(LOG_LEVEL_DEBUG, tag, __VA_ARGS__)
 #else
-#define LOGT(...)
+    #define LOGV(...)
+    #define LOGD(...)
+    #define LOGI(...)
+    #define LOGW(...)
+    #define LOGE(...)
+    #define LOGT(...)
 #endif
 
+// 兼容旧的DEBUG宏
 #ifdef DEBUG
-#define LOGE(...)  // Define LOGE as an empty macro when DEBUG is not defined
-//#define LOGE(...)  zLogPrint(__VA_ARGS__);
-//#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "lxz", __VA_ARGS__)
+    #define LOGT_OLD(...) zLogPrint(LOG_LEVEL_DEBUG, LOG_TAG, __VA_ARGS__)
 #else
-#define LOGE(...)  // Define LOGE as an empty macro when DEBUG is not defined
+    #define LOGT_OLD(...)
 #endif
 
-//
-//class zLog {
-//public:
-//
-//    static string path;
-//
-//    static vector<string> vector;
-//
-//    static size_t maxSize;
-//
-//    void enqueue(const string& str);
-//
-//    string dequeue();
-//
-//    static void print(string str);
-//
-//    static void store(string str);
-//
-//    static void print(const char *format, ...);
-//
-//    static string getLogText();
-//
-//};
+// C接口函数声明
+extern "C" {
+    void zLogPrint(int level, const char* tag, const char* format, ...);
+}
 
 #endif //TESTPOST_LOGQUEUE_H

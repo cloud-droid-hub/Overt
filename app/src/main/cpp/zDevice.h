@@ -32,6 +32,7 @@ public:
     static map<string, map<string, map<string, string>>> device_info;
 
     map<string, map<string, map<string, string>>>& get_device_info(){
+        LOGE("zDevice::get_device_info: called, device_info size=%zu", device_info.size());
         return device_info;
     };
 

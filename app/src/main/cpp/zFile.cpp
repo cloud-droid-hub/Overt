@@ -14,6 +14,7 @@
 #include <fstream>
 #include <sstream>
 #include <cctype>
+#include "nonstd_libc.h"
 
 
 // 构造函数
@@ -47,7 +48,7 @@ void zFile::setAttribute(){
 
 void zFile::setFd(){
     if (m_fd >= 0) {
-        close(m_fd);
+        nonstd_close(m_fd);
         m_fd = -1;
     }
 
@@ -55,7 +56,7 @@ void zFile::setFd(){
 
     int flag = isDir() ? (O_RDONLY | O_DIRECTORY) : O_RDONLY;
 
-    m_fd = open(m_path.c_str(), flag);
+    m_fd = nonstd_open(m_path.c_str(), flag);
 
     if (m_fd < 0) {
         LOGE("Failed to setFd %s: %s (errno=%d, %s)", isDir() ? "directory" : "file", m_path.c_str(), errno, strerror(errno));
@@ -72,7 +73,7 @@ long zFile::getEarliestTime() const {
 // 析构函数
 zFile::~zFile() {
     if (m_fd >= 0) {
-        close(m_fd);
+        nonstd_close(m_fd);
     }
 }
 
@@ -284,7 +285,7 @@ vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
         ssize_t total_read = 0;
 
         while (true) {
-            ssize_t bytesRead = read(m_fd, buffer, sizeof(buffer));
+            ssize_t bytesRead = nonstd_read(m_fd, buffer, sizeof(buffer));
             if (bytesRead <= 0) break;
 
             data.insert(data.end(), buffer, buffer + bytesRead);
@@ -303,7 +304,7 @@ vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
         // size > 0，读取固定长度
         LOGE("读取指定大小: %zu 字节", size);
         data.resize(size);
-        ssize_t bytesRead = read(m_fd, data.data(), size);
+        ssize_t bytesRead = nonstd_read(m_fd, data.data(), size);
         if (bytesRead < 0) {
             perror("read");
             data.clear();
@@ -344,7 +345,7 @@ vector<string> zFile::listFiles() const {
     struct dirent* entry;
     while ((entry = readdir(dir)) != nullptr) {
         // 跳过 . 和 ..
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+        if (nonstd_strcmp(entry->d_name, ".") == 0 || nonstd_strcmp(entry->d_name, "..") == 0) {
             continue;
         }
 
@@ -384,7 +385,7 @@ vector<string> zFile::listDirectories() const {
     struct dirent* entry;
     while ((entry = readdir(dir)) != nullptr) {
         // 跳过 . 和 ..
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+        if (nonstd_strcmp(entry->d_name, ".") == 0 || nonstd_strcmp(entry->d_name, "..") == 0) {
             continue;
         }
         
@@ -416,7 +417,7 @@ vector<string> zFile::listAll() const {
     struct dirent* entry;
     while ((entry = readdir(dir)) != nullptr) {
         // 跳过 . 和 ..
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+        if (nonstd_strcmp(entry->d_name, ".") == 0 || nonstd_strcmp(entry->d_name, "..") == 0) {
             continue;
         }
         
@@ -451,7 +452,7 @@ string zFile::getLine(int fd) const {
     const int max_read = 8192; // 最大读取8KB，防止无限循环
 
     while (read_count < max_read) {
-        ssize_t bytes_read = read(fd, &buffer, sizeof(buffer));
+        ssize_t bytes_read = nonstd_read(fd, &buffer, sizeof(buffer));
         if (bytes_read <= 0) break;
 
         line += buffer;

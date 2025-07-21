@@ -3,6 +3,7 @@
 #define zString_H
 
 #include <stdexcept>  // For std::out_of_range
+#include "zLog.h"
 
 namespace nonstd {
 

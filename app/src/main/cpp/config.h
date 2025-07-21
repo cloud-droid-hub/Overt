@@ -15,92 +15,8 @@
 
 #define USE_NONSTD_API
 
-namespace nonstd {
-    #include <android/log.h>
-    #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "lxz", __VA_ARGS__)
-    void inline *memset(void *dst, int val, size_t count) {
-        LOGE("nonstd memset is called");
-        char *ptr = (char *) dst;
-        while (count--)
-            *ptr++ = val;
-
-        return dst;
-    }
-
-    void inline *memcpy(void *dst, const void *src, size_t len) {
-        LOGE("nonstd memcpy is called");
-        const char *s = (const char *) src;
-        char *d = (char *) dst;
-        while (len--)
-            *d++ = *s++;
-
-        return dst;
-    }
-
-}
-
-
 #ifdef USE_NONSTD_API
-    // ==================== 字符串函数宏替换 ====================
-    #define strcmp nonstd_strcmp
-    #define strlen nonstd_strlen
-    #define strcpy nonstd_strcpy
-    #define strcat nonstd_strcat
-    #define strncmp nonstd_strncmp
-    #define strrchr nonstd_strrchr
-    #define strncpy nonstd_strncpy
-    #define strlcpy nonstd_strlcpy
-    #define strstr nonstd_strstr
-    #define strchr nonstd_strchr
 
-//    #define memset nonstd_memset
-//    #define memcpy nonstd_memcpy
-
-    // ==================== 内存管理函数宏替换 ====================
-    #define malloc nonstd_malloc
-    #define free nonstd_free
-    #define calloc nonstd_calloc
-    #define realloc nonstd_realloc
-    
-    // ==================== 文件操作函数宏替换 ====================
-    #define open nonstd_open
-    #define close nonstd_close
-    #define read nonstd_read
-    #define write nonstd_write
-    #define fstat nonstd_fstat
-    #define lseek nonstd_lseek
-    #define readlinkat nonstd_readlinkat
-    
-    // ==================== 网络函数宏替换 ====================
-    #define socket nonstd_socket
-    #define connect nonstd_connect
-    #define bind nonstd_bind
-    #define listen nonstd_listen
-    #define accept nonstd_accept
-    
-    // ==================== 时间函数宏替换 ====================
-    #define time nonstd_time
-    #define gettimeofday nonstd_gettimeofday
-    #define nanosleep nonstd_nanosleep
-    
-    // ==================== 进程函数宏替换 ====================
-    #define getpid nonstd_getpid
-    #define getppid nonstd_getppid
-    
-    // ==================== 信号函数宏替换 ====================
-    #define kill nonstd_kill
-    #define tgkill nonstd_tgkill
-    
-    // ==================== 扩展系统函数宏替换 ====================
-    #define mprotect nonstd_mprotect
-    #define inotify_init1 nonstd_inotify_init1
-    #define inotify_add_watch nonstd_inotify_add_watch
-    #define inotify_rm_watch nonstd_inotify_rm_watch
-    
-    // ==================== 其他函数宏替换 ====================
-    #define atoi nonstd_atoi
-    #define atol nonstd_atol
-    
     // ==================== 类型宏替换 ====================
     #include "string.h"
     #include "vector.h"
@@ -178,17 +94,6 @@ namespace nonstd {
         int nonstd_atoi(const char *nptr);
         long nonstd_atol(const char *nptr);
     }
-
-    // 包含系统头文件以确保系统函数可用
-    #include <sys/socket.h>
-    #include <netinet/in.h>
-    #include <arpa/inet.h>
-    #include <fcntl.h>
-    #include <sys/stat.h>
-    #include <sys/mman.h>
-    #include <dlfcn.h>
-    #include <netdb.h>
-    #include <cstring>  // 确保 memcpy, memset 等函数可用
 
     using namespace nonstd;
 

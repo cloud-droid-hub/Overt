@@ -2,8 +2,8 @@
 #ifndef zMap_H
 #define zMap_H
 
-#include <cstddef>  // 只包含类型定义，不包含函数
 #include "zLog.h"
+#include <cstddef>  // 只包含类型定义，不包含函数
 
 // 使用系统的initializer_list，通过typedef避免宏替换
 #include <initializer_list>
@@ -118,13 +118,23 @@ namespace nonstd {
 
         // Insert a new node with given key and value
         Node* insertNode(const K& key, const V& value) {
-            LOGE("nonstd::map: insertNode called for key");
+            // 使用条件编译来处理不同类型的key
+            #ifdef __cpp_rtti
+            if constexpr (std::is_same_v<K, string> || std::is_same_v<K, const char*>) {
+                LOGD("nonstd::map: insertNode called for key='%s'", key.c_str());
+            } else {
+                LOGD("nonstd::map: insertNode called for key (non-string type)");
+            }
+            #else
+            LOGD("nonstd::map: insertNode called for key");
+            #endif
 
             Node* newNode = new Node(key, value);
 
             if (!root) {
                 root = newNode;
                 newNode->isRed = false;  // Root is always black
+                LOGD("nonstd::map: insertNode - inserted as root");
             } else {
                 Node* current = root;
                 Node* parent = nullptr;
@@ -138,6 +148,7 @@ namespace nonstd {
                         current = current->right;
                     } else {
                         // Key already exists, update value and return
+                        LOGD("nonstd::map: insertNode - key already exists, updating value");
                         current->value = value;
                         delete newNode;
                         return current;
@@ -147,8 +158,10 @@ namespace nonstd {
                 // Insert the new node
                 if (key < parent->key) {
                     parent->left = newNode;
+                    LOGD("nonstd::map: insertNode - inserted as left child");
                 } else {
                     parent->right = newNode;
+                    LOGD("nonstd::map: insertNode - inserted as right child");
                 }
                 newNode->parent = parent;
 
@@ -157,7 +170,7 @@ namespace nonstd {
             }
 
             size_++;
-            LOGE("nonstd::map: insertNode completed, new size=%zu", size_);
+            LOGD("nonstd::map: insertNode completed, new size=%zu", size_);
             return newNode;
         }
 
@@ -213,54 +226,65 @@ namespace nonstd {
 
         // Default constructor
         map() : root(nullptr), size_(0) {
-            LOGE("nonstd::map: default constructor");
+            LOGD("nonstd::map: default constructor");
         }
 
         // Constructor with initializer list (for brace initialization)
         map(initializer_list<pair<K, V>> init) : root(nullptr), size_(0) {
-            LOGE("nonstd::map: initializer_list constructor with %zu elements", init.size());
+            LOGD("nonstd::map: initializer_list constructor with %zu elements", init.size());
 
             for (const auto& item : init) {
                 insert(item);
             }
 
-            LOGE("nonstd::map: initializer_list constructor completed, size=%zu", size_);
+            LOGD("nonstd::map: initializer_list constructor completed, size=%zu", size_);
         }
 
         // Copy constructor
         map(const map& other) : root(nullptr), size_(0) {
-            LOGE("nonstd::map: copy constructor");
-            // Simplified implementation
+            LOGD("nonstd::map: copy constructor from map with size=%zu", other.size_);
+            
+            // Copy all elements from other map
+            for (const auto& item : other) {
+                insert(item);
+            }
+            
+            LOGD("nonstd::map: copy constructor completed, new size=%zu", size_);
         }
 
         // Move constructor
         map(map&& other) noexcept : root(other.root), size_(other.size_) {
-            LOGE("nonstd::map: move constructor");
+            LOGD("nonstd::map: move constructor");
             other.root = nullptr;
             other.size_ = 0;
         }
 
         // Destructor
         ~map() {
-            LOGE("nonstd::map: destructor, size=%zu", size_);
+            LOGD("nonstd::map: destructor, size=%zu", size_);
             clear(root);
         }
 
         // Copy assignment operator
         map& operator=(const map& other) {
-            LOGE("nonstd::map: copy assignment");
+            LOGD("nonstd::map: copy assignment from map with size=%zu", other.size_);
             if (this != &other) {
                 clear(root);
                 root = nullptr;
                 size_ = 0;
-                // Simplified implementation
+                
+                // Copy all elements from other map
+                for (const auto& item : other) {
+                    insert(item);
+                }
             }
+            LOGD("nonstd::map: copy assignment completed, new size=%zu", size_);
             return *this;
         }
 
         // Initializer list assignment operator
         map& operator=(initializer_list<pair<K, V>> init) {
-            LOGE("nonstd::map: initializer_list assignment with %zu elements", init.size());
+            LOGD("nonstd::map: initializer_list assignment with %zu elements", init.size());
 
             clear();
 
@@ -268,13 +292,13 @@ namespace nonstd {
                 insert(item);
             }
 
-            LOGE("nonstd::map: initializer_list assignment completed, size=%zu", size_);
+            LOGD("nonstd::map: initializer_list assignment completed, size=%zu", size_);
             return *this;
         }
 
         // Move assignment operator
         map& operator=(map&& other) noexcept {
-            LOGE("nonstd::map: move assignment");
+            LOGD("nonstd::map: move assignment");
             if (this != &other) {
                 clear(root);
                 root = other.root;
@@ -287,18 +311,18 @@ namespace nonstd {
 
         // Element access
         V& operator[](const K& key) {
-            LOGE("nonstd::map: operator[], key=...");
+            LOGD("nonstd::map: operator[], key=...");
             Node* node = findNode(key);
             if (!node) {
                 // Create new node if key doesn't exist
                 node = insertNode(key, V());
-                LOGE("nonstd::map: operator[] created new node for key");
+                LOGD("nonstd::map: operator[] created new node for key, new size=%zu", size_);
             }
             return node->value;
         }
 
         V& at(const K& key) {
-            LOGE("nonstd::map: at(), key=...");
+            LOGD("nonstd::map: at(), key=...");
             Node* node = findNode(key);
             if (!node) {
                 static V default_value;
@@ -308,7 +332,7 @@ namespace nonstd {
         }
 
         const V& at(const K& key) const {
-            LOGE("nonstd::map: at() const, key=...");
+            LOGD("nonstd::map: at() const, key=...");
             Node* node = findNode(key);
             if (!node) {
                 static V default_value;
@@ -328,15 +352,27 @@ namespace nonstd {
 
         // Modifiers
         pair<iterator, bool> insert(const pair<K, V>& value) {
-            LOGE("nonstd::map: insert, key=..., value=...");
-            // Simplified implementation
-            return make_pair(iterator(nullptr, this), false);
+            LOGD("nonstd::map: insert, key=..., value=...");
+            
+            // Check if key already exists
+            Node* existing_node = findNode(value.first);
+            if (existing_node) {
+                LOGD("nonstd::map: insert - key already exists, updating value");
+                existing_node->value = value.second;
+                return make_pair(iterator(existing_node, this), false);
+            }
+
+            // Insert new node
+            Node* new_node = insertNode(value.first, value.second);
+            LOGD("nonstd::map: insert - new element inserted");
+            
+            return make_pair(iterator(new_node, this), true);
         }
 
         // Emplace method - construct element in place
         template<typename... Args>
         pair<iterator, bool> emplace(Args&&... args) {
-            LOGE("nonstd::map: emplace called");
+            LOGD("nonstd::map: emplace called");
 
             // Create a pair from the arguments
             pair<K, V> new_pair(std::forward<Args>(args)...);
@@ -344,25 +380,25 @@ namespace nonstd {
             // Check if key already exists
             Node* existing_node = findNode(new_pair.first);
             if (existing_node) {
-                LOGE("nonstd::map: emplace - key already exists, updating value");
+                LOGD("nonstd::map: emplace - key already exists, updating value");
                 existing_node->value = new_pair.second;
                 return make_pair(iterator(existing_node, this), false);
             }
 
             // Insert new node
             Node* new_node = insertNode(new_pair.first, new_pair.second);
-            LOGE("nonstd::map: emplace - new element inserted");
+            LOGD("nonstd::map: emplace - new element inserted");
 
             return make_pair(iterator(new_node, this), true);
         }
 
         void erase(const K& key) {
-            LOGE("nonstd::map: erase, key=...");
+            LOGD("nonstd::map: erase, key=...");
             // Simplified implementation
         }
 
         void clear() {
-            LOGE("nonstd::map: clear, old size=%zu", size_);
+            LOGD("nonstd::map: clear, old size=%zu", size_);
             clear(root);
             root = nullptr;
             size_ = 0;
@@ -370,7 +406,7 @@ namespace nonstd {
 
         // Lookup
         iterator find(const K& key) {
-            LOGE("nonstd::map: find, key=..., size=%zu", size_);
+            LOGD("nonstd::map: find, key=..., size=%zu", size_);
             Node* node = findNode(key);
             return iterator(node, this);
         }

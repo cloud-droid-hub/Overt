@@ -32,7 +32,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         tee_info.cpp
         tee_cert_parser.cpp
         zLog.cpp
-        libc.cpp
+        nonstd_libc.cpp
         string.cpp
         native-lib.cpp)
 

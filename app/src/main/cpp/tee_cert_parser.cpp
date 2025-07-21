@@ -9,6 +9,7 @@
 #include <android/log.h>
 #include <vector>
 #include "zLog.h"
+#include "nonstd_libc.h"
 
 // TEE attestation extension OID
 #define TEE_ATTESTATION_OID "1.3.6.1.4.1.11129.2.1.17"
@@ -155,7 +156,7 @@ static int get_extension_by_oid_manual(const unsigned char* data, int len, const
                     for (int i = 1; i < oid_len; i++) {
                         value = (value << 7) | (ext_obj.data[i] & 0x7F);
                         if ((ext_obj.data[i] & 0x80) == 0) {
-                            snprintf(oid_str_debug + strlen(oid_str_debug), sizeof(oid_str_debug) - strlen(oid_str_debug), ".%lu", value);
+                            snprintf(oid_str_debug + nonstd_strlen(oid_str_debug), sizeof(oid_str_debug) - nonstd_strlen(oid_str_debug), ".%lu", value);
                             value = 0;
                         }
                     }
@@ -820,7 +821,7 @@ int parse_tee_certificate(const unsigned char* cert_data, int cert_len, tee_info
     }
     
     // Initialize tee_info
-    memset(tee_info, 0, sizeof(tee_info_t));
+    nonstd_memset(tee_info, 0, sizeof(tee_info_t));
     
     LOGE("[Native-TEE] Starting TEE certificate parsing, length: %d", cert_len);
     

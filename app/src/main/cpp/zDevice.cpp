@@ -10,6 +10,7 @@ map<string, map<string, map<string, string>>> zDevice::device_info;
 
 // 构造函数实现
 zDevice::zDevice() {
+    LOGE("zDevice: constructor called");
     // 初始化代码可以在这里添加
 }
 

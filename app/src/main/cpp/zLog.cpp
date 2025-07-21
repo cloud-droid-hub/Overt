@@ -2,167 +2,56 @@
 // Created by Administrator on 2024-05-15.
 //
 
-
 #include "zLog.h"
-#include <fstream>
-#include <string>
-#include <mutex>
-#include <regex>
-#include <dlfcn.h>
-#include <fcntl.h>
+#include "nonstd_libc.h"
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
 #include <unistd.h>
-//
-//size_t zLog::maxSize = 1000;
-//std::string zLog::path = "";
-//std::vector<std::string> zLog::vector = std::vector<std::string>();
-////std::deque<std::string>zLog::queue = std::deque<std::string>();
-//
-//
-//
-//// 日志文件全局变量
-//std::ofstream logFile;
-//// 用于同步的互斥锁
-//std::mutex logMutex;
-//
-//void zLog::enqueue(const std::string& str){
-//}
-//
-//std::string zLog::dequeue() {
-//    return "";
-//}
-//
-//
-//void zLog::store(std::string logText){
-//    std::lock_guard<std::mutex> lock(logMutex);// 锁定互斥锁以保证线程安全
-//    if (zLog::vector.size() == zLog::maxSize) {
-//        if (!logFile.is_open()) {
-//            logFile.open(zLog::path.c_str(), std::ios::app);
-//        }
-//        for (int i = 0; i < zLog::maxSize; i++){
-//            logFile << zLog::vector[i] << std::endl; // 写入日志消息
-//        }
-//        logFile.flush(); // 确保消息被写入磁盘
-//        zLog::vector.clear();
-//    }
-//    zLog::vector.push_back(logText);
-//}
-//
-//void zLog::print(std::string logText){
-////    if (zLog::loger == nullptr){
-////        zLog::loger = new zLog(100);
-////    }
-//
-//    // 加入队列
-//    // zLog::loger->enqueue(logText);
-//
-//    __android_log_print(6,"lxz","%s", logText.c_str());
-//    sleep(0);
-//}
-//
-//void zLog::print(const char *format, ...){
-//    va_list args;
-//    va_start(args, format);
-//
-//    // 计算格式化后的字符串长度
-//    int len = vsnprintf(NULL, 0, format, args) + 1;
-//    va_end(args);
-//
-//    // 分配足够的内存来存储格式化后的字符串
-//    char *buffer = (char *)malloc(len);
-//    if (buffer == NULL) {
-//        // 内存分配失败，退出函数
-//        return;
-//    }
-//
-//    // 再次初始化可变参数列表
-//    va_start(args, format);
-//    vsnprintf(buffer, len, format, args);
-//    va_end(args);
-//
-//    zLog::print(std::string(buffer));
-//
-//    free(buffer);
-//}
-//
-//extern "C"
-//void zLogTagPrint(const char* tag, const char *format, ...){
-//    va_list args;
-//    va_start(args, format);
-//
-//    // 计算格式化后的字符串长度
-//    int len = vsnprintf(NULL, 0, format, args) + 1;
-//    va_end(args);
-//
-//    // 分配足够的内存来存储格式化后的字符串
-//    char *buffer = (char *)malloc(len);
-//    if (buffer == NULL) {
-//        // 内存分配失败，退出函数
-//        return;
-//    }
-//
-//    // 再次初始化可变参数列表
-//    va_start(args, format);
-//    vsnprintf(buffer, len, format, args);
-//    va_end(args);
-//
-//    __android_log_print(6, tag,"%s", buffer);
-//
-//    free(buffer);
-//}
-//
-//extern "C"
-//void zLogPrint(const char *format, ...){
-//    va_list args;
-//    va_start(args, format);
-//
-//    // 计算格式化后的字符串长度
-//    int len = vsnprintf(NULL, 0, format, args) + 1;
-//    va_end(args);
-//
-//    // 分配足够的内存来存储格式化后的字符串
-//    char *buffer = (char *)malloc(len);
-//    if (buffer == NULL) {
-//        // 内存分配失败，退出函数
-//        return;
-//    }
-//
-//    // 再次初始化可变参数列表
-//    va_start(args, format);
-//    vsnprintf(buffer, len, format, args);
-//    va_end(args);
-//
-//    zLog::print(std::string(buffer));
-//
-//    free(buffer);
-//}
-//
-//extern "C"
-//void zLogStore(const char *format, ...){
-//
-//    va_list args;
-//    va_start(args, format);
-//
-//    // 计算格式化后的字符串长度
-//    int len = vsnprintf(NULL, 0, format, args) + 1;
-//    va_end(args);
-//
-//    // 分配足够的内存来存储格式化后的字符串
-//    char *buffer = (char *)malloc(len);
-//    if (buffer == NULL) {
-//        // 内存分配失败，退出函数
-//        return;
-//    }
-//
-//    // 再次初始化可变参数列表
-//    va_start(args, format);
-//    vsnprintf(buffer, len, format, args);
-//    va_end(args);
-//
-//    zLog::store(std::string(buffer));
-//
-//    free(buffer);
-//}
-//
-//std::string zLog::getLogText(){
-//    return "";
-//}
+
+// 日志级别对应的Android日志级别
+static const int android_log_levels[] = {
+    ANDROID_LOG_VERBOSE,  // LOG_LEVEL_VERBOSE
+    ANDROID_LOG_DEBUG,    // LOG_LEVEL_DEBUG
+    ANDROID_LOG_INFO,     // LOG_LEVEL_INFO
+    ANDROID_LOG_WARN,     // LOG_LEVEL_WARN
+    ANDROID_LOG_ERROR     // LOG_LEVEL_ERROR
+};
+
+// C接口函数实现
+extern "C" void zLogPrint(int level, const char* tag, const char* format, ...) {
+    // 检查日志级别
+    if (level < CURRENT_LOG_LEVEL) {
+        return;
+    }
+    
+    va_list args;
+    va_start(args, format);
+    
+    // 计算格式化后的字符串长度
+    int len = vsnprintf(NULL, 0, format, args) + 1;
+    va_end(args);
+    
+    if (len <= 0) {
+        return;
+    }
+    
+    // 分配足够的内存来存储格式化后的字符串
+    char* buffer = (char*)nonstd_malloc(len);
+    if (buffer == NULL) {
+        return;
+    }
+    
+    // 再次初始化可变参数列表
+    va_start(args, format);
+    vsnprintf(buffer, len, format, args);
+    va_end(args);
+    
+    // 输出到Android日志
+    if (level < sizeof(android_log_levels) / sizeof(android_log_levels[0])) {
+        __android_log_print(android_log_levels[level], tag, "%s", buffer);
+        sleep(0);  // 等待Android日志输出完毕
+    }
+    
+    nonstd_free(buffer);
+}

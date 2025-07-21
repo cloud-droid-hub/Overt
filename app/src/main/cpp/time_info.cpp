@@ -6,6 +6,7 @@
 #include "zLog.h"
 #include "zFile.h"
 #include "util.h"
+#include "nonstd_libc.h"
 
 #include <unistd.h>
 #include <limits.h> // PATH_MAX
@@ -52,14 +53,20 @@ std::optional<struct stat> get_file_stat(string path) {
 
 
 string format_timestamp(long timestamp) {
+    LOGE("format_timestamp: called with timestamp=%ld", timestamp);
+    
     if (timestamp <= 0) {
+        LOGE("format_timestamp: invalid timestamp (<=0): %ld", timestamp);
         return "Invalid timestamp";
     }
 
     // 转换为本地时间
     time_t time = (time_t)timestamp;
+    LOGE("format_timestamp: converted to time_t: %ld", time);
+    
     struct tm* timeinfo = localtime(&time);
     if (timeinfo == nullptr) {
+        LOGE("format_timestamp: localtime failed for timestamp=%ld", timestamp);
         return "Failed to convert time";
     }
 
@@ -72,6 +79,7 @@ string format_timestamp(long timestamp) {
          timestamp, timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
          timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 
+    LOGE("format_timestamp: returning formatted string: %s", buffer);
     return string(buffer);
 }
 
@@ -150,34 +158,49 @@ zFile get_earliest_file() {
 
 long get_boot_time_by_syscall() {
     struct sysinfo info;
+    LOGE("get_boot_time_by_syscall: starting...");
 
     // 使用 syscall(63, ...) 也就是 SYS_sysinfo
     int result = syscall(__NR_sysinfo, &info);
+    LOGE("get_boot_time_by_syscall: sysinfo syscall result=%d, uptime=%ld, loads[0]=%ld, loads[1]=%ld, loads[2]=%ld", 
+         result, info.uptime, info.loads[0], info.loads[1], info.loads[2]);
+    
     if (result != 0) {
-        LOGE("syscall SYS_sysinfo failed");
+        LOGE("get_boot_time_by_syscall: syscall SYS_sysinfo failed: %d", result);
         return -1;
     }
 
-    time_t now = time(nullptr);
+    LOGE("get_boot_time_by_syscall: calling nonstd_time...");
+    time_t now = nonstd_time(nullptr);
+    LOGE("get_boot_time_by_syscall: nonstd_time returned: %ld", now);
+    
     time_t boot_time = now - info.uptime;
+    LOGE("get_boot_time_by_syscall: calculation: %ld - %ld = %ld", now, info.uptime, boot_time);
 
-    LOGE("Boot time: %ld", (long)boot_time);
-
+    LOGE("get_boot_time_by_syscall: final boot_time: %ld", (long)boot_time);
     return boot_time;
 }
 
 
 string get_time_diff(long timestamp) {
+    LOGE("get_time_diff: called with timestamp=%ld", timestamp);
+    
     if (timestamp <= 0) {
+        LOGE("get_time_diff: invalid timestamp (<=0): %ld", timestamp);
         return "Invalid timestamp";
     }
 
     // 获取当前时间
-    time_t current_time = time(nullptr);
+    LOGE("get_time_diff: calling nonstd_time...");
+    time_t current_time = nonstd_time(nullptr);
+    LOGE("get_time_diff: current_time=%ld", current_time);
 
     // 计算时间差（秒）
     long time_diff = current_time - timestamp;
+    LOGE("get_time_diff: time_diff calculation: %ld - %ld = %ld", current_time, timestamp, time_diff);
+    
     if (time_diff < 0) {
+        LOGE("get_time_diff: negative time difference: %ld", time_diff);
         return "Invalid time difference";
     }
 
@@ -198,21 +221,47 @@ string get_time_diff(long timestamp) {
 }
 
 map<string, map<string, string>> get_time_info(){
+    LOGE("get_time_info: starting...");
 
     map<string, map<string, string>> info;
 
-    time_t current_time = time(nullptr);
+    LOGE("get_time_info: calling nonstd_time for current_time...");
+    time_t current_time = nonstd_time(nullptr);
+    LOGE("get_time_info: current_time=%ld", current_time);
 
     // 获取开机时间
+    LOGE("get_time_info: calling get_boot_time_by_syscall...");
     long boot_time = get_boot_time_by_syscall();
+    LOGE("get_time_info: get_boot_time_by_syscall returned: %ld", boot_time);
+    
+    LOGE("get_time_info: calling format_timestamp...");
     string boot_time_str = format_timestamp(boot_time);
+    LOGE("get_time_info: format_timestamp result: %s", boot_time_str.c_str());
+    
     LOGE("boot_time %ld %s", boot_time, format_timestamp(boot_time).c_str());
     LOGE("boot_time_time2  %ld %s", boot_time, get_time_diff(boot_time).c_str());
 
     // 开机时间过短，可能刚重启
-    if(current_time - boot_time < 1 * 24 * 60 * 60){
-        info["boot_time:"+boot_time_str]["risk"] = "warn";
-        info["boot_time:"+boot_time_str]["explain"] = "boot_time is too short";
+    long time_diff_seconds = current_time - boot_time;
+    long one_day_seconds = 1 * 24 * 60 * 60;
+    LOGE("get_time_info: time_diff_seconds=%ld, one_day_seconds=%ld", time_diff_seconds, one_day_seconds);
+    LOGE("get_time_info: condition check: %ld < %ld = %s", time_diff_seconds, one_day_seconds, (time_diff_seconds < one_day_seconds) ? "true" : "false");
+    
+    if(time_diff_seconds < one_day_seconds){
+        LOGE("get_time_info: adding boot_time info to map");
+        
+        // 使用更明确的方式创建嵌套map
+        string key = "boot_time:" + boot_time_str;
+        map<string, string> inner_map;
+        inner_map["risk"] = "warn";
+        inner_map["explain"] = "boot_time is too short";
+        
+        LOGE("get_time_info: created inner_map with size: %zu", inner_map.size());
+        info[key] = inner_map;
+        
+        LOGE("get_time_info: info map size after adding: %zu", info.size());
+    } else {
+        LOGE("get_time_info: boot time is not too short, not adding to map");
     }
 
 //    获取文件的最早时间，不太稳定，或许有问题
@@ -226,5 +275,12 @@ map<string, map<string, string>> get_time_info(){
 //        info["earliest_time:"+earliest_file.getEarliestTimeFormatted()]["explain"] = "earliest_time is too short";
 //    }
 
+    LOGE("get_time_info: final info map size: %zu", info.size());
+    for (const auto& entry : info) {
+        LOGE("get_time_info: map entry - key: '%s', inner map size: %zu", entry.first.c_str(), entry.second.size());
+        for (const auto& inner_entry : entry.second) {
+            LOGE("get_time_info: inner map entry - key: '%s', value: '%s'", inner_entry.first.c_str(), inner_entry.second.c_str());
+        }
+    }
     return info;
 }

@@ -13,10 +13,11 @@
 #include "port_info.h"
 #include "zFile.h"
 #include "zLog.h"
+#include "nonstd_libc.h"
 
 // 判断端口是否被监听
 bool is_port_in_use(int port) {
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    int sock = nonstd_socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) return false;
 
     struct sockaddr_in sa = {};
@@ -26,7 +27,7 @@ bool is_port_in_use(int port) {
 
     // 设置非阻塞
     fcntl(sock, F_SETFL, O_NONBLOCK);
-    int result = connect(sock, (struct sockaddr*)&sa, sizeof(sa));
+    int result = nonstd_connect(sock, (struct sockaddr*)&sa, sizeof(sa));
 
     bool in_use = false;
 
@@ -51,7 +52,7 @@ bool is_port_in_use(int port) {
         }
     }
 
-    close(sock);
+    nonstd_close(sock);
     return in_use;
 }
 

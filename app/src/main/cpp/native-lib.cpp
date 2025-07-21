@@ -25,9 +25,6 @@
 void __attribute__((constructor)) init_(void){
     LOGE("init_ start");
 
-    char buf[4096] = {0};
-    memcpy((void *) PAGE_START((long) buf), (void *) (PAGE_START((long) buf) + PAGE_SIZE/2), PAGE_SIZE/2);
-
 //    zDevice::getInstance()->get_device_info()["task_info"] = get_task_info();
 //    zDevice::getInstance()->get_device_info()["maps_info"] = get_maps_info();
 //    zDevice::getInstance()->get_device_info()["class_loader_info"] = get_class_loader_info();
@@ -40,7 +37,7 @@ void __attribute__((constructor)) init_(void){
 //    zDevice::getInstance()->get_device_info()["port_info"] = get_port_info();
 //    zDevice::getInstance()->get_device_info()["package_info"] = get_package_info();
 //    zDevice::getInstance()->get_device_info()["system_setting_info"] = get_system_setting_info();
-//    zDevice::getInstance()->get_device_info()["tee_info"] = get_tee_info();
+    zDevice::getInstance()->get_device_info()["tee_info"] = get_tee_info();
 
     LOGE("init_ over");
 }
@@ -54,5 +51,11 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_example_overt_MainActivity_get_1device_1info(JNIEnv *env, jobject thiz) {
-    return cmap_to_jmap_nested_3(env,zDevice::getInstance()->get_device_info());
+    LOGE("get_device_info: starting JNI call");
+
+
+
+    jobject result = cmap_to_jmap_nested_3(env, zDevice::getInstance()->get_device_info());
+    LOGE("get_device_info: conversion completed successfully");
+    return result;
 }

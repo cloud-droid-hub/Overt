@@ -7,17 +7,18 @@
 #include "util.h"
 
 #include "zLog.h"
+#include "nonstd_libc.h"
 
 map<string, map<string, string>> get_linker_info(){
     map<string, map<string, string>> info;
     vector<string> libpath_list = zLinker::getInstance()->get_libpath_list();
     for (int i = 0; i < libpath_list.size(); ++i) {
         LOGE("libpath %s", libpath_list[i].c_str());
-        if(strstr(libpath_list[i].c_str(), "lsposed")){
+        if(nonstd_strstr(libpath_list[i].c_str(), "lsposed")){
             info[libpath_list[i]]["risk"] = "error";
             info[libpath_list[i]]["explain"] = "black soname";
         }
-        if(strstr(libpath_list[i].c_str(), "frida")){
+        if(nonstd_strstr(libpath_list[i].c_str(), "frida")){
             info[libpath_list[i]]["risk"] = "error";
             info[libpath_list[i]]["explain"] = "black soname";
         }

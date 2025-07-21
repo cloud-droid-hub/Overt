@@ -9,6 +9,7 @@
 #include "zJavaVm.h"
 #include "tee_cert_parser.h"
 #include "zLog.h"
+#include "nonstd_libc.h"
 
 //#include <string>
 //#include <vector>
@@ -86,8 +87,8 @@ vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context) {
 
     // 6. setAttestationChallenge
     const char* challengeStr = "tee_check";
-    jbyteArray challenge = env->NewByteArray(strlen(challengeStr));
-    env->SetByteArrayRegion(challenge, 0, strlen(challengeStr), (const jbyte*)challengeStr);
+    jbyteArray challenge = env->NewByteArray(nonstd_strlen(challengeStr));
+    env->SetByteArrayRegion(challenge, 0, nonstd_strlen(challengeStr), (const jbyte*)challengeStr);
     jmethodID midSetChallenge = env->GetMethodID(clsKeyGenBuilder, "setAttestationChallenge", "([B)Landroid/security/keystore/KeyGenParameterSpec$Builder;");
     builder = env->CallObjectMethod(builder, midSetChallenge, challenge);
     LOGE("[JNI] builder after setAttestationChallenge: %p", builder);
@@ -158,7 +159,9 @@ vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context) {
 // Main function to get TEE info using our C parser
 map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject context) {
     map<string, map<string, string>> info;
-    
+    info["tee_statue"]["risk"] = "error";
+    info["tee_statue"]["explain"] = "tee_statue is damage";
+
     if (!env) {
         LOGE("JNIEnv is null, 请确保JNIEnv可用");
         return info;
@@ -173,8 +176,6 @@ map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject conte
     vector<uint8_t> cert_data = get_attestation_cert_from_java(env, context);
     if (cert_data.empty()) {
         LOGE("获取证书失败");
-        info["tee_statue"]["risk"] = "error";
-        info["tee_statue"]["explain"] = "tee_statue is damage";
         return info;
     }
     
@@ -214,6 +215,9 @@ map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject conte
              tee_info.root_of_trust.device_locked, 
              tee_info.root_of_trust.verified_boot_state);
         // Check security conditions
+
+        info.clear();
+
         if (!tee_info.root_of_trust.device_locked) {
             info["device_locked"]["risk"] = "error";
             info["device_locked"]["explain"] = "device_locked is unsafe";

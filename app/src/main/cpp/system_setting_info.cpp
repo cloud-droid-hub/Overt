@@ -7,6 +7,7 @@
 #include "system_setting_info.h"
 #include "zLog.h"
 #include "zJavaVm.h"
+#include "nonstd_libc.h"
 #include "util.h"
 
 
@@ -183,7 +184,7 @@ bool isProxyEnabled(JNIEnv *env, jobject context) {
     if (host == nullptr || port == nullptr) return JNI_FALSE;
     const char *hostChars = env->GetStringUTFChars(host, nullptr);
     const char *portChars = env->GetStringUTFChars(port, nullptr);
-    bool result = (strlen(hostChars) > 0 && strlen(portChars) > 0);
+    bool result = (nonstd_strlen(hostChars) > 0 && nonstd_strlen(portChars) > 0);
     env->ReleaseStringUTFChars(host, hostChars);
     env->ReleaseStringUTFChars(port, portChars);
     return result ? JNI_TRUE : JNI_FALSE;

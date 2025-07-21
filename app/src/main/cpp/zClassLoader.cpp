@@ -12,6 +12,7 @@
 #include <android/log.h>
 #include "zLinker.h"
 #include "zLog.h"
+#include "nonstd_libc.h"
 
 zClassLoader* zClassLoader::instance = nullptr;
 
@@ -311,7 +312,7 @@ void zClassLoader::traverseClassLoader(JNIEnv* env) {
 
     char buffer[100];
     __system_property_get("ro.build.version.sdk", buffer);
-    int sdk_version = atoi(buffer);
+    int sdk_version = nonstd_atoi(buffer);
 
     if (sdk_version < 21) {
         LOGE("traverseClassLoader sdk_version < 21");
