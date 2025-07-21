@@ -12,18 +12,18 @@
 struct maps_line_t {
     void* address_range_start;           // 地址范围开始
     void* address_range_end;             // 地址范围结束
-    std::string permissions;            // 权限标志
-    std::string file_offset;            // 文件偏移量
-    std::string device_major_minor;     // 设备号
-    std::string inode;                  // 节点号
-    std::string file_path;              // 文件路径
+    string permissions;            // 权限标志
+    string file_offset;            // 文件偏移量
+    string device_major_minor;     // 设备号
+    string inode;                  // 节点号
+    string file_path;              // 文件路径
 };
 
 
-std::map<std::string, std::map<std::string, std::string>> get_maps_info(){
-    std::map<std::string, std::map<std::string, std::string>> info;
+map<string, map<string, string>> get_maps_info(){
+    map<string, map<string, string>> info;
 
-    std::map<std::string, std::vector<maps_line_t>> maps_table;
+    map<string, vector<maps_line_t>> maps_table;
     zFile file("/proc/self/maps");
 
     // 检查文件是否成功打开
@@ -35,7 +35,7 @@ std::map<std::string, std::map<std::string, std::string>> get_maps_info(){
     }
 
     // 按行读取
-    std::vector<std::string> lines = file.readAllLines();
+    vector<string> lines = file.readAllLines();
     LOGE("文件行数: %zu", lines.size());
 
     // 显示前几行
@@ -45,7 +45,7 @@ std::map<std::string, std::map<std::string, std::string>> get_maps_info(){
 
             maps_line_t maps_line;
 
-            std::vector<std::string> parts = split_str(lines[i], ' ');
+            vector<string> parts = split_str(lines[i], ' ');
 
             if (parts.size() != 6){
                 LOGE("第%zu行: 部分信息不足 %s", i + 1, lines[i].c_str());
@@ -54,7 +54,7 @@ std::map<std::string, std::map<std::string, std::string>> get_maps_info(){
 
             // 解析地址范围
 
-            std::vector<std::string> address_range_parts = split_str(parts[0], '-');
+            vector<string> address_range_parts = split_str(parts[0], '-');
             if (address_range_parts.size() == 2) {
                 maps_line.address_range_start = (void*)strtoul(address_range_parts[0].c_str(), nullptr, 16);   // 地址范围开始
                 maps_line.address_range_end  = (void*)strtoul(address_range_parts[1].c_str(), nullptr, 16);     // 地址范围结束
@@ -73,14 +73,14 @@ std::map<std::string, std::map<std::string, std::string>> get_maps_info(){
         }
     }
 
-    std::vector<std::string> check_lib_list = {
+    vector<string> check_lib_list = {
             "libart.so",
             "libc.so",
     };
 
     for (auto it = maps_table.begin(); it != maps_table.end(); it++){
         // LOGE("文件路径: %s, 映射数量: %zu", it->first.c_str(), it->second.size());
-        for(std::string lib_name : check_lib_list){
+        for(string lib_name : check_lib_list){
             if(string_end_with(it->first.c_str(), lib_name.c_str())){
                 if(it->second.size() != 4){
                     LOGE("文件路径: %s, 映射数量不符合预期: %zu", it->first.c_str(), it->second.size());

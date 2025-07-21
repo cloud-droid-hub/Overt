@@ -51,7 +51,7 @@ zElf::zElf(char *elf_file_name) {
         parse_dynamic_table();
     } else {
         link_view = LINK_VIEW::FILE_VIEW;
-        this->real_path = std::string(elf_file_name);;
+        this->real_path = string(elf_file_name);;
         this->elf_file_ptr = parse_elf_file(elf_file_name);
         parse_elf_head();
         parse_program_header_table();
@@ -400,14 +400,14 @@ zElf::~zElf() {
 char *zElf::get_maps_base(const char *so_name) {
     char *elf_mem_ptr = nullptr;
 
-    std::vector<std::string> lines = get_file_lines("/proc/self/maps");
+    vector<string> lines = get_file_lines("/proc/self/maps");
     for(int i = 0; i < lines.size(); i++){
 
         if (!strstr(lines[i].c_str(), "p 00000000 ")) continue;
 
         if (!strstr(lines[i].c_str(), so_name)) continue;
 
-        std::vector<std::string> split_line = split_str(lines[i], "-");
+        vector<string> split_line = split_str(lines[i], "-");
 
         if(split_line.empty()){
             LOGE("get_maps_base split_line is empty");

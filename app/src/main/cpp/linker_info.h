@@ -5,11 +5,9 @@
 #ifndef OVERT_LINKER_INFO_H
 #define OVERT_LINKER_INFO_H
 
-#include <string>
-#include <map>
-#include <vector>
+#include "config.h"
 
-std::map<std::string, std::map<std::string, std::string>>get_linker_info();
+map<string, map<string, string>>get_linker_info();
 
 
 #endif //OVERT_LINKER_INFO_H

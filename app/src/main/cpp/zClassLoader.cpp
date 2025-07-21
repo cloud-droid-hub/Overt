@@ -8,8 +8,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include "art.h"
-#include <vector>
-#include <string>
 #include "zJavaVm.h"
 #include <android/log.h>
 #include "zLinker.h"
@@ -33,8 +31,8 @@ void debug(JNIEnv *env, const char *format, jobject object) {
     }
 }
 
-std::string get_class_loader_string(JNIEnv* env, jobject object){
-    std::string info = "";
+string get_class_loader_string(JNIEnv* env, jobject object){
+    string info = "";
     if (object == nullptr) {
         return info;
     } else {
@@ -54,25 +52,25 @@ jclass getClass(JNIEnv *env, jobject jobject_) {
     return env->GetObjectClass(jobject_);
 }
 
-std::string getClassName(JNIEnv *env, jclass jclass_) {
+string getClassName(JNIEnv *env, jclass jclass_) {
     jclass classClass = env->FindClass("java/lang/Class");
     jmethodID getNameMethod = env->GetMethodID(classClass, "getName", "()Ljava/lang/String;");
     jstring className = (jstring) env->CallObjectMethod(jclass_, getNameMethod);
     const char *classNameStr = env->GetStringUTFChars(className, nullptr);
-    std::string name(classNameStr);
+    string name(classNameStr);
     env->ReleaseStringUTFChars(className, classNameStr);
     env->DeleteLocalRef(className);
     env->DeleteLocalRef(classClass);
     return name;
 }
 
-std::string getClassName(JNIEnv *env, jobject jobject_) {
+string getClassName(JNIEnv *env, jobject jobject_) {
     jclass objectClass = getClass(env, jobject_);
     return getClassName(env, objectClass);
 }
 
-std::vector<std::string> getClassNameList(JNIEnv *env, jobject classloader) {
-    std::vector<std::string> classNameList = {};
+vector<string> getClassNameList(JNIEnv *env, jobject classloader) {
+    vector<string> classNameList = {};
 
     // 获取 classloader 的类
     jclass classloaderClass = env->GetObjectClass(classloader);
@@ -200,24 +198,24 @@ static void deleteLocalRef(JNIEnv *env, jobject object) {
 
 class ClassLoaderVisitor : public art::SingleRootVisitor {
 public:
-    std::vector<std::string> classLoaderStringList;
-    std::vector<std::string> classNameList;
+    vector<string> classLoaderStringList;
+    vector<string> classNameList;
 
 
     ClassLoaderVisitor(JNIEnv *env, jclass classLoader) : env_(env), classLoader_(classLoader) {
-        classLoaderStringList = std::vector<std::string>();
-        classNameList = std::vector<std::string>();
+        classLoaderStringList = vector<string>();
+        classNameList = vector<string>();
     }
 
     void VisitRoot(art::mirror::Object *root, const art::RootInfo &info ATTRIBUTE_UNUSED) final {
         jobject object = newLocalRef(env_, (jobject) root);
         if (object != nullptr) {
             if (env_->IsInstanceOf(object, classLoader_)) {
-                std::string classLoaderName = getClassName((JNIEnv *) env_, object);
+                string classLoaderName = getClassName((JNIEnv *) env_, object);
                 LOGE("ClassLoaderVisitor classLoaderName %s", classLoaderName.c_str());
-                std::string classLoaderString = get_class_loader_string(env_, object);
+                string classLoaderString = get_class_loader_string(env_, object);
                 LOGE("ClassLoaderVisitor %s", classLoaderString.c_str());
-                std::vector<std::string> classLoaderClassNameList = getClassNameList((JNIEnv *) env_, object);
+                vector<string> classLoaderClassNameList = getClassNameList((JNIEnv *) env_, object);
 
                 classLoaderStringList.push_back(classLoaderString);
                 classNameList.insert(classNameList.end(), classLoaderClassNameList.begin(), classLoaderClassNameList.end());
@@ -246,6 +244,9 @@ void zClassLoader::checkGlobalRef(JNIEnv *env, jclass clazz) {
     VisitRoots(jvm, &visitor);
 
     classLoaderStringList.insert(classLoaderStringList.end(), visitor.classLoaderStringList.begin(), visitor.classLoaderStringList.end());
+
+    auto a = classNameList.end();
+
     classNameList.insert(classNameList.end(), visitor.classNameList.begin(), visitor.classNameList.end());
 
     LOGE("ClassLoaderVisitor classLoaderStringList size %zu", visitor.classLoaderStringList.size());
@@ -254,24 +255,24 @@ void zClassLoader::checkGlobalRef(JNIEnv *env, jclass clazz) {
 
 class WeakClassLoaderVisitor : public art::IsMarkedVisitor {
 public :
-    std::vector<std::string> classLoaderStringList;
-    std::vector<std::string> classNameList;
+    vector<string> classLoaderStringList;
+    vector<string> classNameList;
 
     WeakClassLoaderVisitor(JNIEnv *env, jclass classLoader) : env_(env), classLoader_(classLoader) {
-        classLoaderStringList = std::vector<std::string>();
-        classNameList = std::vector<std::string>();
+        classLoaderStringList = vector<string>();
+        classNameList = vector<string>();
     }
 
     art::mirror::Object *IsMarked(art::mirror::Object *obj) override {
         jobject object = newLocalRef(env_, (jobject) obj);
         if (object != nullptr) {
             if (env_->IsInstanceOf(object, classLoader_)) {
-                std::string classLoaderName = getClassName(env_, object);
+                string classLoaderName = getClassName(env_, object);
                 LOGE("WeakClassLoaderVisitor classLoaderName %s", classLoaderName.c_str());
-                std::string classLoaderSting = get_class_loader_string(env_, object);
+                string classLoaderSting = get_class_loader_string(env_, object);
                 classLoaderStringList.push_back(get_class_loader_string(env_, object));
                 LOGE("WeakClassLoaderVisitor %s", classLoaderSting.c_str());
-                std::vector<std::string> classLoaderClassNameList = getClassNameList(env_, object);
+                vector<string> classLoaderClassNameList = getClassNameList(env_, object);
                 classNameList.insert(classNameList.end(), classLoaderClassNameList.begin(), classLoaderClassNameList.end());
             }
             deleteLocalRef(env_, object);
@@ -341,8 +342,8 @@ void zClassLoader::traverseClassLoader(JNIEnv* env) {
 }
 
 zClassLoader::zClassLoader(){
-    classNameList = std::vector<std::string>();
-    classLoaderStringList = std::vector<std::string>();
+    classNameList = vector<string>();
+    classLoaderStringList = vector<string>();
     traverseClassLoader(zJavaVm::getInstance()->getEnv());
 }
 

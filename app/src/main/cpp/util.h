@@ -6,28 +6,26 @@
 #define OVERT_UTIL_H
 
 #include <jni.h>
-#include <string>
-#include <map>
-#include <vector>
 #include <asm-generic/fcntl.h>
+#include "config.h"
 
-std::string get_line(int fd);
+string get_line(int fd);
 
-std::vector<std::string> get_file_lines(std::string path);
+vector<string> get_file_lines(string path);
 
-std::vector<std::string> split_str(const std::string& str, const std::string& split);
+vector<string> split_str(const string& str, const string& split);
 
-std::vector<std::string> split_str(const std::string& str, char delim);
+vector<string> split_str(const string& str, char delim);
 
 bool string_end_with(const char *str, const char *suffix);
 
-// 将 std::map<std::string, std::string> 转换为 Java Map<String, String>
-jobject cmap_to_jmap(JNIEnv *env, std::map<std::string, std::string> cmap);
+// 将 map<string, string> 转换为 Java Map<String, String>
+jobject cmap_to_jmap(JNIEnv *env, map<string, string> cmap);
 
-// 将 std::map<std::string, std::map<std::string, std::string>> 转换为 Java Map<String, Map<String, String>>
-jobject cmap_to_jmap_nested(JNIEnv* env, const std::map<std::string, std::map<std::string, std::string>>& cmap);
+// 将 map<string, map<string, string>> 转换为 Java Map<String, Map<String, String>>
+jobject cmap_to_jmap_nested(JNIEnv* env, const map<string, map<string, string>>& cmap);
 
-// 主函数：将 std::map<std::string, std::map<std::string, std::map<std::string, std::string>>> 转换为 Java Map<String, Map<String, Map<String, String>>>
-jobject cmap_to_jmap_nested_3(JNIEnv* env, const std::map<std::string, std::map<std::string, std::map<std::string, std::string>>>& cmap);
+// 主函数：将 map<string, map<string, map<string, string>>> 转换为 Java Map<String, Map<String, Map<String, String>>>
+jobject cmap_to_jmap_nested_3(JNIEnv* env, const map<string, map<string, map<string, string>>>& cmap);
 
 #endif //OVERT_UTIL_H

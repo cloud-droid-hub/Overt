@@ -5,12 +5,10 @@
 #ifndef OVERT_CLASS_LOADER_INFO_H
 #define OVERT_CLASS_LOADER_INFO_H
 
+#include "config.h"
 
-#include <string>
-#include <map>
-#include <vector>
-std::map<std::string, std::map<std::string, std::string>> get_class_loader_info();
-std::map<std::string, std::map<std::string, std::string>> get_class_info();
+map<string, map<string, string>> get_class_loader_info();
+map<string, map<string, string>> get_class_info();
 
 
 #endif //OVERT_CLASS_LOADER_INFO_H

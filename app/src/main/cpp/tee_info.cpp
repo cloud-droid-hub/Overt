@@ -6,28 +6,22 @@
 
 #include <jni.h>
 #include "util.h"
-#include <vector>
-#include <string.h>
 #include "zJavaVm.h"
-#include <map>
-#include <string>
-#include <android/log.h>
-
-// Include our C++-based certificate parser
 #include "tee_cert_parser.h"
-
-// Define LOGT macro if not already defined
 #include "zLog.h"
 
-// Verified boot states
+//#include <string>
+//#include <vector>
+#include <map>
+
 #define VERIFIED_BOOT_STATE_VERIFIED 0
 #define VERIFIED_BOOT_STATE_SELF_SIGNED 1
 #define VERIFIED_BOOT_STATE_UNVERIFIED 2
 #define VERIFIED_BOOT_STATE_FAILED 3
 
 // Convert byte array to hex string
-std::string bytes_to_hex(const unsigned char* data, size_t len) {
-    std::string result;
+string bytes_to_hex(const unsigned char* data, size_t len) {
+    string result;
     char buf[3];
     for (size_t i = 0; i < len; ++i) {
         snprintf(buf, sizeof(buf), "%02x", data[i]);
@@ -37,8 +31,8 @@ std::string bytes_to_hex(const unsigned char* data, size_t len) {
 }
 
 // Get attestation certificate from Android KeyStore using JNI
-std::vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context) {
-    std::vector<uint8_t> result;
+vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context) {
+    vector<uint8_t> result;
     LOGE("[JNI] Start get_attestation_cert_from_java");
 
     // 1. KeyStore.getInstance("AndroidKeyStore")
@@ -151,7 +145,7 @@ std::vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context
         
         // Log the first few bytes to verify data integrity
         if (len > 0) {
-            std::string hex_data = bytes_to_hex(result.data(), std::min((size_t)len, (size_t)32));
+            string hex_data = bytes_to_hex(result.data(), std::min((size_t)len, (size_t)32));
             LOGE("[JNI] First 32 bytes of cert: %s", hex_data.c_str());
         }
     } else {
@@ -162,8 +156,8 @@ std::vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context
 }
 
 // Main function to get TEE info using our C parser
-std::map<std::string, std::map<std::string, std::string>> get_tee_info_openssl(JNIEnv* env, jobject context) {
-    std::map<std::string, std::map<std::string, std::string>> info;
+map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject context) {
+    map<string, map<string, string>> info;
     
     if (!env) {
         LOGE("JNIEnv is null, 请确保JNIEnv可用");
@@ -176,7 +170,7 @@ std::map<std::string, std::map<std::string, std::string>> get_tee_info_openssl(J
     }
     
     // Get attestation certificate from Java
-    std::vector<uint8_t> cert_data = get_attestation_cert_from_java(env, context);
+    vector<uint8_t> cert_data = get_attestation_cert_from_java(env, context);
     if (cert_data.empty()) {
         LOGE("获取证书失败");
         info["tee_statue"]["risk"] = "error";
@@ -189,7 +183,7 @@ std::map<std::string, std::map<std::string, std::string>> get_tee_info_openssl(J
     
     // Log first 64 bytes of certificate for debugging
     if (cert_data.size() > 0) {
-        std::string hex_data = bytes_to_hex(cert_data.data(), std::min(cert_data.size(), (size_t)64));
+        string hex_data = bytes_to_hex(cert_data.data(), std::min(cert_data.size(), (size_t)64));
         LOGE("[Native-TEE] Certificate data (first 64 bytes): %s", hex_data.c_str());
     }
     
@@ -236,11 +230,11 @@ std::map<std::string, std::map<std::string, std::string>> get_tee_info_openssl(J
 }
 
 // Legacy function for backward compatibility
-std::map<std::string, std::map<std::string, std::string>> get_tee_info(JNIEnv* env, jobject context) {
+map<string, map<string, string>> get_tee_info(JNIEnv* env, jobject context) {
     return get_tee_info_openssl(env, context);
 }
 
 // Main entry point
-std::map<std::string, std::map<std::string, std::string>> get_tee_info() {
+map<string, map<string, string>> get_tee_info() {
     return get_tee_info_openssl(zJavaVm::getInstance()->getEnv(), zJavaVm::getInstance()->getContext());
 }

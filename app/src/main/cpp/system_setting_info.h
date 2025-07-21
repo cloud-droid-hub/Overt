@@ -7,9 +7,10 @@
 
 #include <map>
 #include <string>
+#include "config.h"
 
 
-std::map<std::string, std::map<std::string, std::string>> get_system_setting_info();
+map<string, map<string, string>> get_system_setting_info();
 
 
 

@@ -55,11 +55,11 @@ bool is_port_in_use(int port) {
     return in_use;
 }
 
-std::map<std::string, std::map<std::string, std::string>> get_port_info(){
+map<string, map<string, string>> get_port_info(){
 
-    std::map<std::string, std::map<std::string, std::string>> info;
+    map<string, map<string, string>> info;
 
-    std::map<int, std::string> tcp_info{
+    map<int, string> tcp_info{
         {27042, "frida"},
         {27043, "frida"},
         {23946, "ida"},
@@ -67,8 +67,10 @@ std::map<std::string, std::map<std::string, std::string>> get_port_info(){
 
     for (auto& item : tcp_info) {
         if (is_port_in_use(item.first)) {
-            info[std::to_string(item.first)]["risk"] = "error";
-            info[std::to_string(item.first)]["explain"] = "black port is in use " + item.second;
+            info[item.second]["risk"] = "error";
+            info[item.second]["explain"] = "black port is in use " + item.second;
+//            info[string(std::to_string(item.first).c_str())]["risk"] = "error";
+//            info[string(std::to_string(item.first).c_str())]["explain"] = "black port is in use " + item.second;
         }
     }
 

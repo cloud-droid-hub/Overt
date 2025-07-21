@@ -11,8 +11,8 @@
 #include "zFile.h"
 
 
-std::map<std::string, std::map<std::string, std::string>> get_root_file_info(){
-    std::map<std::string, std::map<std::string, std::string>> info;
+map<string, map<string, string>> get_root_file_info(){
+    map<string, map<string, string>> info;
     const char* paths[] = {
             "/sbin/su",
             "/system/bin/su",

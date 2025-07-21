@@ -6,7 +6,7 @@
 
 zDevice* zDevice::instance = nullptr;
 
-std::map<std::string, std::map<std::string, std::map<std::string, std::string>>> zDevice::device_info;
+map<string, map<string, map<string, string>>> zDevice::device_info;
 
 // 构造函数实现
 zDevice::zDevice() {

@@ -5,10 +5,8 @@
 #ifndef OVERT_ROOT_FILE_INFO_H
 #define OVERT_ROOT_FILE_INFO_H
 
-#include <string>
-#include <map>
-#include <vector>
+#include "config.h"
 
-std::map<std::string, std::map<std::string, std::string>> get_root_file_info();
+map<string, map<string, string>> get_root_file_info();
 
 #endif //OVERT_ROOT_FILE_INFO_H

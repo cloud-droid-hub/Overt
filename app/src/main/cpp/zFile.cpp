@@ -15,13 +15,14 @@
 #include <sstream>
 #include <cctype>
 
+
 // 构造函数
 zFile::zFile() : m_path("") {
     LOGE("zFile()");
 }
 
-zFile::zFile(const std::string& path) : m_path(path) {
-    LOGE("zFile(const std::string& path)");
+zFile::zFile(const string& path) : m_path(path) {
+    LOGE("zFile(const string& path)");
     if(m_path.empty()) return;
 
     // 设置属性（文件/目录）
@@ -75,46 +76,46 @@ zFile::~zFile() {
     }
 }
 
-std::string zFile::getPath() const {
+string zFile::getPath() const {
     return m_path;
 }
 
-std::string zFile::getFileName() const {
+string zFile::getFileName() const {
     if (m_path.empty()) return "";
 
     size_t lastSlash = m_path.find_last_of("/\\");
-    if (lastSlash == std::string::npos) {
+    if (lastSlash == string::npos) {
         return m_path;
     }
     return m_path.substr(lastSlash + 1);
 }
 
-std::string zFile::getFileExtension() const {
-    std::string fileName = getFileName();
+string zFile::getFileExtension() const {
+    string fileName = getFileName();
     if (fileName.empty()) return "";
 
     size_t lastDot = fileName.find_last_of('.');
-    if (lastDot == std::string::npos) {
+    if (lastDot == string::npos) {
         return "";
     }
     return fileName.substr(lastDot + 1);
 }
 
-std::string zFile::getDirectory() const {
+string zFile::getDirectory() const {
     if (m_path.empty()) return "";
 
     size_t lastSlash = m_path.find_last_of("/\\");
-    if (lastSlash == std::string::npos) {
+    if (lastSlash == string::npos) {
         return "";
     }
     return m_path.substr(0, lastSlash);
 }
 
-bool zFile::pathEquals(std::string path) const {
+bool zFile::pathEquals(string path) const {
     return m_path == path;
 }
 
-bool zFile::pathStartWith(std::string path) const {
+bool zFile::pathStartWith(string path) const {
     if (path.empty()) {
         return true;
     }
@@ -124,7 +125,7 @@ bool zFile::pathStartWith(std::string path) const {
     return m_path.substr(0, path.length()) == path;
 }
 
-bool zFile::pathEndWith(std::string path) const {
+bool zFile::pathEndWith(string path) const {
     if (path.empty()) {
         return true;
     }
@@ -134,12 +135,12 @@ bool zFile::pathEndWith(std::string path) const {
     return m_path.substr(m_path.length() - path.length()) == path;
 }
 
-bool zFile::fileNameEquals(std::string fileName) const {
+bool zFile::fileNameEquals(string fileName) const {
     return getFileName() == fileName;
 }
 
-bool zFile::fileNameStartWith(std::string fileName) const {
-    std::string currentFileName = getFileName();
+bool zFile::fileNameStartWith(string fileName) const {
+    string currentFileName = getFileName();
     if (fileName.empty()) {
         return true;
     }
@@ -149,8 +150,8 @@ bool zFile::fileNameStartWith(std::string fileName) const {
     return currentFileName.substr(0, fileName.length()) == fileName;
 }
 
-bool zFile::fileNameEndWith(std::string fileName) const {
-    std::string currentFileName = getFileName();
+bool zFile::fileNameEndWith(string fileName) const {
+    string currentFileName = getFileName();
     if (fileName.empty()) {
         return true;
     }
@@ -185,7 +186,7 @@ long zFile::getFileSize(){
     return st.st_size;
 }
 
-std::string zFile::getEarliestTimeFormatted() const {
+string zFile::getEarliestTimeFormatted() const {
 
     long timestamp = getEarliestTime();
 
@@ -196,11 +197,11 @@ std::string zFile::getEarliestTimeFormatted() const {
 
     char buffer[64];
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
-    return std::string(buffer);
+    return string(buffer);
 }
 
 // 文件读取操作
-std::string zFile::readAllText() {
+string zFile::readAllText() {
     LOGE("readAllText %d %d", isDir(), m_fd);
     if (isDir() || m_fd < 0) {
         LOGE("readAllText3");
@@ -215,24 +216,24 @@ std::string zFile::readAllText() {
     }
 
     // 读取整个文件到内存
-    std::vector<uint8_t> data = readBytes(0, getFileSize());
+    vector<uint8_t> data = readBytes(0, getFileSize());
 
     // 将 vector<uint8_t> 转换为 string
-    return std::string(data.begin(), data.end());
+    return string(data.begin(), data.end());
 }
 
-std::vector<std::string> zFile::readAllLines() {
-    std::vector<std::string> lines;
+vector<string> zFile::readAllLines() {
+    vector<string> lines;
 
     // 复用 readAllText 获取文件内容
-    std::string content = readAllText();
+    string content = readAllText();
 
     if (content.empty()) {
         return lines;
     }
 
     // 按行分割
-    std::string current_line;
+    string current_line;
     for (char c : content) {
         if (c == '\n') {
             lines.push_back(current_line);
@@ -253,14 +254,14 @@ std::vector<std::string> zFile::readAllLines() {
     return lines;
 }
 
-std::string zFile::readLine() {
+string zFile::readLine() {
     if (isDir() || m_fd < 0) {
         return "";
     }
     return getLine(m_fd);
 }
-std::vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
-    std::vector<uint8_t> data;
+vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
+    vector<uint8_t> data;
     LOGE("readBytes start_offset: %ld, size: %zu", start_offset, size);
     if (isDir() || m_fd < 0) {
         return data;
@@ -320,13 +321,13 @@ std::vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
 }
 
 
-std::vector<uint8_t> zFile::readAllBytes() {
+vector<uint8_t> zFile::readAllBytes() {
     return readBytes(0, getFileSize());
 }
 
 // 目录操作
-std::vector<std::string> zFile::listFiles() const {
-    std::vector<std::string> files;
+vector<string> zFile::listFiles() const {
+    vector<string> files;
     
     if (!isDir()) {
         LOGE("listFiles: %s 不是目录", m_path.c_str());
@@ -347,7 +348,7 @@ std::vector<std::string> zFile::listFiles() const {
             continue;
         }
 
-        std::string fullPath = m_path + "/" + entry->d_name;
+        string fullPath = m_path + "/" + entry->d_name;
 
         if(entry->d_type == DT_LNK){
             ssize_t len =readlink(fullPath.c_str(), link_real_path, sizeof(link_real_path)-1);
@@ -366,8 +367,8 @@ std::vector<std::string> zFile::listFiles() const {
     return files;
 }
 
-std::vector<std::string> zFile::listDirectories() const {
-    std::vector<std::string> dirs;
+vector<string> zFile::listDirectories() const {
+    vector<string> dirs;
     
     if (!isDir()) {
         LOGE("listDirectories: %s 不是目录", m_path.c_str());
@@ -398,8 +399,8 @@ std::vector<std::string> zFile::listDirectories() const {
     return dirs;
 }
 
-std::vector<std::string> zFile::listAll() const {
-    std::vector<std::string> all;
+vector<string> zFile::listAll() const {
+    vector<string> all;
     
     if (!isDir()) {
         LOGE("listAll: %s 不是目录", m_path.c_str());
@@ -429,23 +430,23 @@ std::vector<std::string> zFile::listAll() const {
 }
 
 // 文件格式检查
-bool zFile::endsWith(const std::string& suffix) const {
+bool zFile::endsWith(const string& suffix) const {
     if (suffix.length() > m_path.length()) {
         return false;
     }
     return m_path.compare(m_path.length() - suffix.length(), suffix.length(), suffix) == 0;
 }
 
-bool zFile::startsWith(const std::string& prefix) const {
+bool zFile::startsWith(const string& prefix) const {
     if (prefix.length() > m_path.length()) {
         return false;
     }
     return m_path.compare(0, prefix.length(), prefix) == 0;
 }
 
-std::string zFile::getLine(int fd) const {
+string zFile::getLine(int fd) const {
     char buffer;
-    std::string line = "";
+    string line = "";
     int read_count = 0;
     const int max_read = 8192; // 最大读取8KB，防止无限循环
 
@@ -525,7 +526,7 @@ bool zFile::isTextFile() {
     }
 
     // 复用 readBytes 读取文件前1KB来检查
-    std::vector<uint8_t> data = readBytes(0, 1024);
+    vector<uint8_t> data = readBytes(0, 1024);
     
     LOGE("isTextFile: 读取了 %zu 字节", data.size());
 
@@ -572,7 +573,7 @@ bool zFile::isTextFile() {
 unsigned long zFile::getSum(long start_offset, size_t size){
     unsigned long sum = 0;
     LOGE("111111111111 %d", m_fd);
-    std::vector<uint8_t> data = readBytes(start_offset, size);
+    vector<uint8_t> data = readBytes(start_offset, size);
     LOGE("222222222222 %d", data.size());
     for(int i = 0; i < data.size(); i++){
         sum += data[i];

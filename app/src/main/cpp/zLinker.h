@@ -6,12 +6,12 @@
 #define OVERT_ZLINKER_H
 
 #include <elf.h>
-#include <string>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <link.h>
 #include "zElf.h"
+#include "config.h"
 
 struct soinfo{
     const ElfW(Phdr) *phdr;
@@ -57,7 +57,7 @@ public:
 
     zElf find_lib(const char* so_name);
 
-    std::vector<std::string> get_libpath_list();
+    vector<string> get_libpath_list();
 
     static bool check_lib_crc(const char* so_name);
 };

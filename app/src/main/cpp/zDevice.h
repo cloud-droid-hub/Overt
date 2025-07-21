@@ -5,8 +5,8 @@
 #ifndef OVERT_ZDEVICE_H
 #define OVERT_ZDEVICE_H
 
-#include <map>
-#include <string>
+
+#include "config.h"
 
 class zDevice {
 private:
@@ -29,9 +29,9 @@ public:
 
     ~zDevice();
 
-    static std::map<std::string, std::map<std::string, std::map<std::string, std::string>>> device_info;
+    static map<string, map<string, map<string, string>>> device_info;
 
-    std::map<std::string, std::map<std::string, std::map<std::string, std::string>>>& get_device_info(){
+    map<string, map<string, map<string, string>>>& get_device_info(){
         return device_info;
     };
 

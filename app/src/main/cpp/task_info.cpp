@@ -10,13 +10,13 @@
 #include "util.h"
 #include "zDevice.h"
 
-std::map<std::string, std::map<std::string, std::string>> get_task_info(){
-    std::map<std::string, std::map<std::string, std::string>> info;
-    std::vector<std::string> task_dir_list = zFile("/proc/self/task").listDirectories();
-    for(std::string task_dir : task_dir_list){
-        std::string stat_path = "/proc/self/task/" + task_dir + "/stat";
-        std::vector<std::string> stat_line_list = zFile(stat_path).readAllLines();
-        for(std::string stat_line : stat_line_list) {
+map<string, map<string, string>> get_task_info(){
+    map<string, map<string, string>> info;
+    vector<string> task_dir_list = zFile("/proc/self/task").listDirectories();
+    for(string task_dir : task_dir_list){
+        string stat_path = "/proc/self/task/" + task_dir + "/stat";
+        vector<string> stat_line_list = zFile(stat_path).readAllLines();
+        for(string stat_line : stat_line_list) {
             if (strstr(stat_line.c_str(), "gamin") != nullptr) {
                 LOGE("gmain is found in stat line");
                 info[stat_line.c_str()]["risk"] = "error";

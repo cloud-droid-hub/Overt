@@ -5,7 +5,6 @@
 #include "zLinker.h"
 #include "util.h"
 #include <android/log.h>
-#include <regex>
 #include "zLog.h"
 #include "zFile.h"
 
@@ -72,8 +71,8 @@ zElf zLinker::find_lib(const char* so_name){
 }
 
 
-std::vector<std::string> zLinker::get_libpath_list(){
-    std::vector<std::string> libpath_list = std::vector<std::string>();
+vector<string> zLinker::get_libpath_list(){
+    vector<string> libpath_list = vector<string>();
     soinfo* soinfo = soinfo_head;
     while(soinfo->next != nullptr){
         char* real_path = soinfo_get_realpath(soinfo);

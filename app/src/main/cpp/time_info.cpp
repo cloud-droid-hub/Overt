@@ -32,7 +32,7 @@
 #include <iostream>
 
 
-std::optional<struct statx> get_file_statx(std::string path) {
+std::optional<struct statx> get_file_statx(string path) {
     struct statx stx = {};
     int res = syscall(291, AT_FDCWD, path.c_str(), AT_STATX_SYNC_AS_STAT, STATX_BASIC_STATS, &stx);
     if (res == 0) {
@@ -42,7 +42,7 @@ std::optional<struct statx> get_file_statx(std::string path) {
     }
 }
 
-std::optional<struct stat> get_file_stat(std::string path) {
+std::optional<struct stat> get_file_stat(string path) {
     struct stat st;
     if (stat(path.c_str(), &st) == -1) {
         return std::nullopt;
@@ -51,7 +51,7 @@ std::optional<struct stat> get_file_stat(std::string path) {
 }
 
 
-std::string format_timestamp(long timestamp) {
+string format_timestamp(long timestamp) {
     if (timestamp <= 0) {
         return "Invalid timestamp";
     }
@@ -72,7 +72,7 @@ std::string format_timestamp(long timestamp) {
          timestamp, timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
          timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 
-    return std::string(buffer);
+    return string(buffer);
 }
 
 zFile get_earliest_file() {
@@ -81,18 +81,18 @@ zFile get_earliest_file() {
     LOGE("初始最早时间: %s -> %s", earliest_file.getPath().c_str(), earliest_file.getEarliestTimeFormatted().c_str());
 
     // 遍历 /proc/mounts
-    for(std::string line : zFile("/proc/mounts").readAllLines()){
+    for(string line : zFile("/proc/mounts").readAllLines()){
 
-        std::vector<std::string> tokens = split_str(line, ' ');
+        vector<string> tokens = split_str(line, ' ');
         if (tokens.size() < 4) {
             LOGE("mounts format is wrong: %s", line.c_str());
             continue;
         }
 
-        std::string device = tokens[0];
-        std::string mountpoint_path = tokens[1];
-        std::string fstype = tokens[2];
-        std::string options = tokens[3];
+        string device = tokens[0];
+        string mountpoint_path = tokens[1];
+        string fstype = tokens[2];
+        string options = tokens[3];
 
         // 只处理真实路径挂载点，排除某些虚拟fs如 proc, sysfs, tmpfs
         if (fstype == "proc" || fstype == "sysfs" || fstype == "tmpfs" || fstype == "devtmpfs" || fstype == "devpts" || fstype == "cgroup") {
@@ -167,7 +167,7 @@ long get_boot_time_by_syscall() {
 }
 
 
-std::string get_time_diff(long timestamp) {
+string get_time_diff(long timestamp) {
     if (timestamp <= 0) {
         return "Invalid timestamp";
     }
@@ -194,18 +194,18 @@ std::string get_time_diff(long timestamp) {
     // 输出调试信息
     LOGE("Time difference calculation: current=%ld, input=%ld, diff=%ld, days=%ld, hours=%ld, minutes=%ld, seconds=%ld", current_time, timestamp, time_diff, days, hours, minutes, seconds);
 
-    return std::string(time_str);
+    return string(time_str);
 }
 
-std::map<std::string, std::map<std::string, std::string>> get_time_info(){
+map<string, map<string, string>> get_time_info(){
 
-    std::map<std::string, std::map<std::string, std::string>> info;
+    map<string, map<string, string>> info;
 
     time_t current_time = time(nullptr);
 
     // 获取开机时间
     long boot_time = get_boot_time_by_syscall();
-    std::string boot_time_str = format_timestamp(boot_time);
+    string boot_time_str = format_timestamp(boot_time);
     LOGE("boot_time %ld %s", boot_time, format_timestamp(boot_time).c_str());
     LOGE("boot_time_time2  %ld %s", boot_time, get_time_diff(boot_time).c_str());
 

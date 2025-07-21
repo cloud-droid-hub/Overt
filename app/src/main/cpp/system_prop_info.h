@@ -5,12 +5,9 @@
 #ifndef OVERT_SYSTEM_PROP_INFO_H
 #define OVERT_SYSTEM_PROP_INFO_H
 
+#include "config.h"
 
-#include <string>
-#include <map>
-#include <vector>
-
-std::map<std::string, std::map<std::string, std::string>> get_system_prop_info();
+map<string, map<string, string>> get_system_prop_info();
 
 
 #endif //OVERT_SYSTEM_PROP_INFO_H

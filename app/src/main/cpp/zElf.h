@@ -8,7 +8,7 @@
 
 #include <linux/elf.h>
 #include <stddef.h>
-#include <string>
+#include "config.h"
 
 class zElf {
 public:
@@ -22,7 +22,7 @@ public:
 //    char* base_addr = nullptr;
     char* elf_mem_ptr = nullptr;
     char* elf_file_ptr = nullptr;
-    std::string real_path = "";
+    string real_path = "";
 
     zElf();
     zElf(char* elf_file_name);

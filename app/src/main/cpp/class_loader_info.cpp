@@ -7,11 +7,12 @@
 #include "zJavaVm.h"
 #include "zLog.h"
 
-std::map<std::string, std::map<std::string, std::string>> get_class_loader_info(){
-    std::map<std::string, std::map<std::string, std::string>> info;
+
+map<string, map<string, string>> get_class_loader_info(){
+    map<string, map<string, string>> info;
 
     // 处理类加载器列表
-    for(const std::string& str : zClassLoader::getInstance()->classLoaderStringList) {
+    for(const string& str : zClassLoader::getInstance()->classLoaderStringList) {
         if (str.empty()) {
             continue;
         }
@@ -27,20 +28,20 @@ std::map<std::string, std::map<std::string, std::string>> get_class_loader_info(
     return info;
 }
 
-std::map<std::string, std::map<std::string, std::string>> get_class_info(){
-    std::map<std::string, std::map<std::string, std::string>> info;
+map<string, map<string, string>> get_class_info(){
+    map<string, map<string, string>> info;
 
-    std::vector<std::string> black_name_list = {
+    vector<string> black_name_list = {
             "lsposed", "lspd", "XposedHooker", "XposedHelpers", "io.github.libxposed.api", "XposedInit", "XposedBridge"
     };
 
-    for(std::string className : zClassLoader::getInstance()->classNameList){
+    for(string className : zClassLoader::getInstance()->classNameList){
         if (className.empty()) {
             continue;
         }
-        // std::transform(className.begin(), className.end(), className.begin(), [](unsigned char c) { return std::tolower(c); });
-        for(std::string black_name: black_name_list){
-            // std::transform(black_name.begin(), black_name.end(), black_name.begin(), [](unsigned char c) { return std::tolower(c); });
+        // transform(className.begin(), className.end(), className.begin(), [](unsigned char c) { return tolower(c); });
+        for(string black_name: black_name_list){
+            // transform(black_name.begin(), black_name.end(), black_name.begin(), [](unsigned char c) { return tolower(c); });
             if(strstr(className.c_str(), black_name.c_str())){
                 LOGE("get_class_info className %s is find", className.c_str());
                 info[className]["risk"] = "error";

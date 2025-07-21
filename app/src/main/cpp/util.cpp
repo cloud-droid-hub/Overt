@@ -8,9 +8,9 @@
 #include "util.h"
 #include "zLog.h"
 
-std::string get_line(int fd) {
+string get_line(int fd) {
     char buffer;
-    std::string line = "";
+    string line = "";
     while (true) {
         ssize_t bytes_read = read(fd, &buffer, sizeof(buffer));
         if (bytes_read == 0) break;
@@ -20,14 +20,14 @@ std::string get_line(int fd) {
     return line;
 }
 
-std::vector<std::string> get_file_lines(std::string path){
-    std::vector<std::string> file_lines = std::vector<std::string>();
+vector<string> get_file_lines(string path){
+    vector<string> file_lines = vector<string>();
     int fd = open(path.c_str(), O_RDONLY);
     if (fd == -1) {
         return file_lines;
     }
     while (true) {
-        std::string line = get_line(fd);
+        string line = get_line(fd);
         if (line.size() == 0) {
             break;
         }
@@ -38,8 +38,8 @@ std::vector<std::string> get_file_lines(std::string path){
 }
 
 // 分割字符串，返回字符串数组，分割算法用 c 来实现，不利用 api
-std::vector<std::string> split_str(const std::string& str, const std::string& split) {
-    std::vector<std::string> result;
+vector<string> split_str(const string& str, const string& split) {
+    vector<string> result;
 
     if (split.empty()) {
         result.push_back(str);  // 不分割
@@ -55,7 +55,7 @@ std::vector<std::string> split_str(const std::string& str, const std::string& sp
         size_t j = i;
 
         // 查找下一个分隔符位置
-        while (j <= str_len - split_len && std::memcmp(s + j, split.c_str(), split_len) != 0) {
+        while (j <= str_len - split_len && memcmp(s + j, split.c_str(), split_len) != 0) {
             ++j;
         }
 
@@ -74,8 +74,8 @@ std::vector<std::string> split_str(const std::string& str, const std::string& sp
     return result;
 }
 
-std::vector<std::string> split_str(const std::string& str, char delim) {
-    std::vector<std::string> result;
+vector<string> split_str(const string& str, char delim) {
+    vector<string> result;
     const char* s = str.c_str();
     size_t start = 0;
     size_t len = str.length();
@@ -107,8 +107,8 @@ bool string_end_with(const char *str, const char *suffix) {
     return (strcmp(str + len_str - len_suffix, suffix) == 0);
 }
 
-// 将 std::map<std::string, std::string> 转换为 Java Map<String, String>
-jobject cmap_to_jmap(JNIEnv *env, std::map<std::string, std::string> cmap){
+// 将 map<string, string> 转换为 Java Map<String, String>
+jobject cmap_to_jmap(JNIEnv *env, map<string, string> cmap){
     jobject jobjectMap = env->NewObject(env->FindClass("java/util/HashMap"), env->GetMethodID(env->FindClass("java/util/HashMap"), "<init>", "()V"));
     for (auto &entry : cmap) {
         env->CallObjectMethod(jobjectMap, env->GetMethodID(env->FindClass("java/util/HashMap"), "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"), env->NewStringUTF(entry.first.c_str()), env->NewStringUTF(entry.second.c_str()));
@@ -116,8 +116,8 @@ jobject cmap_to_jmap(JNIEnv *env, std::map<std::string, std::string> cmap){
     return jobjectMap;
 }
 
-// 将 std::map<std::string, std::map<std::string, std::string>> 转换为 Java Map<String, Map<String, String>>
-jobject cmap_to_jmap_nested(JNIEnv* env, const std::map<std::string, std::map<std::string, std::string>>& cmap) {
+// 将 map<string, map<string, string>> 转换为 Java Map<String, Map<String, String>>
+jobject cmap_to_jmap_nested(JNIEnv* env, const map<string, map<string, string>>& cmap) {
     jclass hashMapClass = env->FindClass("java/util/HashMap");
     jmethodID hashMapConstructor = env->GetMethodID(hashMapClass, "<init>", "()V");
     jobject jmap = env->NewObject(hashMapClass, hashMapConstructor);
@@ -133,8 +133,8 @@ jobject cmap_to_jmap_nested(JNIEnv* env, const std::map<std::string, std::map<st
     return jmap;
 }
 
-// 主函数：将 std::map<std::string, std::map<std::string, std::map<std::string, std::string>>> 转换为 Java Map<String, Map<String, Map<String, String>>>
-jobject cmap_to_jmap_nested_3(JNIEnv* env, const std::map<std::string, std::map<std::string, std::map<std::string, std::string>>>& cmap) {
+// 主函数：将 map<string, map<string, map<string, string>>> 转换为 Java Map<String, Map<String, Map<String, String>>>
+jobject cmap_to_jmap_nested_3(JNIEnv* env, const map<string, map<string, map<string, string>>>& cmap) {
     jclass hashMapClass = env->FindClass("java/util/HashMap");
     jmethodID hashMapConstructor = env->GetMethodID(hashMapClass, "<init>", "()V");
     jobject jmap = env->NewObject(hashMapClass, hashMapConstructor);

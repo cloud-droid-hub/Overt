@@ -6,7 +6,7 @@
 #define DEMO_CLASSLOADER_H
 
 #include <jni.h>
-#include <vector>
+#include "config.h"
 
 
 
@@ -33,13 +33,13 @@ public:
 
     ~zClassLoader();
 
-    std::vector<std::string> classNameList;
-    std::vector<std::string> classLoaderStringList;
+    vector<string> classNameList;
+    vector<string> classLoaderStringList;
     bool initialized = false;
 
     // void debug(JNIEnv *env, const char *format, jobject object);
     // void traverseClassLoader(JNIEnv *env);
-    // std::string get_class_loader_info(JNIEnv* env, jobject object);
+    // string get_class_loader_info(JNIEnv* env, jobject object);
 
     void traverseClassLoader(JNIEnv* env);
     void checkGlobalRef(JNIEnv *env, jclass clazz);

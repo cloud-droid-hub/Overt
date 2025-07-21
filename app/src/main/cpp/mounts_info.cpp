@@ -7,8 +7,8 @@
 #include "zLog.h"
 #include "zFile.h"
 
-std::map<std::string, std::map<std::string, std::string>> get_mounts_info(){
-    std::map<std::string, std::map<std::string, std::string>> info;
+map<string, map<string, string>> get_mounts_info(){
+    map<string, map<string, string>> info;
 
     const char* paths[] = {
             "dex2oat",// hunter 似乎认为 dex2oat 存在是不合理的
@@ -16,7 +16,7 @@ std::map<std::string, std::map<std::string, std::string>> get_mounts_info(){
             "shamiko",
     };
 
-    std::vector<std::string> mounts_lines = zFile("/proc/self/mounts").readAllLines();
+    vector<string> mounts_lines = zFile("/proc/self/mounts").readAllLines();
     for(int i = 0; i < mounts_lines.size(); i++){
         for (const char* path : paths) {
             if (strstr(mounts_lines[i].c_str(), path) != nullptr){

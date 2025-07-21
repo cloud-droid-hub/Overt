@@ -3,17 +3,15 @@
 //
 
 #include <sys/system_properties.h>
-#include "system_prop_info.h"
 #include <stdatomic.h>
 #include <unistd.h>
-#include "android/log.h"
-
 #include "zLog.h"
 
+#include "system_prop_info.h"
 
 // 定义一个结构体来存储 value 和 serial
 struct PropertyValue {
-    std::string value;
+    string value;
     uint32_t serial;
     uint32_t serial_version;
 };
@@ -31,16 +29,16 @@ struct prop_info_internal {
 };
 
 // 封装函数，返回以 name 为键的 map
-std::map<std::string, PropertyValue> getAllSystemProperties() {
-    std::map<std::string, PropertyValue> properties;
+map<string, PropertyValue> getAllSystemProperties() {
+    map<string, PropertyValue> properties;
     __system_property_foreach([](const prop_info* pi, void* cookie) {
 
-        auto properties = reinterpret_cast<std::map<std::string, PropertyValue> *>(cookie);
+        auto properties = reinterpret_cast<map<string, PropertyValue> *>(cookie);
 
         const prop_info_internal* internal = reinterpret_cast<const prop_info_internal*>(pi);
 
-        std::string name(internal->name);
-        std::string value(internal->value);
+        string name(internal->name);
+        string value(internal->value);
         uint32_t serial = internal->serial;
 
         uint32_t dirty = serial & SERIAL_DIRTY;
@@ -57,11 +55,11 @@ std::map<std::string, PropertyValue> getAllSystemProperties() {
 
 
 
-std::map<std::string, std::map<std::string, std::string>> get_system_prop_info() {
-    std::map<std::string, std::map<std::string, std::string>> info;
+map<string, map<string, string>> get_system_prop_info() {
+    map<string, map<string, string>> info;
     auto properties = getAllSystemProperties();
 
-    std::vector<std::string> prop_list{
+    vector<string> prop_list{
             "ro.secure",
             "ro.debuggable",
             "ro.boot.flash.locked",
@@ -74,24 +72,7 @@ std::map<std::string, std::map<std::string, std::string>> get_system_prop_info()
             "ro.build.type",
     };
 
-//    std::map<std::string, std::string> prop_map{
-//            {"ro.secure",                   "1"},
-//            {"ro.debuggable",               "0"},
-//            {"ro.boot.flash.locked",        "1"},
-//            {"ro.dalvik.vm.native.bridge",  "0"},
-//            {"ro.boot.vbmeta.device_state", "locked"},
-//            {"ro.boot.verifiedbootstate",   "green"},
-//            {"ro.boot.veritymode",          "enforcing"},
-//            {"ro.boot.verifiedbootstate",   "green"},
-//            {"ro.build.tags",               "release-keys"},
-//            {"ro.build.type",               "user"},
-//            {"init.svc.adbd",               "stopped"},
-//            {"persist.sys.usb.config",      "none"},
-//            {"persist.security.adbinput",      "0"},
-//    };
-
-
-    std::map<std::string, std::vector<std::string>> prop_map{
+    map<string, vector<string>> prop_map{
             {"ro.secure",                   {"1"}},
             {"ro.debuggable",               {"0"}},
             {"ro.boot.flash.locked",        {"1"}},
@@ -111,16 +92,17 @@ std::map<std::string, std::map<std::string, std::string>> get_system_prop_info()
         if(properties.find(key) == properties.end()) {
             continue;
         }
-        if(std::find(value.begin(), value.end(), properties[key.c_str()].value) == value.end()){
-            char buffer[100] = {0};
-            sprintf(buffer, ":value[%s]", properties[key.c_str()].value.c_str());
-            info[key+buffer]["risk"] = "error";
-            info[key+buffer]["explain"] = "value is not correct";
-
+        for(auto v : value){
+            if(v == properties[key.c_str()].value){
+                char buffer[100] = {0};
+                sprintf(buffer, ":value[%s]", properties[key.c_str()].value.c_str());
+                info[key+buffer]["risk"] = "error";
+                info[key+buffer]["explain"] = "value is not correct";
+            }
         }
     }
 
-    for(const std::string& key : prop_list){
+    for(const string& key : prop_list){
         if(properties.find(key) != properties.end()) {
             if(properties[key.c_str()].serial_version != 0){
                 char buffer[100] = {0};

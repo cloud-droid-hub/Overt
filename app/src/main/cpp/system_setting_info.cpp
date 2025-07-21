@@ -61,7 +61,7 @@ bool isCharging(JNIEnv *env, jobject context) {
     }
 }
 
-std::string getInstallerName(JNIEnv *env, jobject context) {
+string getInstallerName(JNIEnv *env, jobject context) {
     // 获取 Context 类
     jclass contextClass = env->GetObjectClass(context);
 
@@ -87,17 +87,17 @@ std::string getInstallerName(JNIEnv *env, jobject context) {
     } else {
         const char* installer_cstr = env->GetStringUTFChars(installer, 0);
         LOGE("installer=%s", installer_cstr);
-        return std::string(installer_cstr);
+        return string(installer_cstr);
     }
 }
 
 bool isMarketInstalled(JNIEnv *env, jobject context){
-    std::string installer_name =  getInstallerName(env, context);
+    string installer_name =  getInstallerName(env, context);
     if(installer_name.empty()) {
         return false;
     }
 
-    std::vector<std::string> market_name_list = {
+    vector<string> market_name_list = {
             "com.oppo.market",                      // OPPO
             "com.bbk.appstore",                     // VIVO
             "com.xiaomi.market",                    // XIAOMI
@@ -231,8 +231,8 @@ bool isPasswordLocked(JNIEnv *env, jobject context) {
     return result;
 }
 
-std::map<std::string, std::map<std::string, std::string>> get_system_setting_info(JNIEnv* env, jobject context) {
-    std::map<std::string, std::map<std::string, std::string>> info;
+map<string, map<string, string>> get_system_setting_info(JNIEnv* env, jobject context) {
+    map<string, map<string, string>> info;
 
     if (env == nullptr) {
         LOGE("Failed to get env");
@@ -320,6 +320,6 @@ std::map<std::string, std::map<std::string, std::string>> get_system_setting_inf
     return info;
 }
 
-std::map<std::string, std::map<std::string, std::string>> get_system_setting_info() {
+map<string, map<string, string>> get_system_setting_info() {
     return get_system_setting_info(zJavaVm::getInstance()->getEnv(), zJavaVm::getInstance()->getContext());
 }

@@ -4,9 +4,10 @@
 
 #include "package_info.h"
 #include "root_file_info.h"
-#include "util.h"
 #include "zJavaVm.h"
 #include "zFile.h"
+
+#include "util.h"
 
 bool isAppInstalledByContext(JNIEnv *env, jobject context, const char* packageNameCStr) {
     // 1. 将 C 字符串转换为 jstring
@@ -46,14 +47,14 @@ bool isAppInstalledByContext(JNIEnv *env, jobject context, const char* packageNa
 }
 
 bool isAppInstalledByPath(const char* packageName) {
-    std::vector<std::string> dir_list = {
+    vector<string> dir_list = {
             "/data/data",
             "/data/user/0",
             "/data/user_de/0",
             "/storage/emulated/0/Android/data/"
     };
-    for(std::string dir : dir_list){
-        std::string path = "/storage/emulated/0/Android/data/" + std::string(packageName);
+    for(string dir : dir_list){
+        string path = "/storage/emulated/0/Android/data/" + string(packageName);
         if(zFile(path).exists()) {
             return true;
         }
@@ -62,10 +63,10 @@ bool isAppInstalledByPath(const char* packageName) {
 }
 
 
-std::map<std::string, std::map<std::string, std::string>> get_package_info(JNIEnv *env, jobject context){
-    std::map<std::string, std::map<std::string, std::string>> info;
+map<string, map<string, string>> get_package_info(JNIEnv *env, jobject context){
+    map<string, map<string, string>> info;
 
-    std::map<std::string, std::string> black_map = {
+    map<string, string> black_map = {
             {"com.zhenxi.hunter", "Hunter"},
             {"com.juqing.catchpackhelper", "抓包帮手"},
             {"bin.mt.plus", "MT 管理器"},
@@ -90,7 +91,7 @@ std::map<std::string, std::map<std::string, std::string>> get_package_info(JNIEn
             {"me.weishu.kernelsu", "KernelSU"},
     };
 
-    std::map<std::string, std::string> white_map = {
+    map<string, string> white_map = {
             {"com.tencent.mm", "微信"},
             {"com.eg.android.AlipayGphone", "支付宝"},
     };
@@ -117,6 +118,6 @@ std::map<std::string, std::map<std::string, std::string>> get_package_info(JNIEn
     return info;
 };
 
-std::map<std::string, std::map<std::string, std::string>> get_package_info(){
+map<string, map<string, string>> get_package_info(){
     return get_package_info(zJavaVm::getInstance()->getEnv(), zJavaVm::getInstance()->getContext());
 };
