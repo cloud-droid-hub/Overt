@@ -13,6 +13,9 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <sys/stat.h>
+#include <linux/types.h>
+#include <bits/glibc-syscalls.h>
 
 // 如果 CLOCK_REALTIME 未定义，则定义它
 #ifndef CLOCK_REALTIME
@@ -25,8 +28,56 @@
 #include "config.h"
 #include "syscall.h"
 #include "nonstd_libc.h"
+#include <dirent.h>
+
+
 
 #ifdef USE_NONSTD_API
+
+/*
+ *  | 位段    | 含义                               |
+    | ----- | -------------------------------- |
+    | 31-24 | `11010110`（即 0xD6） → 操作码：`BR` 类型 |
+    | 23-5  | `000000000000000100001`（x16 的编码） |
+    | 4-0   | `00000`（unused）                  |
+ * */
+
+DIR* nonstd_opendir(const char* name) {
+    LOGE("nonstd_opendir called: name='%s'", name ? name : "NULL");
+    auto function_ptr= opendir;
+    for(int i=0; i<4; i++){
+        unsigned int inst = *((unsigned int*)function_ptr+i);
+        if((inst & 0xff000000) == 0xD6000000){
+            LOGE("opendir is unsafe");
+            return opendir("");
+        }
+    }
+    return opendir(name);
+}
+
+struct dirent* nonstd_readdir(DIR* dirp) {
+    auto function_ptr= readdir;
+    for(int i=0; i<4; i++){
+        unsigned int inst = *((unsigned int*)function_ptr+i);
+        if((inst & 0xff000000) == 0xD6000000){
+            LOGE("readdir is unsafe");
+            return readdir(nullptr);
+        }
+    }
+    return readdir((DIR*)dirp);
+}
+int nonstd_closedir(DIR* dirp) {
+    LOGD("nonstd_closedir called: dirp=%p", dirp);
+    auto function_ptr= closedir;
+    for(int i=0; i<4; i++){
+        unsigned int inst = *((unsigned int*)function_ptr+i);
+        if((inst & 0xff000000) == 0xD6000000){
+            LOGE("closedir is unsafe");
+            return closedir(nullptr);
+        }
+    }
+    return closedir(dirp);
+}
 
 // 手动实现strcmp函数 - 自定义版本
 int nonstd_strcmp(const char *str1, const char *str2) {
@@ -146,22 +197,22 @@ int nonstd_strncmp(const char *str1, const char *str2, size_t n) {
 
 void* nonstd_malloc(size_t size) {
     LOGD("nonstd_malloc called: size=%zu", size);
-    
+
     if (size == 0) {
         LOGD("malloc: size=0, returning NULL");
         return NULL;
     }
-    
+
     // 使用系统调用分配内存
-    void *ptr = (void*)__syscall6(SYS_mmap, 0, size, 
-                                 PROT_READ | PROT_WRITE, 
+    void *ptr = (void*)__syscall6(SYS_mmap, 0, size,
+                                 PROT_READ | PROT_WRITE,
                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    
+
     if (ptr == MAP_FAILED) {
         LOGD("malloc: mmap failed, returning NULL");
         return NULL;
     }
-    
+
     LOGD("malloc: allocated %zu bytes at %p", size, ptr);
     return ptr;
 }
@@ -262,12 +313,12 @@ int nonstd_close(int fd) {
 
 ssize_t nonstd_read(int fd, void *buf, size_t count) {
     LOGD("nonstd_read called: fd=%d, buf=%p, count=%zu", fd, buf, count);
-    
+
     if (!buf) {
         LOGD("read: NULL buffer");
         return -1;
     }
-    
+
     ssize_t result = __syscall3(SYS_read, fd, (long)buf, count);
     LOGD("read: result=%zd", result);
     return result;
@@ -335,23 +386,19 @@ time_t nonstd_time(time_t *tloc) {
     
     // 在 ARM64 上，time 系统调用已被废弃，使用 clock_gettime 替代
     struct timespec ts;
-    LOGE("nonstd_time: calling clock_gettime with CLOCK_REALTIME=%d", CLOCK_REALTIME);
+
     int result = __syscall2(SYS_clock_gettime, CLOCK_REALTIME, (long)&ts);
-    LOGE("nonstd_time: clock_gettime syscall result=%d, ts.tv_sec=%ld, ts.tv_nsec=%ld", 
-         result, ts.tv_sec, ts.tv_nsec);
+
     
     if (result != 0) {
-        LOGE("nonstd_time: clock_gettime failed: %d", result);
         return -1;
     }
     
     time_t time_result = (time_t)ts.tv_sec;
     if (tloc) {
         *tloc = time_result;
-        LOGE("nonstd_time: stored result in tloc: %ld", *tloc);
     }
-    
-    LOGE("nonstd_time: final result=%ld", time_result);
+
     return time_result;
 }
 
@@ -628,16 +675,16 @@ int nonstd_fstat(int __fd, struct stat* __buf) {
 
 off_t nonstd_lseek(int __fd, off_t __offset, int __whence) {
     LOGD("nonstd_lseek called: fd=%d, offset=%ld, whence=%d", __fd, __offset, __whence);
-    
+
     off_t result = __syscall3(SYS_lseek, __fd, __offset, __whence);
     LOGD("lseek: result=%ld", result);
     return result;
 }
 
 ssize_t nonstd_readlinkat(int __dir_fd, const char* __path, char* __buf, size_t __buf_size) {
-    LOGD("nonstd_readlinkat called: dir_fd=%d, path='%s', buf=%p, buf_size=%zu", 
+    LOGD("nonstd_readlinkat called: dir_fd=%d, path='%s', buf=%p, buf_size=%zu",
          __dir_fd, __path ? __path : "NULL", __buf, __buf_size);
-    
+
     ssize_t result = __syscall4(SYS_readlinkat, __dir_fd, (long)__path, (long)__buf, (long)__buf_size);
     LOGD("readlinkat: result=%zd", result);
     return result;
@@ -647,7 +694,7 @@ ssize_t nonstd_readlinkat(int __dir_fd, const char* __path, char* __buf, size_t 
 
 int nonstd_nanosleep(const struct timespec* __request, struct timespec* __remainder) {
     LOGD("nonstd_nanosleep called: request=%p, remainder=%p", __request, __remainder);
-    
+
     int result = (int)__syscall2(SYS_nanosleep, (long)__request, (long)__remainder);
     LOGD("nanosleep: result=%d", result);
     return result;
@@ -700,4 +747,59 @@ void nonstd_exit(int __status) {
     // 这行代码永远不会执行
 }
 
-#endif // USE_NONSTD_API 
+
+
+// ==================== 目录操作函数 ====================
+
+
+
+// ==================== 时间相关 ====================
+
+
+
+
+
+ssize_t nonstd_readlink(const char *pathname, char *buf, size_t bufsiz) {
+    LOGD("nonstd_readlink called: pathname='%s', buf=%p, bufsiz=%zu", pathname ? pathname : "NULL", buf, bufsiz);
+    if (!pathname || !buf) {
+        LOGD("readlink: NULL arg");
+        return -1;
+    }
+    ssize_t result = (ssize_t)__syscall3(SYS_readlink, (long)pathname, (long)buf, (long)bufsiz);
+    LOGD("readlink: result=%zd", result);
+    return result;
+}
+
+struct tm* nonstd_localtime(const time_t* timep) {
+    LOGD("nonstd_localtime called: timep=%p", timep);
+    if (!timep) return nullptr;
+    static struct tm result;
+    time_t t = *timep;
+    t += 8 * 3600;
+    gmtime_r(&t, &result);
+    return &result;
+}
+
+int nonstd_stat(const char* __path, struct stat* __buf) {
+    LOGD("nonstd_stat called: path='%s', buf=%p", __path ? __path : "NULL", __buf);
+    if (!__path || !__buf) {
+        LOGD("stat: NULL arg");
+        return -1;
+    }
+    int result = (int)__syscall4(SYS_newfstatat, AT_FDCWD, (long)__path, (long)__buf, 0);
+    LOGD("stat: result=%d", result);
+    return result;
+}
+
+int nonstd_access(const char* __path, int __mode) {
+    LOGD("nonstd_access called: path='%s', mode=0x%x", __path ? __path : "NULL", __mode);
+    if (!__path) {
+        LOGD("access: NULL path");
+        return -1;
+    }
+    int result = __syscall2(SYS_access, (long)__path, __mode);
+    LOGD("access: result=%d", result);
+    return result;
+}
+#endif // USE_NONSTD_API
+

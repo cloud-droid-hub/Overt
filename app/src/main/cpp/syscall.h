@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <bits/glibc-syscalls.h>
 
 // ARM64 系统调用宏
 #define __asm_syscall(...) \
@@ -72,6 +73,11 @@
 #define SYS_inotify_add_watch 27
 #define SYS_inotify_rm_watch 28
 #define SYS_tgkill       131
+
+#define SYS_stat 4
+#define SYS_access 21
+#define SYS_readlink 89
+#define SYS_newfstatat 79
 
 // 系统调用内联函数
 __attribute__((always_inline))

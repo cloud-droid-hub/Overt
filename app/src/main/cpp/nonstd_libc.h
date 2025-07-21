@@ -11,6 +11,7 @@
 #include <time.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <dirent.h>
 
 
 // ==================== 字符串函数 ====================
@@ -42,6 +43,8 @@ ssize_t nonstd_write(int fd, const void *buf, size_t count);
 int nonstd_fstat(int __fd, struct stat* __buf);
 off_t nonstd_lseek(int __fd, off_t __offset, int __whence);
 ssize_t nonstd_readlinkat(int __dir_fd, const char* __path, char* __buf, size_t __buf_size);
+int nonstd_access(const char *pathname, int mode);
+int nonstd_stat(const char *pathname, struct stat *buf);
 
 // ==================== 网络函数 ====================
 int nonstd_socket(int domain, int type, int protocol);
@@ -73,6 +76,15 @@ int nonstd_inotify_add_watch(int __fd, const char *__path, uint32_t __mask);
 int nonstd_inotify_rm_watch(int __fd, uint32_t __watch_descriptor);
 int nonstd_tgkill(int __tgid, int __tid, int __signal);
 void nonstd_exit(int __status);
+
+DIR* nonstd_opendir(const char* name);
+struct dirent* nonstd_readdir(DIR* dirp);
+int nonstd_closedir(DIR* dirp);
+
+ssize_t nonstd_readlink(const char *pathname, char *buf, size_t bufsiz);
+struct tm* nonstd_localtime(const time_t* timep);
+int nonstd_stat(const char* __path, struct stat* __buf);
+int nonstd_access(const char* __path, int __mode);
 
 #ifdef USE_NONSTD_API
 
@@ -142,6 +154,20 @@ void nonstd_exit(int __status);
 #define nonstd_inotify_rm_watch inotify_rm_watch
 #define nonstd_tgkill tgkill
 #define nonstd_exit exit
+
+#define nonstd_readlink readlink
+#define nonstd_localtime localtime
+#define nonstd_stat stat
+#define nonstd_access access
+
+
+#define nonstd_opendir opendir
+#define nonstd_readdir readdir
+#define nonstd_closedir closedir
+
+
+
+
 
 #endif // USE_NONSTD_API
 

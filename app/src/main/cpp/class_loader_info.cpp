@@ -36,21 +36,20 @@ map<string, map<string, string>> get_class_info(){
             "lsposed", "lspd", "XposedHooker", "XposedHelpers", "io.github.libxposed.api", "XposedInit", "XposedBridge"
     };
 
-    for(string className : zClassLoader::getInstance()->classNameList){
-        if (className.empty()) {
-            continue;
-        }
-        // transform(className.begin(), className.end(), className.begin(), [](unsigned char c) { return tolower(c); });
-        for(string black_name: black_name_list){
-            // transform(black_name.begin(), black_name.end(), black_name.begin(), [](unsigned char c) { return tolower(c); });
+    for(string black_name: black_name_list){
+        for(string className : zClassLoader::getInstance()->classNameList){
+            if (className.empty()) {
+                continue;
+            }
             if(nonstd_strstr(className.c_str(), black_name.c_str())){
                 LOGE("get_class_info className %s is find", className.c_str());
                 info[className]["risk"] = "error";
                 info[className]["explain"] = "Risk: black class";
-                continue;
+                break;
             }
         }
     }
+
 
     return info;
 }

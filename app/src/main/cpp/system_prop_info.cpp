@@ -102,7 +102,7 @@ map<string, map<string, string>> get_system_prop_info() {
             }
         }
         if(!flag){
-            string buffer = string_format(string(":value[%s]"), properties[key.c_str()].value.c_str());
+            string buffer = string_format(":value[%s]", properties[key.c_str()].value.c_str());
             info[key+buffer]["risk"] = "error";
             info[key+buffer]["explain"] = "value is not correct";
         }
@@ -111,8 +111,7 @@ map<string, map<string, string>> get_system_prop_info() {
     for(const string& key : prop_list){
         if(properties.find(key) != properties.end()) {
             if(properties[key.c_str()].serial_version != 0){
-                char buffer[100] = {0};
-                sprintf(buffer, ":serial[%d]", properties[key.c_str()].serial_version);
+                string buffer = string_format(":serial[%d]", properties[key.c_str()].serial_version);
                 info[key+buffer]["risk"] = "error";
                 info[key+buffer]["explain"] = "serial_version is not 0";
             }

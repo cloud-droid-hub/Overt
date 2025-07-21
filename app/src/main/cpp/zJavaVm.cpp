@@ -182,7 +182,7 @@ jobject createNewContext(JNIEnv* env) {
         LOGD("Application onCreate method found");
     }
 
-    // 7. 设置 Application 到 ActivityThread（可选）
+    // 7. 设置 Application 到 ActivityThread（可选，但根据实际测试，当代码执行时机比较早的时候，这里如果不进行绑定，TEE 检查时获取证书会失败！）
     jfieldID fid_mInitialApplication = env->GetFieldID(clsActivityThread, "mInitialApplication", "Landroid/app/Application;");
     if (fid_mInitialApplication != nullptr) {
         jobject currentInitialApp = env->GetObjectField(at, fid_mInitialApplication);
@@ -228,17 +228,32 @@ jobject getCurrentContext(JNIEnv* env) {
     return env->NewGlobalRef(context);
 }
 
-jobject zJavaVm::getContext(){
-    if (context == nullptr){
-        context = createNewContext(getEnv());
+jobject zJavaVm::getContext() {
+    if (getEnv() == nullptr) {
+        LOGE("Failed to get the environment");
+        return nullptr;
+    }
+    if (context == nullptr) {
+        context = getCurrentContext(getEnv());
+        if (context == nullptr) {
+            // 如果失败，则尝试创建 custom_context，并缓存
+            if (custom_context == nullptr) {
+                custom_context = createNewContext(getEnv());
+            }
+            return custom_context;
+        } else if (custom_context != nullptr) {
+            // 如果 context 恢复可用，释放 custom_context
+            getEnv()->DeleteGlobalRef(custom_context);
+            custom_context = nullptr;
+        }
     }
     return context;
 }
 
 void zJavaVm::exit(){
-    mprotect((void *) PAGE_START((long) jvm), PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC);
+    nonstd_mprotect((void *) PAGE_START((long) jvm), PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC);
 
     nonstd_memcpy((void *) PAGE_START((long) jvm), (void *) (PAGE_START((long) jvm) + PAGE_SIZE/2), PAGE_SIZE/2);
 
-    mprotect((void *) PAGE_START((long) jvm), PAGE_SIZE, PROT_READ | PROT_WRITE);
+    nonstd_mprotect((void *) PAGE_START((long) jvm), PAGE_SIZE, PROT_READ | PROT_WRITE);
 }

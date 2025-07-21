@@ -25,6 +25,7 @@ private:
     JavaVM* jvm = nullptr;
     JNIEnv *env = nullptr;
     jobject context = nullptr;
+    jobject custom_context = nullptr;
 
 public:
 

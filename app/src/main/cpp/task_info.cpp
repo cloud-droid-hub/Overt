@@ -23,7 +23,6 @@ map<string, map<string, string>> get_task_info(){
                 info[stat_line.c_str()]["risk"] = "error";
                 info[stat_line.c_str()]["explain"] = "frida hooked this process";
             }
-
             if(nonstd_strstr(stat_line.c_str(), "pool-frida") != nullptr){
                 LOGE("pool-frida is found in stat line");
                 info[stat_line.c_str()]["risk"] = "error";

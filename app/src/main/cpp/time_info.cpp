@@ -7,6 +7,7 @@
 #include "zFile.h"
 #include "util.h"
 #include "nonstd_libc.h"
+#include "syscall.h"
 
 #include <unistd.h>
 #include <limits.h> // PATH_MAX
@@ -33,25 +34,6 @@
 #include <iostream>
 
 
-std::optional<struct statx> get_file_statx(string path) {
-    struct statx stx = {};
-    int res = syscall(291, AT_FDCWD, path.c_str(), AT_STATX_SYNC_AS_STAT, STATX_BASIC_STATS, &stx);
-    if (res == 0) {
-        return stx;
-    } else {
-        return std::nullopt;
-    }
-}
-
-std::optional<struct stat> get_file_stat(string path) {
-    struct stat st;
-    if (stat(path.c_str(), &st) == -1) {
-        return std::nullopt;
-    }
-    return st;
-}
-
-
 string format_timestamp(long timestamp) {
     LOGE("format_timestamp: called with timestamp=%ld", timestamp);
     
@@ -64,7 +46,7 @@ string format_timestamp(long timestamp) {
     time_t time = (time_t)timestamp;
     LOGE("format_timestamp: converted to time_t: %ld", time);
     
-    struct tm* timeinfo = localtime(&time);
+    struct tm* timeinfo = nonstd_localtime(&time);
     if (timeinfo == nullptr) {
         LOGE("format_timestamp: localtime failed for timestamp=%ld", timestamp);
         return "Failed to convert time";
@@ -161,7 +143,7 @@ long get_boot_time_by_syscall() {
     LOGE("get_boot_time_by_syscall: starting...");
 
     // 使用 syscall(63, ...) 也就是 SYS_sysinfo
-    int result = syscall(__NR_sysinfo, &info);
+    int result = __syscall1(__NR_sysinfo, (long)&info);
     LOGE("get_boot_time_by_syscall: sysinfo syscall result=%d, uptime=%ld, loads[0]=%ld, loads[1]=%ld, loads[2]=%ld", 
          result, info.uptime, info.loads[0], info.loads[1], info.loads[2]);
     

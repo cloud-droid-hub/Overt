@@ -13,7 +13,7 @@
 // 定义 USE_NONSTD_API 时使用 nonstd 命名空间
 // 未定义时使用 std 命名空间
 
-//#define USE_NONSTD_API
+#define USE_NONSTD_API
 
 #ifdef USE_NONSTD_API
 
@@ -24,7 +24,6 @@
     
     // 使用 nonstd 命名空间（在包含头文件之后）
 
-    
     // ==================== 简化使用 ====================
     // 通过 using namespace 可以直接使用 string, vector, map 而不需要任何前缀
     // 当 USE_NONSTD_API 定义时，使用 nonstd 命名空间
@@ -98,6 +97,7 @@
     using namespace nonstd;
 
 #else
+
     // 当使用 std 命名空间时，包含标准库头文件
     #include <string>
     #include <vector>
