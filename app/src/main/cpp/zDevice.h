@@ -7,6 +7,8 @@
 
 
 #include "config.h"
+#include "zLog.h"
+
 
 class zDevice {
 private:

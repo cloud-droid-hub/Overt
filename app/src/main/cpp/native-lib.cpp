@@ -25,18 +25,18 @@
 void __attribute__((constructor)) init_(void){
     LOGE("init_ start");
 
-//    zDevice::getInstance()->get_device_info()["task_info"] = get_task_info();
-//    zDevice::getInstance()->get_device_info()["maps_info"] = get_maps_info();
-//    zDevice::getInstance()->get_device_info()["class_loader_info"] = get_class_loader_info();
-//    zDevice::getInstance()->get_device_info()["class_info"] = get_class_info();
-//    zDevice::getInstance()->get_device_info()["root_file_info"] = get_root_file_info();
-//    zDevice::getInstance()->get_device_info()["mounts_info"] = get_mounts_info();
-//    zDevice::getInstance()->get_device_info()["system_prop_info"] = get_system_prop_info();
-//    zDevice::getInstance()->get_device_info()["linker_info"] = get_linker_info();
-//    zDevice::getInstance()->get_device_info()["time_info"] = get_time_info();
-//    zDevice::getInstance()->get_device_info()["port_info"] = get_port_info();
-//    zDevice::getInstance()->get_device_info()["package_info"] = get_package_info();
-//    zDevice::getInstance()->get_device_info()["system_setting_info"] = get_system_setting_info();
+    zDevice::getInstance()->get_device_info()["task_info"] = get_task_info();
+    zDevice::getInstance()->get_device_info()["maps_info"] = get_maps_info();
+    zDevice::getInstance()->get_device_info()["class_loader_info"] = get_class_loader_info();
+    zDevice::getInstance()->get_device_info()["class_info"] = get_class_info();
+    zDevice::getInstance()->get_device_info()["root_file_info"] = get_root_file_info();
+    zDevice::getInstance()->get_device_info()["mounts_info"] = get_mounts_info();
+    zDevice::getInstance()->get_device_info()["system_prop_info"] = get_system_prop_info();
+    zDevice::getInstance()->get_device_info()["linker_info"] = get_linker_info();
+    zDevice::getInstance()->get_device_info()["time_info"] = get_time_info();
+    zDevice::getInstance()->get_device_info()["port_info"] = get_port_info();
+    zDevice::getInstance()->get_device_info()["package_info"] = get_package_info();
+    zDevice::getInstance()->get_device_info()["system_setting_info"] = get_system_setting_info();
     zDevice::getInstance()->get_device_info()["tee_info"] = get_tee_info();
 
     LOGE("init_ over");
@@ -52,9 +52,6 @@ extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_example_overt_MainActivity_get_1device_1info(JNIEnv *env, jobject thiz) {
     LOGE("get_device_info: starting JNI call");
-
-
-
     jobject result = cmap_to_jmap_nested_3(env, zDevice::getInstance()->get_device_info());
     LOGE("get_device_info: conversion completed successfully");
     return result;

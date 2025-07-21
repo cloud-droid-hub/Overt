@@ -8,6 +8,7 @@
 #include "zLog.h"
 
 #include "system_prop_info.h"
+#include "util.h"
 
 // 定义一个结构体来存储 value 和 serial
 struct PropertyValue {
@@ -84,7 +85,7 @@ map<string, map<string, string>> get_system_prop_info() {
             {"ro.build.tags",               {"release-keys"}},
             {"ro.build.type",               {"user"}},
             {"init.svc.adbd",               {"stopped"}},
-            {"persist.sys.usb.config",      {"none", ""}},
+            {"persist.sys.usb.config",      {"mtp", "ptp", "none", ""}},
             {"persist.security.adbinput",   {"0"}}
     };
 
@@ -92,13 +93,18 @@ map<string, map<string, string>> get_system_prop_info() {
         if(properties.find(key) == properties.end()) {
             continue;
         }
-        for(auto v : value){
+
+        bool flag = false;
+        for(const auto& v: value){
             if(v == properties[key.c_str()].value){
-                char buffer[100] = {0};
-                sprintf(buffer, ":value[%s]", properties[key.c_str()].value.c_str());
-                info[key+buffer]["risk"] = "error";
-                info[key+buffer]["explain"] = "value is not correct";
+                flag = true;
+                break;
             }
+        }
+        if(!flag){
+            string buffer = string_format(string(":value[%s]"), properties[key.c_str()].value.c_str());
+            info[key+buffer]["risk"] = "error";
+            info[key+buffer]["explain"] = "value is not correct";
         }
     }
 

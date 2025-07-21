@@ -13,7 +13,7 @@
 // 定义 USE_NONSTD_API 时使用 nonstd 命名空间
 // 未定义时使用 std 命名空间
 
-#define USE_NONSTD_API
+//#define USE_NONSTD_API
 
 #ifdef USE_NONSTD_API
 
