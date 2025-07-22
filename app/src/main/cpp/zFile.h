@@ -6,6 +6,7 @@
 #define OVERT_ZFILE_H
 
 #include <sys/stat.h>
+
 #include "config.h"
 
 class zFile {

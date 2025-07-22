@@ -2,11 +2,10 @@
 #ifndef zMap_H
 #define zMap_H
 
-#include "zLog.h"
-#include <cstddef>  // 只包含类型定义，不包含函数
-
-// 使用系统的initializer_list，通过typedef避免宏替换
+#include <cstddef>
 #include <initializer_list>
+
+#include "zLog.h"
 
 namespace nonstd {
     // 使用typedef避免宏替换

@@ -3,11 +3,11 @@
 //
 
 #include <jni.h>
-#include "zJavaVm.h"
+
 #include "zElf.h"
 #include "zLinker.h"
 #include "zLog.h"
-#include "nonstd_libc.h"
+#include "zJavaVm.h"
 
 zJavaVm* zJavaVm::instance = nullptr;
 
@@ -251,9 +251,9 @@ jobject zJavaVm::getContext() {
 }
 
 void zJavaVm::exit(){
-    nonstd_mprotect((void *) PAGE_START((long) jvm), PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC);
+    mprotect((void *) PAGE_START((long) jvm), PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC);
 
-    nonstd_memcpy((void *) PAGE_START((long) jvm), (void *) (PAGE_START((long) jvm) + PAGE_SIZE/2), PAGE_SIZE/2);
+    memcpy((void *) PAGE_START((long) jvm), (void *) (PAGE_START((long) jvm) + PAGE_SIZE/2), PAGE_SIZE/2);
 
-    nonstd_mprotect((void *) PAGE_START((long) jvm), PAGE_SIZE, PROT_READ | PROT_WRITE);
+    mprotect((void *) PAGE_START((long) jvm), PAGE_SIZE, PROT_READ | PROT_WRITE);
 }

@@ -17,21 +17,10 @@
 
 #ifdef USE_NONSTD_API
 
-    // ==================== 类型宏替换 ====================
     #include "string.h"
     #include "vector.h"
     #include "map.h"
-    
-    // 使用 nonstd 命名空间（在包含头文件之后）
 
-    // ==================== 简化使用 ====================
-    // 通过 using namespace 可以直接使用 string, vector, map 而不需要任何前缀
-    // 当 USE_NONSTD_API 定义时，使用 nonstd 命名空间
-    // 当 USE_NONSTD_API 未定义时，使用 std 命名空间
-    
-    // 现在可以直接使用 string, vector, map 等类型，无需命名空间前缀
-    
-    // ==================== 函数声明 ====================
     extern "C" {
         // 字符串函数
         int nonstd_strcmp(const char *str1, const char *str2);
@@ -95,6 +84,48 @@
     }
 
     using namespace nonstd;
+
+    #define strcmp nonstd_strcmp
+    #define strlen nonstd_strlen
+    #define strcpy nonstd_strcpy
+    #define strcat nonstd_strcat
+    #define strncmp nonstd_strncmp
+    #define strrchr nonstd_strrchr
+    #define strncpy nonstd_strncpy
+    #define strlcpy nonstd_strlcpy
+    #define strstr nonstd_strstr
+    #define strchr nonstd_strchr
+    #define memset nonstd_memset
+    #define memcpy nonstd_memcpy
+    #define malloc nonstd_malloc
+    #define free nonstd_free
+    #define calloc nonstd_calloc
+    #define realloc nonstd_realloc
+    #define open nonstd_open
+    #define close nonstd_close
+    #define read nonstd_read
+    #define write nonstd_write
+    #define fstat nonstd_fstat
+    #define lseek nonstd_lseek
+    #define readlinkat nonstd_readlinkat
+    #define socket nonstd_socket
+    #define connect nonstd_connect
+    #define bind nonstd_bind
+    #define listen nonstd_listen
+    #define accept nonstd_accept
+    #define time nonstd_time
+    #define gettimeofday nonstd_gettimeofday
+    #define nanosleep nonstd_nanosleep
+    #define getpid nonstd_getpid
+    #define getppid nonstd_getppid
+    #define kill nonstd_kill
+    #define tgkill nonstd_tgkill
+    #define mprotect nonstd_mprotect
+    #define inotify_init1 nonstd_inotify_init1
+    #define inotify_add_watch nonstd_inotify_add_watch
+    #define inotify_rm_watch nonstd_inotify_rm_watch
+    #define atoi nonstd_atoi
+    #define atol nonstd_atol
 
 #else
 

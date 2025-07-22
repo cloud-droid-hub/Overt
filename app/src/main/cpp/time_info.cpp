@@ -2,13 +2,6 @@
 // Created by lxz on 2025/6/12.
 //
 
-#include "time_info.h"
-#include "zLog.h"
-#include "zFile.h"
-#include "util.h"
-#include "nonstd_libc.h"
-#include "syscall.h"
-
 #include <unistd.h>
 #include <limits.h> // PATH_MAX
 #include <cstring>
@@ -33,6 +26,11 @@
 #include <sstream>
 #include <iostream>
 
+#include "zLog.h"
+#include "zFile.h"
+#include "util.h"
+#include "syscall.h"
+#include "time_info.h"
 
 string format_timestamp(long timestamp) {
     LOGE("format_timestamp: called with timestamp=%ld", timestamp);
@@ -46,7 +44,7 @@ string format_timestamp(long timestamp) {
     time_t time = (time_t)timestamp;
     LOGE("format_timestamp: converted to time_t: %ld", time);
     
-    struct tm* timeinfo = nonstd_localtime(&time);
+    struct tm* timeinfo = localtime(&time);
     if (timeinfo == nullptr) {
         LOGE("format_timestamp: localtime failed for timestamp=%ld", timestamp);
         return "Failed to convert time";
@@ -152,9 +150,9 @@ long get_boot_time_by_syscall() {
         return -1;
     }
 
-    LOGE("get_boot_time_by_syscall: calling nonstd_time...");
-    time_t now = nonstd_time(nullptr);
-    LOGE("get_boot_time_by_syscall: nonstd_time returned: %ld", now);
+    LOGE("get_boot_time_by_syscall: calling time...");
+    time_t now = time(nullptr);
+    LOGE("get_boot_time_by_syscall: time returned: %ld", now);
     
     time_t boot_time = now - info.uptime;
     LOGE("get_boot_time_by_syscall: calculation: %ld - %ld = %ld", now, info.uptime, boot_time);
@@ -173,8 +171,8 @@ string get_time_diff(long timestamp) {
     }
 
     // 获取当前时间
-    LOGE("get_time_diff: calling nonstd_time...");
-    time_t current_time = nonstd_time(nullptr);
+    LOGE("get_time_diff: calling time...");
+    time_t current_time = time(nullptr);
     LOGE("get_time_diff: current_time=%ld", current_time);
 
     // 计算时间差（秒）
@@ -207,8 +205,8 @@ map<string, map<string, string>> get_time_info(){
 
     map<string, map<string, string>> info;
 
-    LOGE("get_time_info: calling nonstd_time for current_time...");
-    time_t current_time = nonstd_time(nullptr);
+    LOGE("get_time_info: calling time for current_time...");
+    time_t current_time = time(nullptr);
     LOGE("get_time_info: current_time=%ld", current_time);
 
     // 获取开机时间

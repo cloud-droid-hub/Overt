@@ -7,6 +7,7 @@
 
 #include <jni.h>
 #include <asm-generic/fcntl.h>
+
 #include "config.h"
 
 string get_line(int fd);

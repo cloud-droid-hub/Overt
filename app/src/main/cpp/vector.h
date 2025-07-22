@@ -2,12 +2,12 @@
 #ifndef zVector_H
 #define zVector_H
 
-#include "zLog.h"
-#include "config.h"  // 先包含我们的配置
 #include <cstddef>  // 只包含类型定义，不包含函数
 #include <stdexcept>  // For std::out_of_range
 #include <initializer_list>
 
+#include "zLog.h"
+#include "config.h"  // 先包含我们的配置
 
 namespace nonstd {
     // 使用typedef避免宏替换

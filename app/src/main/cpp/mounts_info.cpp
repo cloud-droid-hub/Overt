@@ -6,7 +6,7 @@
 #include "util.h"
 #include "zLog.h"
 #include "zFile.h"
-#include "nonstd_libc.h"
+
 
 map<string, map<string, string>> get_mounts_info(){
     map<string, map<string, string>> info;
@@ -20,12 +20,12 @@ map<string, map<string, string>> get_mounts_info(){
     vector<string> mounts_lines = zFile("/proc/self/mounts").readAllLines();
     for(int i = 0; i < mounts_lines.size(); i++){
         for (const char* path : paths) {
-            if (nonstd_strstr(mounts_lines[i].c_str(), path) != nullptr){
+            if (strstr(mounts_lines[i].c_str(), path) != nullptr){
                 LOGE("check_mounts error %d %s", i, mounts_lines[i].c_str());
                 info[mounts_lines[i].c_str()]["risk"] = "error";
                 info[mounts_lines[i].c_str()]["explain"] = "black name but in system path";
 
-            }else if(nonstd_strstr(mounts_lines[i].c_str(), "/system ") != nullptr && nonstd_strstr(mounts_lines[i].c_str(), "overlay") != nullptr){
+            }else if(strstr(mounts_lines[i].c_str(), "/system ") != nullptr && strstr(mounts_lines[i].c_str(), "overlay") != nullptr){
                 LOGE("check_mounts error %d %s", i, mounts_lines[i].c_str());
                 info[mounts_lines[i].c_str()]["risk"] = "error";
                 info[mounts_lines[i].c_str()]["explain"] = "black name but in system path";

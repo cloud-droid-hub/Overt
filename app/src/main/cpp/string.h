@@ -23,6 +23,7 @@ namespace nonstd {
         char* custom_strcat(char* dest, const char* src) const;
 
     public:
+
         // Static constant for maximum size
         static const size_t npos = -1;
 

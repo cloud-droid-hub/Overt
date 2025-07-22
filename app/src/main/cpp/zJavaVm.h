@@ -5,13 +5,11 @@
 #ifndef OVERT_ZJAVAVM_H
 #define OVERT_ZJAVAVM_H
 
-
-
 #include <jni.h>
 #include <asm-generic/mman.h>
 #include <sys/mman.h>
-#include "zLog.h"
 
+#include "zLog.h"
 #include "config.h"
 
 #define PAGE_START(x)  ((x) & PAGE_MASK)

@@ -10,6 +10,4 @@
 
 map<string, map<string, string>> get_maps_info();
 
-
-
 #endif //OVERT_MAPS_INFO_H

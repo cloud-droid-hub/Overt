@@ -2,18 +2,17 @@
 // Created by lxz on 2025/7/17.
 //
 
-#include "tee_info.h"
 
+#include <map>
 #include <jni.h>
+
 #include "util.h"
 #include "zJavaVm.h"
 #include "tee_cert_parser.h"
 #include "zLog.h"
-#include "nonstd_libc.h"
+#include "tee_info.h"
 
-//#include <string>
-//#include <vector>
-#include <map>
+
 
 #define VERIFIED_BOOT_STATE_VERIFIED 0
 #define VERIFIED_BOOT_STATE_SELF_SIGNED 1
@@ -87,8 +86,8 @@ vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context) {
 
     // 6. setAttestationChallenge
     const char* challengeStr = "tee_check";
-    jbyteArray challenge = env->NewByteArray(nonstd_strlen(challengeStr));
-    env->SetByteArrayRegion(challenge, 0, nonstd_strlen(challengeStr), (const jbyte*)challengeStr);
+    jbyteArray challenge = env->NewByteArray(strlen(challengeStr));
+    env->SetByteArrayRegion(challenge, 0, strlen(challengeStr), (const jbyte*)challengeStr);
     jmethodID midSetChallenge = env->GetMethodID(clsKeyGenBuilder, "setAttestationChallenge", "([B)Landroid/security/keystore/KeyGenParameterSpec$Builder;");
     builder = env->CallObjectMethod(builder, midSetChallenge, challenge);
     LOGE("[JNI] builder after setAttestationChallenge: %p", builder);

@@ -5,10 +5,10 @@
 #include <sys/system_properties.h>
 #include <stdatomic.h>
 #include <unistd.h>
-#include "zLog.h"
 
-#include "system_prop_info.h"
+#include "zLog.h"
 #include "util.h"
+#include "system_prop_info.h"
 
 // 定义一个结构体来存储 value 和 serial
 struct PropertyValue {

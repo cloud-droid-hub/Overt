@@ -7,17 +7,16 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <fcntl.h>
-#include <string.h>
-#include <errno.h>
-#include <android/log.h>
-#include "port_info.h"
+#include <string>
+
+
 #include "zFile.h"
 #include "zLog.h"
-#include "nonstd_libc.h"
+#include "port_info.h"
 
 // 判断端口是否被监听
 bool is_port_in_use(int port) {
-    int sock = nonstd_socket(AF_INET, SOCK_STREAM, 0);
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) return false;
 
     struct sockaddr_in sa = {};
@@ -27,7 +26,7 @@ bool is_port_in_use(int port) {
 
     // 设置非阻塞
     fcntl(sock, F_SETFL, O_NONBLOCK);
-    int result = nonstd_connect(sock, (struct sockaddr*)&sa, sizeof(sa));
+    int result = connect(sock, (struct sockaddr*)&sa, sizeof(sa));
 
     bool in_use = false;
 
@@ -52,7 +51,7 @@ bool is_port_in_use(int port) {
         }
     }
 
-    nonstd_close(sock);
+    close(sock);
     return in_use;
 }
 

@@ -8,8 +8,6 @@
 #include <jni.h>
 #include "config.h"
 
-
-
 class zClassLoader {
 private:
     zClassLoader();

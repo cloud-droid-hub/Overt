@@ -5,9 +5,9 @@
 #ifndef OVERT_ZELF_H
 #define OVERT_ZELF_H
 
-
 #include <linux/elf.h>
 #include <stddef.h>
+
 #include "config.h"
 
 class zElf {

@@ -1,8 +1,9 @@
 // string.cpp
-#include "string.h"
+
 #include <cstring>  // For custom_strlen, custom_strcpy, and custom_strcat implementations
 #include <stdexcept>  // For std::out_of_range
 
+#include "string.h"
 
 namespace nonstd {
 

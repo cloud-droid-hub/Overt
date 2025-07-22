@@ -13,13 +13,11 @@
 #include <elf.h>
 #include <vector>
 #include <link.h>
+
 #include "util.h"
-
 #include "zLog.h"
-
-#include "zElf.h"
 #include "crc.h"
-#include "nonstd_libc.h"
+#include "zElf.h"
 
 zElf::zElf() {
     // 空实现，因为所有成员变量都已经在类定义中初始化
@@ -44,7 +42,7 @@ static ElfW(Dyn) *find_dyn_by_tag2(ElfW(Dyn) *dyn, ElfW(Sxword) tag) {
 }
 
 zElf::zElf(char *elf_file_name) {
-    if (nonstd_strncmp(elf_file_name, "lib", 3) == 0) {
+    if (strncmp(elf_file_name, "lib", 3) == 0) {
         link_view = LINK_VIEW::MEMORY_VIEW;
         this->elf_mem_ptr = get_maps_base(elf_file_name);
         parse_elf_head();
@@ -174,19 +172,19 @@ void zElf::parse_section_table() {
     for (int i = 0; i < section_num; i++) {
 
         char *section_name = section_string_table + section_element->sh_name;
-        if (nonstd_strcmp(section_name, ".strtab") == 0) {
+        if (strcmp(section_name, ".strtab") == 0) {
             LOGE("strtab %llx", section_element->sh_offset);
             string_table = base_addr + section_element->sh_offset;
-        } else if (nonstd_strcmp(section_name, ".dynsym") == 0) {
+        } else if (strcmp(section_name, ".dynsym") == 0) {
             LOGE("dynsym %llx", section_element->sh_offset);
             dynamic_symbol_table = (Elf64_Sym*)(base_addr + section_element->sh_offset);
             dynamic_symbol_table_num = section_element->sh_size / sizeof(Elf64_Sym);
             LOGE("symbol_table_num %llu", dynamic_symbol_table_num);
 
-        } else if (nonstd_strcmp(section_name, ".dynstr") == 0) {
+        } else if (strcmp(section_name, ".dynstr") == 0) {
             LOGE("dynstr %llx", section_element->sh_offset);
             dynamic_string_table = base_addr + section_element->sh_offset;
-        } else if (nonstd_strcmp(section_name, ".symtab") == 0) {
+        } else if (strcmp(section_name, ".symtab") == 0) {
 
             symbol_table = (Elf64_Sym*) (base_addr + section_element->sh_offset);
 
@@ -199,9 +197,9 @@ void zElf::parse_section_table() {
             section_symbol_num = section_symbol_table_size / symbol_table_element_size;
             LOGE("section_symbol_num %llx", section_symbol_num);
 
-        } else if (nonstd_strcmp(section_name, ".rodata") == 0) {
+        } else if (strcmp(section_name, ".rodata") == 0) {
 
-        } else if (nonstd_strcmp(section_name, ".rela.dyn") == 0) {
+        } else if (strcmp(section_name, ".rela.dyn") == 0) {
 
         }
         section_element++;
@@ -225,7 +223,7 @@ Elf64_Addr zElf::find_symbol_offset_by_dynamic(const char *symbol_name) {
     Elf64_Sym* dynamic_symbol = dynamic_symbol_table;
     for (int i = 0; dynamic_symbol->st_name >= 0 && dynamic_symbol->st_name <= dynamic_string_table_offset +dynamic_string_table_size; i++) {
         const char *name = dynamic_string_table + dynamic_symbol->st_name;
-        if (nonstd_strcmp(name, symbol_name) == 0) {
+        if (strcmp(name, symbol_name) == 0) {
             LOGE("find_dynamic_symbol [%d] %s 0x%x", i, name, dynamic_symbol->st_name);
             return dynamic_symbol->st_value - load_segment_virtual_offset;
         }
@@ -241,7 +239,7 @@ Elf64_Addr zElf::find_symbol_offset_by_section(const char *symbol_name) {
     Elf64_Sym *symbol = symbol_table;
     for (int j = 0; j < section_symbol_num; j++) {
         const char *name = string_table + symbol->st_name;
-        if (nonstd_strcmp(name, symbol_name) == 0) {
+        if (strcmp(name, symbol_name) == 0) {
             LOGE("find_dynamic_symbol [%d] %s 0x%x", j, name, symbol->st_name);
             return symbol->st_value - physical_address;
         }
@@ -285,7 +283,7 @@ char *zElf::parse_elf_file(char *elf_path) {
     LOGE("parse_elf_file %s", elf_path);
 
     // 打开文件，获取文件描述符
-    elf_file_fd = nonstd_open(elf_path, O_RDONLY);
+    elf_file_fd = open(elf_path, O_RDONLY);
     if (elf_file_fd == -1) {
         // 处理文件打开失败的情况
         LOGE("parse_elf_file 1");
@@ -297,7 +295,7 @@ char *zElf::parse_elf_file(char *elf_path) {
     if (elf_file_size == -1) {
         // 处理获取文件大小失败的情况
         LOGE("parse_elf_file 2");
-        nonstd_close(elf_file_fd);
+        close(elf_file_fd);
         return nullptr;
     }
     LOGE("parse_elf_file 22");
@@ -306,7 +304,7 @@ char *zElf::parse_elf_file(char *elf_path) {
     if (elf_file_ptr == MAP_FAILED) {
         // 处理映射失败的情况
         LOGE("parse_elf_file 3");
-        nonstd_close(elf_file_fd);
+        close(elf_file_fd);
         return nullptr;
     }
     LOGE("parse_elf_file 33");
@@ -319,7 +317,7 @@ char *zElf::parse_elf_file_(char *elf_path) {
     LOGE("parse_elf_file %s", elf_path);
 
     // 打开文件，获取文件描述符
-    int elf_file_fd = nonstd_open(elf_path, O_RDONLY);
+    int elf_file_fd = open(elf_path, O_RDONLY);
     if (elf_file_fd == -1) {
         // 处理文件打开失败的情况
         LOGE("parse_elf_file 1");
@@ -331,7 +329,7 @@ char *zElf::parse_elf_file_(char *elf_path) {
     if (elf_file_size == -1) {
         // 处理获取文件大小失败的情况
         LOGE("parse_elf_file 2");
-        nonstd_close(elf_file_fd);
+        close(elf_file_fd);
         return nullptr;
     }
     LOGE("parse_elf_file 22");
@@ -340,7 +338,7 @@ char *zElf::parse_elf_file_(char *elf_path) {
     if (elf_file_ptr == MAP_FAILED) {
         // 处理映射失败的情况
         LOGE("parse_elf_file 3");
-        nonstd_close(elf_file_fd);
+        close(elf_file_fd);
         return nullptr;
     }
     LOGE("parse_elf_file 33");
@@ -394,7 +392,7 @@ zElf::~zElf() {
         return;
     }
     munmap(elf_file_ptr, elf_file_size);
-    nonstd_close(elf_file_fd);
+    close(elf_file_fd);
 }
 
 
@@ -405,8 +403,8 @@ char *zElf::get_maps_base(const char *so_name) {
     vector<string> lines = get_file_lines("/proc/self/maps");
     LOGE("get_maps_base lines size:%d", lines.size()); sleep(0);
     for(int i = 0; i < lines.size(); i++){
-        if (!nonstd_strstr(lines[i].c_str(), "p 00000000 ")) continue;
-        if (!nonstd_strstr(lines[i].c_str(), so_name)) continue;
+        if (!strstr(lines[i].c_str(), "p 00000000 ")) continue;
+        if (!strstr(lines[i].c_str(), so_name)) continue;
         vector<string> split_line = split_str(lines[i], "-");
         if(split_line.empty()){
             LOGE("get_maps_base split_line is empty");
@@ -415,7 +413,7 @@ char *zElf::get_maps_base(const char *so_name) {
         LOGE("get_maps_base split_line[0]:%s", split_line[0].c_str()); sleep(0);
         char* start = (char *) (strtoul(split_line[0].c_str(), nullptr, 16));
         LOGE("get_maps_base start:%p", start); sleep(0);
-        if (start == nullptr || nonstd_memcmp(start, "\x7f""ELF", 4) != 0) continue;
+        if (start == nullptr || memcmp(start, "\x7f""ELF", 4) != 0) continue;
         LOGE("get_maps_base start:%p", start); sleep(0);
         elf_mem_ptr = start;
 

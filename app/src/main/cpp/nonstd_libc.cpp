@@ -43,12 +43,12 @@
  * */
 
 DIR* nonstd_opendir(const char* name) {
-    LOGE("nonstd_opendir called: name='%s'", name ? name : "NULL");
+    LOGD("nonstd_opendir called: name='%s'", name ? name : "NULL");
     auto function_ptr= opendir;
     for(int i=0; i<4; i++){
         unsigned int inst = *((unsigned int*)function_ptr+i);
         if((inst & 0xff000000) == 0xD6000000){
-            LOGE("opendir is unsafe");
+            LOGD("opendir is unsafe");
             return opendir("");
         }
     }
@@ -60,7 +60,7 @@ struct dirent* nonstd_readdir(DIR* dirp) {
     for(int i=0; i<4; i++){
         unsigned int inst = *((unsigned int*)function_ptr+i);
         if((inst & 0xff000000) == 0xD6000000){
-            LOGE("readdir is unsafe");
+            LOGD("readdir is unsafe");
             return readdir(nullptr);
         }
     }
@@ -72,7 +72,7 @@ int nonstd_closedir(DIR* dirp) {
     for(int i=0; i<4; i++){
         unsigned int inst = *((unsigned int*)function_ptr+i);
         if((inst & 0xff000000) == 0xD6000000){
-            LOGE("closedir is unsafe");
+            LOGD("closedir is unsafe");
             return closedir(nullptr);
         }
     }

@@ -5,15 +5,15 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <jni.h>
-#include "util.h"
+
 #include "zLog.h"
-#include "nonstd_libc.h"
+#include "util.h"
 
 string get_line(int fd) {
     char buffer;
     string line = "";
     while (true) {
-        ssize_t bytes_read = nonstd_read(fd, &buffer, sizeof(buffer));
+        ssize_t bytes_read = read(fd, &buffer, sizeof(buffer));
         if (bytes_read == 0) break;
         line += buffer;
         if (buffer == '\n') break;
@@ -23,7 +23,7 @@ string get_line(int fd) {
 
 vector<string> get_file_lines(string path){
     vector<string> file_lines = vector<string>();
-    int fd = nonstd_open(path.c_str(), O_RDONLY);
+    int fd = open(path.c_str(), O_RDONLY);
     if (fd == -1) {
         return file_lines;
     }
@@ -34,7 +34,7 @@ vector<string> get_file_lines(string path){
         }
         file_lines.push_back(line);
     }
-    nonstd_close(fd);
+    close(fd);
     return file_lines;
 }
 
@@ -56,7 +56,7 @@ vector<string> split_str(const string& str, const string& split) {
         size_t j = i;
 
         // 查找下一个分隔符位置
-        while (j <= str_len - split_len && nonstd_memcmp(s + j, split.c_str(), split_len) != 0) {
+        while (j <= str_len - split_len && memcmp(s + j, split.c_str(), split_len) != 0) {
             ++j;
         }
 
@@ -98,14 +98,14 @@ bool string_end_with(const char *str, const char *suffix) {
         return false;
     }
 
-    size_t len_str = nonstd_strlen(str);
-    size_t len_suffix = nonstd_strlen(suffix);
+    size_t len_str = strlen(str);
+    size_t len_suffix = strlen(suffix);
 
     if (len_suffix > len_str) {
         return false;
     }
 
-    return (nonstd_strcmp(str + len_str - len_suffix, suffix) == 0);
+    return (strcmp(str + len_str - len_suffix, suffix) == 0);
 }
 
 // 将 map<string, string> 转换为 Java Map<String, String>

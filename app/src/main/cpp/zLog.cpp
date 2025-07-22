@@ -2,12 +2,14 @@
 // Created by Administrator on 2024-05-15.
 //
 
-#include "zLog.h"
-#include "nonstd_libc.h"
+
+
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <unistd.h>
+
+#include "zLog.h"
 
 // 日志级别对应的Android日志级别
 static const int android_log_levels[] = {
@@ -37,7 +39,7 @@ extern "C" void zLogPrint(int level, const char* tag, const char* format, ...) {
     }
     
     // 分配足够的内存来存储格式化后的字符串
-    char* buffer = (char*)nonstd_malloc(len);
+    char* buffer = (char*)malloc(len);
     if (buffer == NULL) {
         return;
     }
@@ -53,5 +55,5 @@ extern "C" void zLogPrint(int level, const char* tag, const char* format, ...) {
         sleep(0);  // 等待Android日志输出完毕
     }
     
-    nonstd_free(buffer);
+    free(buffer);
 }
