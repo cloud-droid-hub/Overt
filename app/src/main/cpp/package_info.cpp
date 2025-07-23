@@ -6,7 +6,7 @@
 #include "root_file_info.h"
 #include "zJavaVm.h"
 #include "zFile.h"
-#include "util.h"
+#include "zUtil.h"
 #include "package_info.h"
 
 bool isAppInstalledByContext(JNIEnv *env, jobject context, const char* packageNameCStr) {

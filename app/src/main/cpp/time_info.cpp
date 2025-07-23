@@ -28,7 +28,7 @@
 
 #include "zLog.h"
 #include "zFile.h"
-#include "util.h"
+#include "zUtil.h"
 #include "syscall.h"
 #include "time_info.h"
 

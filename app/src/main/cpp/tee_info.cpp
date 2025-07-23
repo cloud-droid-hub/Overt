@@ -6,7 +6,7 @@
 #include <map>
 #include <jni.h>
 
-#include "util.h"
+#include "zUtil.h"
 #include "zJavaVm.h"
 #include "tee_cert_parser.h"
 #include "zLog.h"

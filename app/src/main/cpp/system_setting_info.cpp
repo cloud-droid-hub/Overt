@@ -8,7 +8,7 @@
 
 #include "zLog.h"
 #include "zJavaVm.h"
-#include "util.h"
+#include "zUtil.h"
 #include "system_setting_info.h"
 
 bool isCharging(JNIEnv *env, jobject context) {

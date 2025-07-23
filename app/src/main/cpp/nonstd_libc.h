@@ -13,26 +13,26 @@
 #include <stdint.h>
 #include <dirent.h>
 
-
+extern "C" {
 // ==================== 字符串函数 ====================
 int nonstd_strcmp(const char *str1, const char *str2);
 size_t nonstd_strlen(const char *str);
-char* nonstd_strcpy(char *dest, const char *src);
-char* nonstd_strcat(char *dest, const char *src);
+char *nonstd_strcpy(char *dest, const char *src);
+char *nonstd_strcat(char *dest, const char *src);
 int nonstd_strncmp(const char *str1, const char *str2, size_t n);
-const char* nonstd_strrchr(const char *str, int character);
-char* nonstd_strncpy(char *dst, const char *src, size_t n);
+const char *nonstd_strrchr(const char *str, int character);
+char *nonstd_strncpy(char *dst, const char *src, size_t n);
 size_t nonstd_strlcpy(char *dst, const char *src, size_t siz);
-const char* nonstd_strstr(const char *s, const char *find);
-const char* nonstd_strchr(const char *p, int ch);
+const char *nonstd_strstr(const char *s, const char *find);
+const char *nonstd_strchr(const char *p, int ch);
 
 // ==================== 内存函数 ====================
-void* nonstd_malloc(size_t size);
+void *nonstd_malloc(size_t size);
 void nonstd_free(void *ptr);
-void* nonstd_calloc(size_t nmemb, size_t size);
-void* nonstd_realloc(void *ptr, size_t size);
-void* nonstd_memset(void *dst, int val, size_t count);
-void* nonstd_memcpy(void *dst, const void *src, size_t len);
+void *nonstd_calloc(size_t nmemb, size_t size);
+void *nonstd_realloc(void *ptr, size_t size);
+void *nonstd_memset(void *dst, int val, size_t count);
+void *nonstd_memcpy(void *dst, const void *src, size_t len);
 int nonstd_memcmp(const void *s1, const void *s2, size_t n);
 
 // ==================== 文件操作函数 ====================
@@ -40,9 +40,9 @@ int nonstd_open(const char *pathname, int flags, ...);
 int nonstd_close(int fd);
 ssize_t nonstd_read(int fd, void *buf, size_t count);
 ssize_t nonstd_write(int fd, const void *buf, size_t count);
-int nonstd_fstat(int __fd, struct stat* __buf);
+int nonstd_fstat(int __fd, struct stat *__buf);
 off_t nonstd_lseek(int __fd, off_t __offset, int __whence);
-ssize_t nonstd_readlinkat(int __dir_fd, const char* __path, char* __buf, size_t __buf_size);
+ssize_t nonstd_readlinkat(int __dir_fd, const char *__path, char *__buf, size_t __buf_size);
 int nonstd_access(const char *pathname, int mode);
 int nonstd_stat(const char *pathname, struct stat *buf);
 
@@ -69,23 +69,23 @@ int nonstd_atoi(const char *nptr);
 long nonstd_atol(const char *nptr);
 
 // ==================== 扩展系统函数 ====================
-int nonstd_nanosleep(const struct timespec* __request, struct timespec* __remainder);
-int nonstd_mprotect(void* __addr, size_t __size, int __prot);
+int nonstd_nanosleep(const struct timespec *__request, struct timespec *__remainder);
+int nonstd_mprotect(void *__addr, size_t __size, int __prot);
 int nonstd_inotify_init1(int flags);
 int nonstd_inotify_add_watch(int __fd, const char *__path, uint32_t __mask);
 int nonstd_inotify_rm_watch(int __fd, uint32_t __watch_descriptor);
 int nonstd_tgkill(int __tgid, int __tid, int __signal);
 void nonstd_exit(int __status);
 
-DIR* nonstd_opendir(const char* name);
-struct dirent* nonstd_readdir(DIR* dirp);
-int nonstd_closedir(DIR* dirp);
+DIR *nonstd_opendir(const char *name);
+struct dirent *nonstd_readdir(DIR *dirp);
+int nonstd_closedir(DIR *dirp);
 
 ssize_t nonstd_readlink(const char *pathname, char *buf, size_t bufsiz);
-struct tm* nonstd_localtime(const time_t* timep);
-int nonstd_stat(const char* __path, struct stat* __buf);
-int nonstd_access(const char* __path, int __mode);
-
+struct tm *nonstd_localtime(const time_t *timep);
+int nonstd_stat(const char *__path, struct stat *__buf);
+int nonstd_access(const char *__path, int __mode);
+}
 #ifdef USE_NONSTD_API
 
 // 使用非标准库实现

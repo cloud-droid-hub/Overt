@@ -7,7 +7,7 @@
 #include <jni.h>
 
 #include "zLog.h"
-#include "util.h"
+#include "zUtil.h"
 
 string get_line(int fd) {
     char buffer;

@@ -2,8 +2,8 @@
 // Created by lxz on 2025/6/6.
 //
 
-#ifndef OVERT_UTIL_H
-#define OVERT_UTIL_H
+#ifndef OVERT_ZUTIL_H
+#define OVERT_ZUTIL_H
 
 #include <jni.h>
 #include <asm-generic/fcntl.h>
@@ -44,4 +44,4 @@ string string_format(const string &format, Args ... args)
     return string(buf.get(), buf.get() + size_buf - 1);
 }
 
-#endif //OVERT_UTIL_H
+#endif //OVERT_ZUTIL_H

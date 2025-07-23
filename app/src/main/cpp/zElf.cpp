@@ -14,7 +14,7 @@
 #include <vector>
 #include <link.h>
 
-#include "util.h"
+#include "zUtil.h"
 #include "zLog.h"
 #include "crc.h"
 #include "zElf.h"

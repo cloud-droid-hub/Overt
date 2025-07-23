@@ -43,7 +43,7 @@
  * */
 
 DIR* nonstd_opendir(const char* name) {
-    LOGD("nonstd_opendir called: name='%s'", name ? name : "NULL");
+    LOGE("nonstd_opendir called: name='%s'", name ? name : "NULL");
     auto function_ptr= opendir;
     for(int i=0; i<4; i++){
         unsigned int inst = *((unsigned int*)function_ptr+i);
@@ -282,7 +282,7 @@ void* nonstd_realloc(void *ptr, size_t size) {
 // ==================== 文件操作函数 ====================
 
 int nonstd_open(const char *pathname, int flags, ...) {
-    LOGD("nonstd_open called: pathname='%s', flags=0x%x", pathname ? pathname : "NULL", flags);
+    LOGE("nonstd_open called: pathname='%s', flags=0x%x", pathname ? pathname : "NULL", flags);
     
     if (!pathname) {
         LOGD("open: NULL pathname");

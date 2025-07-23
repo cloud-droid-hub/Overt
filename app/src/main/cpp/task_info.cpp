@@ -6,7 +6,7 @@
 
 #include "zLog.h"
 #include "zFile.h"
-#include "util.h"
+#include "zUtil.h"
 #include "zDevice.h"
 #include "nonstd_libc.h"
 #include "task_info.h"

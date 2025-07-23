@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 #include "zLog.h"
-#include "util.h"
+#include "zUtil.h"
 #include "system_prop_info.h"
 
 // 定义一个结构体来存储 value 和 serial

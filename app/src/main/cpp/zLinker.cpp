@@ -4,7 +4,7 @@
 
 #include <android/log.h>
 
-#include "util.h"
+#include "zUtil.h"
 #include "zLog.h"
 #include "zFile.h"
 #include "zLinker.h"

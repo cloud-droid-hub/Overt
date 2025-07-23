@@ -7,7 +7,7 @@
 #include "zDevice.h"
 #include "system_setting_info.h"
 #include "class_loader_info.h"
-#include "util.h"
+#include "zUtil.h"
 #include "package_info.h"
 #include "root_file_info.h"
 #include "mounts_info.h"
