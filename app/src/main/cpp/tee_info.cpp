@@ -145,8 +145,8 @@ vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context) {
         
         // Log the first few bytes to verify data integrity
         if (len > 0) {
-            string hex_data = bytes_to_hex(result.data(), std::min((size_t)len, (size_t)32));
-            LOGE("[JNI] First 32 bytes of cert: %s", hex_data.c_str());
+            string hex_data = bytes_to_hex(result.data(), len);
+            LOGE("[JNI] certBytes of cert[%d]: %s", len, hex_data.c_str());
         }
     } else {
         LOGE("[JNI] DER cert is empty");
@@ -183,8 +183,17 @@ map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject conte
     
     // Log first 64 bytes of certificate for debugging
     if (cert_data.size() > 0) {
-        string hex_data = bytes_to_hex(cert_data.data(), std::min(cert_data.size(), (size_t)64));
-        LOGE("[Native-TEE] Certificate data (first 64 bytes): %s", hex_data.c_str());
+        string hex_data = bytes_to_hex(cert_data.data(), cert_data.size());
+        LOGE("[JNI] certBytes of cert[%d]: %s", cert_data.size(), hex_data.c_str());
+
+        string hex_data_1 = bytes_to_hex(cert_data.data(), 300);
+        string hex_data_2 = bytes_to_hex(cert_data.data()+300, 300);
+        string hex_data_3 = bytes_to_hex(cert_data.data()+600, 53);
+
+        LOGE("[JNI] certBytes of cert[300]: %s", hex_data_1.c_str());
+        LOGE("[JNI] certBytes of cert[600]: %s", hex_data_2.c_str());
+        LOGE("[JNI] certBytes of cert[653]: %s", hex_data_3.c_str());
+
     }
     
     // Parse certificate using our C parser

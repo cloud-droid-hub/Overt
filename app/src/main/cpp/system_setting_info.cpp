@@ -284,25 +284,25 @@ map<string, map<string, string>> get_system_setting_info(JNIEnv* env, jobject co
 
     LOGE("is_sim_exist=%d", is_sim_exist);
     if(!is_sim_exist){
-        info["sim"]["risk"] = "warn";
+        info["sim"]["risk"] = "error";
         info["sim"]["explain"] = "no sim card";
     }
 
     LOGE("is_developer_mode_enabled=%d", is_developer_mode_enabled);
     if(is_developer_mode_enabled){
-        info["developer_mode"]["risk"] = "warn";
+        info["developer_mode"]["risk"] = "error";
         info["developer_mode"]["explain"] = "developer mode is enabled";
     }
 
     LOGE("is_usb_debug_enabled=%d", is_usb_debug_enabled);
     if(is_usb_debug_enabled){
-        info["usb_debug"]["risk"] = "warn";
+        info["usb_debug"]["risk"] = "error";
         info["usb_debug"]["explain"] = "usb debugging is enabled";
     }
 
     LOGE("is_proxy_enabled=%d", is_proxy_enabled);
     if(is_proxy_enabled){
-        info["proxy"]["risk"] = "warn";
+        info["proxy"]["risk"] = "error";
         info["proxy"]["explain"] = "proxy is enabled";
     }
 
@@ -314,7 +314,7 @@ map<string, map<string, string>> get_system_setting_info(JNIEnv* env, jobject co
 
     LOGE("is_vpn_enable=%d", is_vpn_enable);
     if(is_vpn_enable){
-        info["vpn"]["risk"] = "warn";
+        info["vpn"]["risk"] = "error";
         info["vpn"]["explain"] = "vpn is enable";
     }
 
