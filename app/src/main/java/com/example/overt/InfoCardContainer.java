@@ -15,7 +15,7 @@ import java.util.Map;
 
 /**
  * 信息卡片容器类
- * 全屏容器，构造时直接传递数据，返回View供Activity直接绑定
+ * 只负责创建可滚动的卡片容器，不包含标题
  */
 public class InfoCardContainer {
     private static final String TAG = "InfoCardContainer";
@@ -23,9 +23,7 @@ public class InfoCardContainer {
     private Context context;
     private NestedScrollView scrollView;
     private LinearLayout container;
-    private String mainTitle;
     private List<InfoCard> cards;
-    private TextView mainTitleView;
     
     // 卡片间距
     private int cardMarginTop = 4;
@@ -34,21 +32,16 @@ public class InfoCardContainer {
     private int cardMarginEnd = 4;
 
     /**
-     * 构造函数 - 全屏容器
+     * 构造函数 - 只创建卡片容器
      * @param context 上下文
-     * @param mainTitle 总标题
      * @param cardData 卡片数据 Map<String, Map<String, Map<String, String>>>
      */
-    public InfoCardContainer(Context context, String mainTitle, Map<String, Map<String, Map<String, String>>> cardData) {
+    public InfoCardContainer(Context context, Map<String, Map<String, Map<String, String>>> cardData) {
         this.context = context;
-        this.mainTitle = mainTitle;
         this.cards = new ArrayList<>();
         
-        // 创建全屏容器
+        // 创建滚动容器
         createContainer();
-        
-        // 初始化总标题
-        initMainTitle();
         
         // 直接添加所有卡片数据
         addAllCards(cardData);
@@ -58,16 +51,7 @@ public class InfoCardContainer {
     }
 
     /**
-     * 构造函数 - 使用默认标题
-     * @param context 上下文
-     * @param cardData 卡片数据
-     */
-    public InfoCardContainer(Context context, Map<String, Map<String, Map<String, String>>> cardData) {
-        this(context, "Overt", cardData);
-    }
-
-    /**
-     * 创建全屏容器
+     * 创建滚动容器
      */
     private void createContainer() {
         // 创建ScrollView作为根容器
@@ -106,43 +90,6 @@ public class InfoCardContainer {
             return ContextCompat.getColor(context, R.color.dark_surface);
         } else {
             return ContextCompat.getColor(context, R.color.white);
-        }
-    }
-
-    /**
-     * 初始化总标题
-     */
-    private void initMainTitle() {
-        if (container == null) return;
-        
-        // 创建总标题视图
-        mainTitleView = new TextView(context);
-        mainTitleView.setText(mainTitle);
-        mainTitleView.setTextSize(24);
-        mainTitleView.setTextColor(getTextColorPrimary());
-        mainTitleView.setGravity(android.view.Gravity.CENTER);
-        
-        // 设置总标题的布局参数
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        titleParams.setMargins(16, 16, 16, 16);
-        mainTitleView.setLayoutParams(titleParams);
-        
-        // 添加总标题到容器
-        container.addView(mainTitleView);
-    }
-
-    /**
-     * 获取主题文字颜色（适配夜间模式）
-     * @return 文字颜色
-     */
-    private int getTextColorPrimary() {
-        if (isDarkMode()) {
-            return ContextCompat.getColor(context, R.color.dark_text);
-        } else {
-            return ContextCompat.getColor(context, R.color.black);
         }
     }
 
@@ -213,7 +160,7 @@ public class InfoCardContainer {
     }
 
     /**
-     * 获取容器View - 供Activity直接绑定
+     * 获取容器View - 供Activity绑定到card_container
      * @return 容器View (ScrollView)
      */
     public NestedScrollView getContainerView() {
@@ -228,11 +175,6 @@ public class InfoCardContainer {
         
         // 刷新背景色
         scrollView.setBackgroundColor(getBackgroundColor());
-        
-        // 刷新标题颜色
-        if (mainTitleView != null) {
-            mainTitleView.setTextColor(getTextColorPrimary());
-        }
         
         // 刷新所有卡片
         for (InfoCard card : cards) {

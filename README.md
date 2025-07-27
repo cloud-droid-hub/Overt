@@ -1,299 +1,79 @@
-# Overt - Android设备安全检测工具
+# Overt - Android设备信息检测工具
 
-[![Android](https://img.shields.io/badge/Android-23+-green.svg)](https://developer.android.com/)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Build](https://img.shields.io/badge/Build-Gradle-orange.svg)](https://gradle.org/)
-[![NDK](https://img.shields.io/badge/NDK-CMake%203.22.1+-yellow.svg)](https://developer.android.com/ndk)
+## 项目概述
 
-Overt是一个功能强大的Android设备安全检测工具，采用Java + Native C++混合架构，提供全面的设备安全状态检测和分析功能。项目集成了先进的TEE（可信执行环境）证书解析技术，能够深度分析Android设备的安全状态。
+Overt是一个Android应用，用于检测和显示设备的详细信息，包括系统信息、安全状态、网络配置等。
 
-## 🚀 主要功能
+## 最新更新
 
-### 🔒 TEE (可信执行环境) 检测
-- **设备锁定状态检测**: 检查设备是否处于锁定状态
-- **启动验证状态**: 验证系统启动的完整性
-  - Verified: 已验证
-  - Self-signed: 自签名
-  - Unverified: 未验证
-  - Failed: 验证失败
-- **安全级别评估**: 评估设备的安全防护等级
-- **硬件级安全验证**: 基于Android KeyStore的硬件级安全检测
-- **证书链解析**: 深度解析X.509证书中的TEE扩展信息
-- **RootOfTrust验证**: 验证可信根信息
+### UI布局优化 (2025-01-27)
 
-### 🔍 Root检测
-- **Root文件检测**: 检测常见的root工具文件
-  - `/sbin/su`
-  - `/system/bin/su`
-  - `/system/xbin/su`
-  - `/data/local/xbin/su`
-  - 等多个路径
-- **Magisk检测**: 检测Magisk等root管理工具
+**问题**: 原来的UI设计中，标题栏会随着内容滚动而移出主界面，影响用户体验。
 
-### 📱 应用安全检测
-- **黑名单应用检测**: 检测危险应用
-  - Hunter (反调试工具)
-  - MT管理器
-  - 抓包帮手
-  - 无线ADB工具
-  - 快应用调试器
-  - Apatch
-  - LSPosed
-  - KernelSU
-  - 等
-- **白名单应用检测**: 检查必要应用是否安装
-  - QQ、微信、支付宝
-  - 抖音等常用应用
+**解决方案**: 将界面重新设计为两个独立的部分：
 
-### 🛡️ 系统安全检测
-- **系统属性检测**: 检查系统关键属性
-- **挂载点信息**: 分析文件系统挂载状态
-- **链接器信息**: 检测动态链接库加载
-- **内存映射检测**: 分析进程内存映射
-- **类加载器检测**: 监控Java类加载情况
-- **时间信息检测**: 检查系统时间异常
-- **端口信息检测**: 检测网络端口使用情况
-- **任务信息检测**: 分析系统进程状态
+1. **固定标题栏**: 位于界面顶部，始终可见
+2. **可滚动内容区域**: 位于标题栏下方，包含所有信息卡片
 
-### 🔧 动态分析检测
-- **Frida检测**: 检测Frida等动态分析工具
-- **调试工具检测**: 识别各种调试和分析工具
+**技术实现**:
+- 修改了 `activity_main.xml` 布局文件，使用 `LinearLayout` 垂直排列两个组件
+- 标题栏使用 `TextView` 组件，设置为固定高度
+- 内容区域使用 `FrameLayout` 容器，通过 `layout_weight="1"` 占据剩余空间
+- 重构了 `InfoCardContainer` 类，移除了标题创建功能，专注于卡片容器管理
+- 更新了 `MainActivity` 以支持新的布局结构
 
-### ⚙️ 系统设置检测
-- **开发者模式检测**: 检查是否启用开发者模式
-- **USB调试检测**: 检查USB调试是否启用
-- **代理设置检测**: 检查网络代理配置
-- **VPN检测**: 检查VPN连接状态
-- **锁屏密码检测**: 检查设备锁屏设置
-- **充电状态检测**: 检查设备充电状态
-- **SIM卡检测**: 检查SIM卡状态
-- **安装来源检测**: 检查应用安装来源
+**优势**:
+- 更好的用户体验：标题始终可见
+- 更好的封装性：标题和内容区域独立管理
+- 更好的可维护性：组件职责分离
 
-## 🏗️ 技术架构
+## 项目结构
 
-### 分层架构
 ```
-┌─────────────────────────────────────┐
-│            Java层 (UI层)             │
-│  ├── MainActivity                   │
-│  ├── DeviceInfoProvider             │
-│  ├── MainApplication                │
-│  └── TEEStatus                      │
-├─────────────────────────────────────┤
-│            JNI桥接层                 │
-│  ├── native-lib.cpp                 │
-│  └── JNI接口函数                    │
-├─────────────────────────────────────┤
-│          Native C++层                │
-│  ├── zDevice (设备信息管理)          │
-│  ├── TEE证书解析模块                 │
-│  │  ├── tee_cert_parser.cpp        │
-│  │  ├── tee_cert_parser.h          │
-│  │  └── tee_info.cpp               │
-│  ├── 检测模块                        │
-│  │  ├── root_file_info             │
-│  │  ├── package_info               │
-│  │  ├── system_prop_info           │
-│  │  ├── mounts_info                │
-│  │  ├── linker_info                │
-│  │  ├── maps_info                  │
-│  │  ├── class_loader_info          │
-│  │  ├── time_info                  │
-│  │  ├── port_info                  │
-│  │  ├── task_info                  │
-│  │  └── system_setting_info        │
-│  └── 工具类                         │
-│      ├── zFile                     │
-│      ├── zLog                      │
-│      ├── zJavaVm                   │
-│      ├── zClassLoader              │
-│      ├── zLinker                   │
-│      ├── zElf                      │
-│      ├── util                      │
-│      └── crc                       │
-└─────────────────────────────────────┘
+app/
+├── src/main/
+│   ├── java/com/example/overt/
+│   │   ├── MainActivity.java          # 主活动，管理整体布局
+│   │   ├── InfoCardContainer.java     # 卡片容器，管理滚动内容
+│   │   ├── InfoCard.java              # 单个信息卡片
+│   │   └── MainApplication.java       # 应用程序类
+│   ├── res/
+│   │   ├── layout/
+│   │   │   ├── activity_main.xml      # 主布局（固定标题+滚动内容）
+│   │   │   └── item_info_card.xml     # 卡片项布局
+│   │   └── values/
+│   │       ├── colors.xml             # 颜色资源
+│   │       └── strings.xml            # 字符串资源
+│   └── cpp/                           # Native代码
+└── build.gradle                       # 应用级构建配置
 ```
 
-### 技术特点
-- **混合架构**: Java负责UI，C++负责核心检测逻辑
-- **模块化设计**: 每个检测功能独立成模块
-- **单例模式**: 统一管理设备信息
-- **性能优化**: Native层提供高性能检测
-- **安全性**: 核心逻辑在Native层，更难被反编译
-- **TEE深度解析**: 基于BouncyCastle的ASN.1解析技术
-- **证书链验证**: 完整的X.509证书解析流程
+## 构建和运行
 
-## 📋 系统要求
+1. 确保已安装Android Studio和Android SDK
+2. 克隆项目到本地
+3. 在项目根目录运行：
+   ```bash
+   ./gradlew assembleDebug
+   ```
+4. 将生成的APK安装到Android设备上
 
-- **Android版本**: API 23+ (Android 6.0+)
-- **架构支持**: ARM64-v8a
-- **权限要求**:
-  - `ACCESS_NETWORK_STATE`
-  - `QUERY_ALL_PACKAGES`
-  - `ACCESS_WIFI_STATE`
-  - `READ_PHONE_STATE`
-  - `INTERNET`
+## 功能特性
 
-## 🛠️ 构建说明
+- **设备信息检测**: 系统版本、硬件信息、安全状态等
+- **网络配置**: WiFi、移动网络、代理设置等
+- **应用信息**: 已安装应用、权限等
+- **安全检测**: Root检测、调试模式等
+- **响应式设计**: 支持浅色/深色主题切换
+- **固定标题栏**: 标题始终可见，提升用户体验
 
-### 环境准备
-1. **Android Studio**: 最新版本
-2. **Android SDK**: API 34
-3. **NDK**: 支持CMake 3.22.1+
-4. **Gradle**: 8.0+
+## 技术栈
 
-### 构建步骤
-```bash
-# 克隆项目
-git clone [repository-url]
-cd Overt
+- **语言**: Java, C++
+- **UI框架**: Android原生组件
+- **构建工具**: Gradle
+- **Native开发**: CMake, NDK
 
-# 构建项目
-./gradlew assembleDebug
+## 许可证
 
-# 或者使用Android Studio
-# 1. 打开项目
-# 2. 等待Gradle同步完成
-# 3. 点击运行按钮
-```
-
-### 依赖库
-- **AndroidX**: AppCompat, Material Design, ConstraintLayout
-- **BouncyCastle**: 加密库 (bcprov-jdk15on:1.70)
-- **Native库**: Android NDK, Log库
-
-## 📱 使用方法
-
-### 安装应用
-1. 下载并安装APK文件
-2. 授予必要权限
-3. 启动应用
-
-### 查看检测结果
-应用启动后会自动执行所有检测模块，结果以卡片形式展示：
-
-- **红色卡片**: 高风险项目 (error级别)
-- **黄色卡片**: 中风险项目 (warn级别)
-- **绿色卡片**: 正常项目
-
-每个检测项包含：
-- 检测项目名称
-- 风险等级
-- 详细说明
-
-## 🔧 开发指南
-
-### 添加新的检测模块
-
-1. **创建Native检测函数**
-```cpp
-// 在cpp目录下创建新文件
-// example_detection.h
-std::map<std::string, std::map<std::string, std::string>> get_example_detection();
-
-// example_detection.cpp
-std::map<std::string, std::map<std::string, std::string>> get_example_detection() {
-    std::map<std::string, std::map<std::string, std::string>> info;
-    // 实现检测逻辑
-    return info;
-}
-```
-
-2. **在CMakeLists.txt中添加源文件**
-```cmake
-add_library(${CMAKE_PROJECT_NAME} SHARED
-    # ... 其他文件
-    example_detection.cpp
-)
-```
-
-3. **在native-lib.cpp中调用**
-```cpp
-// 在init_函数中添加
-zDevice::getInstance()->get_device_info()["example_detection"] = get_example_detection();
-```
-
-### 自定义UI显示
-修改 `DeviceInfoProvider.java` 中的 `addInfoCard` 方法来调整显示效果。
-
-## 📊 检测项目说明
-
-### TEE检测
-- **DeviceLocked**: 设备锁定状态
-- **VerifiedBootState**: 启动验证状态
-  - Verified: 已验证
-  - Self-signed: 自签名
-  - Unverified: 未验证
-  - Failed: 验证失败
-
-### Root检测
-检测常见的root工具文件，如果存在则标记为高风险。
-
-### 应用检测
-- **黑名单应用**: 检测危险工具应用
-- **白名单应用**: 检查必要应用是否缺失
-
-### 系统设置检测
-- **开发者模式**: 检查是否启用开发者选项
-- **USB调试**: 检查USB调试是否启用
-- **代理设置**: 检查网络代理配置
-- **VPN状态**: 检查VPN连接状态
-- **锁屏密码**: 检查设备锁屏设置
-- **充电状态**: 检查设备充电状态
-- **SIM卡状态**: 检查SIM卡是否存在
-- **安装来源**: 检查应用安装来源
-
-## 🔬 TEE证书解析技术
-
-### 技术原理
-项目实现了基于BouncyCastle的TEE证书解析技术，能够：
-
-1. **证书获取**: 通过Android KeyStore获取TEE证书
-2. **ASN.1解析**: 解析X.509证书中的TEE扩展
-3. **RootOfTrust提取**: 提取可信根信息
-4. **安全状态验证**: 验证设备安全状态
-
-### 核心组件
-- **tee_cert_parser.cpp**: C++实现的证书解析器
-- **Attestation.java**: Java实现的证书解析
-- **RootOfTrust.java**: 可信根信息处理
-- **AuthorizationList.java**: 授权列表处理
-
-### 解析流程
-```
-1. 生成TEE密钥对
-   ↓
-2. 获取证书链
-   ↓
-3. 提取TEE扩展 (OID: 1.3.6.1.4.1.11129.2.1.17)
-   ↓
-4. 解析ASN.1结构
-   ↓
-5. 提取RootOfTrust信息
-   ↓
-6. 验证安全状态
-```
-
-## 🤝 贡献指南
-
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-## ⚠️ 免责声明
-
-本工具仅用于安全研究和教育目的。使用者需要遵守当地法律法规，不得用于非法用途。开发者不承担因使用本工具而产生的任何法律责任。
-
-## 📞 联系方式
-
-如有问题或建议，请通过以下方式联系：
-
-- 提交 Issue
-- 发送邮件至 [your-email@example.com]
-- 项目主页: [repository-url]
+本项目采用MIT许可证。
