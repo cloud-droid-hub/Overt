@@ -12,10 +12,6 @@ public class MainActivity extends AppCompatActivity {
 
     // Native方法声明
     native Map<String, Map<String, Map<String, String>>> get_device_info();
-    
-    // 日志系统测试方法
-    native String testLogSystem();
-    native String testLogDisable();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
