@@ -165,7 +165,8 @@ int nonstd_access(const char *__path, int __mode);
 #define nonstd_readdir readdir
 #define nonstd_closedir closedir
 
-
+#define atoi nonstd_atoi
+#define atol nonstd_atol
 
 
 

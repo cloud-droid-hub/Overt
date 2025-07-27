@@ -1,0 +1,825 @@
+//
+// Created by lxz on 2025/7/27.
+//
+
+#include "zHttps.h"
+
+// 静态实例定义
+zHttps* zHttps::instance = nullptr;
+
+// HttpsRequest方法实现
+void HttpsRequest::parseUrl() {
+    // 强制只支持HTTPS的URL解析
+    if (url.substr(0, 8) != "https://") {
+        return;
+    }
+
+    // 移除协议部分
+    string url_without_protocol = url.substr(8);
+    
+    // 查找主机名和路径的分隔符
+    size_t path_start = url_without_protocol.find('/');
+    if (path_start != string::npos) {
+        host = url_without_protocol.substr(0, path_start);
+        path = url_without_protocol.substr(path_start);
+    } else {
+        host = url_without_protocol;
+        path = "/";
+    }
+
+    // 检查主机名是否包含端口
+    size_t port_start = host.find(':');
+    if (port_start != string::npos) {
+        string port_str = host.substr(port_start + 1);
+        try {
+            port = atoi(port_str.c_str());
+            host = host.substr(0, port_start);
+        } catch (const std::exception& e) {
+            LOGE("Invalid port number: %s", port_str.c_str());
+            port = 443; // 默认HTTPS端口
+        }
+    } else {
+        port = 443; // 默认HTTPS端口
+    }
+}
+
+string HttpsRequest::buildRequest() const {
+    string request = method + " " + path + " HTTP/1.1\r\n";
+//    request += "Host: " + host + ":" + std::to_string(port) + "\r\n";
+    request += "Host: ";
+    request += host;
+    request += ":";
+    request += std::to_string(port).c_str();
+    request += "\r\n";
+    for (const auto& header : headers) {
+        request += header.first + ": " + header.second + "\r\n";
+    }
+    if (!body.empty()) {
+        request += "Content-Length: ";
+        request += std::to_string(body.length()).c_str();
+        request += "\r\n";
+    }
+    request += "\r\n";
+    if (!body.empty()) {
+        request += body;
+    }
+    return request;
+}
+
+// zHttps方法实现
+zHttps::zHttps() : initialized(false), default_timeout_seconds(10) {
+    mbedtls_net_init(&server_fd);
+    mbedtls_ssl_init(&ssl);
+    mbedtls_ssl_config_init(&conf);
+    mbedtls_x509_crt_init(&cacert);
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+    mbedtls_entropy_init(&entropy);
+}
+
+zHttps* zHttps::getInstance() {
+    if (!instance) {
+        instance = new zHttps();
+    }
+    return instance;
+}
+
+void zHttps::setTimeout(int timeout_seconds) {
+    default_timeout_seconds = timeout_seconds;
+    LOGI("Default timeout set to %d seconds", timeout_seconds);
+}
+
+int zHttps::getTimeout() const {
+    return default_timeout_seconds;
+}
+
+zHttps::~zHttps() {
+    cleanup();
+}
+
+bool zHttps::initialize() {
+    if (initialized) return true;
+
+    const char* pers = "https_client";
+    int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
+                                    (const unsigned char*)pers, strlen(pers));
+    if (ret != 0) {
+        LOGE("Failed to seed random number generator: %d", ret);
+        return false;
+    }
+
+    // 加载CA证书
+    ret = mbedtls_x509_crt_parse_path(&cacert, "/system/etc/security/cacerts");
+    if (ret < 0) {
+        ret = mbedtls_x509_crt_parse_path(&cacert, "/system/etc/ssl/certs");
+        if (ret < 0) {
+            LOGI("Warning: No CA certificates loaded, continuing without verification");
+        }
+    }
+
+    initialized = true;
+    return true;
+}
+
+void zHttps::addPinnedCertificate(const string& hostname,
+                                 const string& expected_serial,
+                                 const string& expected_fingerprint,
+                                 const string& expected_subject) {
+    CertificateInfo cert_info;
+    cert_info.serial_number = expected_serial;
+    cert_info.fingerprint_sha256 = expected_fingerprint;
+    cert_info.subject = expected_subject;
+    cert_info.issuer = ""; // 初始化issuer字段
+    cert_info.is_valid = true;
+    cert_info.is_expired = false;
+    cert_info.is_future = false;
+    cert_info.public_key_size = 0;
+    
+    pinned_certificates[hostname] = cert_info;
+    LOGI("Added pinned certificate for %s", hostname.c_str());
+}
+
+CertificateInfo zHttps::extractCertificateInfo(const mbedtls_x509_crt* cert) {
+    CertificateInfo info;
+
+    if (!cert) return info;
+
+    // 序列号
+    char serial_hex[256];
+    getCertificateSerialHex(cert, serial_hex, sizeof(serial_hex));
+    info.serial_number = serial_hex;
+
+    // 指纹
+    unsigned char fingerprint[32];
+    if (getCertificateFingerprintSha256(cert, fingerprint) == 0) {
+        char fingerprint_hex[65];
+        for (int i = 0; i < 32; i++) {
+            snprintf(fingerprint_hex + i * 2, 3, "%02X", fingerprint[i]);
+        }
+        info.fingerprint_sha256 = fingerprint_hex;
+    }
+
+    // 主题
+    char subject[512];
+    mbedtls_x509_dn_gets(subject, sizeof(subject), &cert->subject);
+    info.subject = subject;
+
+    // 颁发者
+    char issuer[512];
+    mbedtls_x509_dn_gets(issuer, sizeof(issuer), &cert->issuer);
+    info.issuer = issuer;
+
+    // 有效期
+    char time_buf[32];
+    snprintf(time_buf, sizeof(time_buf), "%04d-%02d-%02d %02d:%02d:%02d",
+             cert->valid_from.year, cert->valid_from.mon, cert->valid_from.day,
+             cert->valid_from.hour, cert->valid_from.min, cert->valid_from.sec);
+    info.valid_from = time_buf;
+
+    snprintf(time_buf, sizeof(time_buf), "%04d-%02d-%02d %02d:%02d:%02d",
+             cert->valid_to.year, cert->valid_to.mon, cert->valid_to.day,
+             cert->valid_to.hour, cert->valid_to.min, cert->valid_to.sec);
+    info.valid_to = time_buf;
+
+    // 公钥信息
+    info.public_key_type = mbedtls_pk_get_name(&cert->pk);
+    info.public_key_size = mbedtls_pk_get_bitlen(&cert->pk);
+
+    // 有效性检查
+    info.is_expired = mbedtls_x509_time_is_past(&cert->valid_to);
+    info.is_future = mbedtls_x509_time_is_future(&cert->valid_from);
+    info.is_valid = !info.is_expired && !info.is_future;
+
+    return info;
+}
+
+bool zHttps::verifyCertificatePinning(const mbedtls_x509_crt* cert, const string& hostname) {
+    auto it = pinned_certificates.find(hostname);
+    if (it == pinned_certificates.end()) {
+        LOGI("No pinned certificate for hostname: %s, skipping pinning check.", hostname.c_str());
+        return true; // 没有固定证书时跳过验证
+    }
+
+    const CertificateInfo& pinned = it->second;
+    bool serial_match = (pinned.serial_number == extractCertificateInfo(cert).serial_number);
+    bool fingerprint_match = (pinned.fingerprint_sha256 == extractCertificateInfo(cert).fingerprint_sha256);
+    
+    // 只有当期望的subject不为空时才验证subject
+    bool subject_match = true;
+    if (!pinned.subject.empty()) {
+        subject_match = (pinned.subject == extractCertificateInfo(cert).subject);
+    }
+
+    if (!serial_match || !fingerprint_match || !subject_match) {
+        LOGE("Certificate pinning verification failed for %s", hostname.c_str());
+        LOGE("serial_match %d fingerprint_match %d subject_match %d ", serial_match, fingerprint_match, subject_match);
+        
+        // 输出详细信息用于调试
+        if (!serial_match) {
+            LOGE("Expected serial: %s, Got: %s", 
+                 pinned.serial_number.c_str(), 
+                 extractCertificateInfo(cert).serial_number.c_str());
+        }
+        if (!fingerprint_match) {
+            LOGE("Expected fingerprint: %s, Got: %s", 
+                 pinned.fingerprint_sha256.c_str(), 
+                 extractCertificateInfo(cert).fingerprint_sha256.c_str());
+        }
+        if (!subject_match && !pinned.subject.empty()) {
+            LOGE("Expected subject: %s, Got: %s", 
+                 pinned.subject.c_str(), 
+                 extractCertificateInfo(cert).subject.c_str());
+        }
+        
+        return false;
+    }
+    LOGI("Certificate pinning verification passed for %s", hostname.c_str());
+    return true;
+}
+
+HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
+    HttpsResponse response;
+    
+    // 使用请求的超时时间，如果没有设置则使用默认超时
+    int timeout_seconds = request.timeout_seconds > 0 ? request.timeout_seconds : default_timeout_seconds;
+    
+    // 为本次请求创建独立的计时器和资源
+    RequestTimer timer(timeout_seconds);
+    RequestResources resources;
+    LOGI("Starting HTTPS request with timeout: %d seconds", timer.timeout_seconds);
+    
+    // 安全检查：确保只使用HTTPS协议，但允许任意端口
+    if (request.url.substr(0, 8) != "https://") {
+        response.error_message = "Only HTTPS URLs are supported";
+        LOGE("Security Error: Only HTTPS protocol is allowed");
+        return response;
+    }
+
+    // 初始化mbedtls（如果需要）
+    if (!initialized) {
+        if (!initialize()) {
+            response.error_message = "Failed to initialize mbedtls";
+            LOGE("Failed to initialize mbedtls");
+            return response;
+        }
+    }
+
+    // 记录本地设置的证书固定信息
+    auto it = pinned_certificates.find(request.host);
+    if (it != pinned_certificates.end()) {
+        response.pinned_certificate = it->second;
+    }
+
+    char error_buf[0x1000];
+    int ret;
+
+    // 使用自定义socket连接
+    LOGI("Connecting to %s:%d with custom socket...", request.host.c_str(), request.port);
+    
+    // 检查超时
+    if (timer.isTimeout()) {
+        response.error_message = "Connection timeout before establishing connection";
+        LOGE("Connection timeout before establishing connection");
+        return response;
+    }
+    
+    // 记录连接开始时间
+    time_t connect_start = time(nullptr);
+    LOGI("Connection attempt started at: %ld", connect_start);
+    
+    // 使用自定义socket连接，带超时控制
+    resources.sockfd = connectWithTimeout(request.host, request.port, timeout_seconds);
+    
+    // 记录连接结束时间
+    time_t connect_end = time(nullptr);
+    int connect_duration = connect_end - connect_start;
+    LOGI("Connection attempt completed in %d seconds", connect_duration);
+    
+    if (resources.sockfd < 0) {
+        response.error_message = "Connection failed with custom socket";
+        LOGE("Connection failed after %d seconds with custom socket", connect_duration);
+        return response;
+    }
+    
+    // 将socket文件描述符设置到mbedtls网络上下文
+    resources.server_fd.fd = resources.sockfd;
+    
+    // 标记连接建立完成
+    timer.markConnection();
+    LOGI("Connection established successfully in %d seconds", timer.getConnectionDuration());
+
+    // 设置socket为非阻塞模式
+    ret = mbedtls_net_set_nonblock(&resources.server_fd);
+    if (ret != 0) {
+        LOGI("Warning: Failed to set socket to non-blocking mode");
+    } else {
+        LOGI("Socket set to non-blocking mode");
+    }
+
+    // 配置SSL - 强制使用安全的SSL配置
+    ret = mbedtls_ssl_config_defaults(&resources.conf, MBEDTLS_SSL_IS_CLIENT,
+                                      MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT);
+    if (ret != 0) {
+        mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+        response.error_message = "SSL config failed: " + string(error_buf);
+        LOGE("SSL config failed: %s", error_buf);
+        return response;
+    }
+
+    // 设置SSL读取超时（毫秒）
+    uint32_t ssl_timeout_ms = timeout_seconds * 1000;
+    mbedtls_ssl_conf_read_timeout(&resources.conf, ssl_timeout_ms);
+    LOGI("SSL read timeout set to %u ms", ssl_timeout_ms);
+
+    // 设置握手超时（DTLS，但对TLS也有影响）
+    uint32_t handshake_timeout_ms = timeout_seconds * 1000;
+    mbedtls_ssl_conf_handshake_timeout(&resources.conf, handshake_timeout_ms, handshake_timeout_ms * 2);
+    LOGI("SSL handshake timeout set to %u-%u ms", handshake_timeout_ms, handshake_timeout_ms * 2);
+
+    // 强制证书验证 - 不允许跳过验证
+    mbedtls_ssl_conf_authmode(&resources.conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+    mbedtls_ssl_conf_ca_chain(&resources.conf, &cacert, nullptr);
+    mbedtls_ssl_conf_rng(&resources.conf, mbedtls_ctr_drbg_random, &ctr_drbg);
+
+    // 设置最小TLS版本为1.2（禁用TLS 1.0和1.1）
+    mbedtls_ssl_conf_min_version(&resources.conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
+
+    // 禁用不安全的加密套件
+    mbedtls_ssl_conf_ciphersuites(&resources.conf, mbedtls_ssl_list_ciphersuites());
+
+    ret = mbedtls_ssl_setup(&resources.ssl, &resources.conf);
+    if (ret != 0) {
+        mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+        response.error_message = "SSL setup failed: " + string(error_buf);
+        LOGE("SSL setup failed: %s", error_buf);
+        return response;
+    }
+
+    mbedtls_ssl_set_hostname(&resources.ssl, request.host.c_str());
+    
+    // 使用带超时的网络接收函数
+    mbedtls_ssl_set_bio(&resources.ssl, &resources.server_fd, mbedtls_net_send, nullptr, mbedtls_net_recv_timeout);
+
+    // TLS握手
+    LOGI("Performing TLS handshake...");
+    
+            // 检查超时
+        if (timer.isTimeout()) {
+            response.error_message = "TLS handshake timeout before starting";
+            LOGE("TLS handshake timeout before starting");
+            return response;
+        }
+    
+    // 使用轮询进行TLS握手，带超时检查
+    do {
+        ret = mbedtls_ssl_handshake(&resources.ssl);
+        
+        // 检查超时
+        if (timer.isTimeout()) {
+            response.error_message = "TLS handshake timeout during negotiation";
+            LOGE("TLS handshake timeout during negotiation");
+            return response;
+        }
+        
+        if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+            // 使用轮询等待数据
+            uint32_t poll_timeout = 100; // 100ms轮询间隔
+            ret = mbedtls_net_poll(&resources.server_fd, 
+                                  (ret == MBEDTLS_ERR_SSL_WANT_READ) ? MBEDTLS_NET_POLL_READ : MBEDTLS_NET_POLL_WRITE,
+                                  poll_timeout);
+            if (ret < 0) {
+                LOGI("Poll failed, continuing handshake...");
+            }
+            continue;
+        }
+    } while (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE);
+    
+    if (ret != 0) {
+        mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+        response.error_message = "TLS handshake failed: " + string(error_buf);
+        LOGE("TLS handshake failed: %s", error_buf);
+        return response;
+    }
+
+    // 标记TLS握手完成
+    timer.markHandshake();
+    LOGI("TLS handshake completed in %d seconds", timer.getHandshakeDuration());
+
+    // 验证证书
+    uint32_t flags = mbedtls_ssl_get_verify_result(&resources.ssl);
+    if (flags != 0) {
+        response.error_message = "Certificate verification failed";
+        LOGE("Certificate verification failed");
+        response.ssl_verification_passed = false;
+    } else {
+        response.ssl_verification_passed = true;
+        LOGI("Certificate verification passed");
+    }
+
+    // 获取服务器证书
+    const mbedtls_x509_crt* cert = mbedtls_ssl_get_peer_cert(&resources.ssl);
+    if (cert) {
+        response.certificate = extractCertificateInfo(cert);
+        
+        // 验证证书固定
+        response.certificate_pinning_passed = verifyCertificatePinning(cert, request.host);
+    }
+
+    // 发送HTTPS请求
+    string https_request = request.buildRequest();
+    LOGI("Sending HTTPS request...");
+    
+    // 检查超时
+    if (timer.isTimeout()) {
+        response.error_message = "Request timeout before sending";
+        LOGE("Request timeout before sending");
+        return response;
+    }
+    
+    ret = mbedtls_ssl_write(&resources.ssl, (const unsigned char*)https_request.c_str(), https_request.length());
+    if (ret < 0) {
+        mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+        response.error_message = "Write failed: " + string(error_buf);
+        LOGE("Write error: %s", error_buf);
+        return response;
+    }
+    
+    // 标记发送完成
+    timer.markSend();
+    LOGI("Request sent successfully in %d seconds", timer.getSendDuration());
+
+    // 读取响应
+    LOGI("Reading HTTPS response...");
+    char response_buf[4096];
+    string full_response;
+    int read_count = 0;
+    const int max_reads = 3; // 简化最大读取次数
+    const int max_total_bytes = 64 * 1024; // 最大64KB响应
+    bool found_headers = false;
+    bool response_complete = false;
+
+    do {
+        // 检查超时
+        if (timer.isTimeout()) {
+            response.error_message = "Response read timeout";
+            LOGE("Response read timeout after %d seconds", timer.timeout_seconds);
+            break;
+        }
+        
+        ret = mbedtls_ssl_read(&resources.ssl, (unsigned char*)response_buf, sizeof(response_buf) - 1);
+        read_count++;
+        
+        if (ret > 0) {
+            response_buf[ret] = '\0';
+            full_response += response_buf;
+            LOGI("Read %d bytes, total: %zu bytes", ret, full_response.length());
+            
+            // 检查是否找到HTTPS头
+            if (!found_headers && 
+                (full_response.find("\r\n\r\n") != string::npos || 
+                 full_response.find("\n\n") != string::npos)) {
+                found_headers = true;
+                LOGI("Found HTTPS headers, continuing to read body...");
+            }
+            
+            // 检查响应是否完整
+            if (found_headers && !response_complete) {
+                size_t header_end = full_response.find("\r\n\r\n");
+                if (header_end == string::npos) {
+                    header_end = full_response.find("\n\n");
+                }
+                
+                if (header_end != string::npos) {
+                    string headers = full_response.substr(0, header_end);
+                    
+                    // 检查是否有Content-Length
+                    size_t content_length_pos = headers.find("Content-Length:");
+                    if (content_length_pos != string::npos) {
+                        size_t value_start = headers.find_first_not_of(" \t", content_length_pos + 15);
+                        size_t value_end = headers.find("\r\n", value_start);
+                        if (value_end == string::npos) {
+                            value_end = headers.find("\n", value_start);
+                        }
+                        if (value_end != string::npos) {
+                            string length_str = headers.substr(value_start, value_end - value_start);
+                            try {
+                                int expected_length = atoi(length_str.c_str());
+                                size_t body_length = full_response.length() - header_end - 4;
+                                if (body_length >= static_cast<size_t>(expected_length)) {
+                                    LOGI("Response body complete (Content-Length: %d, actual: %zu)", 
+                                         expected_length, body_length);
+                                    response_complete = true;
+                                }
+                            } catch (const std::exception& e) {
+                                // 忽略解析错误
+                            }
+                        }
+                    }
+                    
+                    // 检查是否有Transfer-Encoding: chunked
+                    if (headers.find("Transfer-Encoding: chunked") != string::npos) {
+                        if (full_response.find("\r\n0\r\n\r\n") != string::npos) {
+                            LOGI("Chunked response complete");
+                            response_complete = true;
+                        }
+                    }
+                    
+                    // 检查Connection: close
+                    if (headers.find("Connection: close") != string::npos && 
+                        static_cast<size_t>(ret) < sizeof(response_buf) - 1) {
+                        LOGI("Connection: close detected, response likely complete");
+                        response_complete = true;
+                    }
+                }
+            }
+            
+            // 检查是否超过最大响应大小
+            if (full_response.length() > max_total_bytes) {
+                LOGI("Response too large, stopping at %zu bytes", full_response.length());
+                break;
+            }
+        } else if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+            LOGI("SSL wants read/write, stopping (no retry)");
+            break;
+        } else if (ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
+            LOGI("Peer closed connection");
+            response_complete = true;
+            break;
+        } else if (ret == 0) {
+            LOGI("Connection closed by peer (EOF)");
+            break;
+        } else {
+            mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+            response.error_message = "Read failed: " + string(error_buf);
+            LOGE("Read error: %s", error_buf);
+            break;
+        }
+        
+        // 防止无限循环
+        if (read_count > max_reads) {
+            LOGI("Reached max read count (%d), stopping", max_reads);
+            break;
+        }
+        
+        // 如果响应已完成，停止读取
+        if (response_complete) {
+            LOGI("Response marked as complete, stopping");
+            break;
+        }
+        
+        // 如果已经找到头，且读取了足够的数据，就停止
+        if (found_headers && read_count > 1) {
+            LOGI("Found headers and read enough data, stopping");
+            break;
+        }
+    } while (ret > 0);
+
+    // 标记接收完成
+    timer.markReceive();
+    LOGI("Response reading completed in %d seconds", timer.getReceiveDuration());
+
+    LOGI("Finished reading response, total bytes: %zu, read attempts: %d, found headers: %s, complete: %s", 
+         full_response.length(), read_count, found_headers ? "yes" : "no", response_complete ? "yes" : "no");
+
+    // 检查响应是否有效（即使没有标记为完整，只要有内容就继续）
+    if (full_response.empty()) {
+        response.error_message = "No response received";
+        LOGE("No response received");
+        return response;
+    }
+    
+    // 检查是否至少找到了HTTP头
+    if (!found_headers) {
+        response.error_message = "No valid HTTP headers found";
+        LOGE("No valid HTTP headers found");
+        return response;
+    }
+
+    // 检查是否有响应内容
+    if (full_response.empty()) {
+        response.error_message = "No response received";
+        LOGE("No response received");
+        return response;
+    }
+
+    // 解析HTTPS响应
+    parseHttpsResponse(full_response, response);
+
+    // 标记请求完成
+    timer.finish();
+    LOGI("=== Request Timing Summary ===");
+    LOGI("Connection: %d seconds", timer.getConnectionDuration());
+    LOGI("TLS Handshake: %d seconds", timer.getHandshakeDuration());
+    LOGI("Send Request: %d seconds", timer.getSendDuration());
+    LOGI("Receive Response: %d seconds", timer.getReceiveDuration());
+    LOGI("Total Duration: %d seconds", timer.getTotalDuration());
+
+    // 资源会在RequestResources析构函数中自动清理
+
+    return response;
+}
+
+void zHttps::getCertificateSerialHex(const mbedtls_x509_crt* cert, char* buffer, size_t buffer_size) {
+    size_t pos = 0;
+    for (size_t i = 0; i < cert->serial.len && pos < buffer_size - 3; i++) {
+        pos += snprintf(buffer + pos, buffer_size - pos, "%02X", cert->serial.p[i]);
+        if (i < cert->serial.len - 1 && pos < buffer_size - 2) {
+            pos += snprintf(buffer + pos, buffer_size - pos, ":");
+        }
+    }
+}
+
+int zHttps::getCertificateFingerprintSha256(const mbedtls_x509_crt* cert, unsigned char* fingerprint) {
+    const mbedtls_md_info_t* md_info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+    if (md_info == NULL) return -1;
+    return mbedtls_md(md_info, cert->raw.p, cert->raw.len, fingerprint);
+}
+
+void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& response) {
+    LOGI("Parsing HTTPS response, length: %zu", raw_response.length());
+    
+    // 打印响应体的前300个字符
+    size_t body_start = raw_response.find("\r\n\r\n");
+    if (body_start == string::npos) {
+        body_start = raw_response.find("\n\n");
+    }
+    
+    if (body_start != string::npos) {
+        string response_body = raw_response.substr(body_start + 4);
+        size_t body_preview_length = response_body.length() < 300 ? response_body.length() : 300;
+        string body_preview = response_body.substr(0, body_preview_length);
+        LOGI("Response body preview (first %zu chars):", body_preview_length);
+        LOGI("%s", body_preview.c_str());
+    }
+    
+    if (raw_response.empty()) {
+        response.error_message = "Empty response received";
+        LOGE("Empty response");
+        return;
+    }
+
+    // 查找头部和主体的分隔符
+    size_t header_end = raw_response.find("\r\n\r\n");
+    if (header_end == string::npos) {
+        header_end = raw_response.find("\n\n");
+    }
+    
+    if (header_end == string::npos) {
+        response.error_message = "Invalid HTTPS response format - no header separator found";
+        LOGE("Invalid HTTPS response format");
+        return;
+    }
+    
+    response.body = raw_response.substr(header_end + 4);
+
+    string headers = raw_response.substr(0, header_end);
+    LOGI("Headers length: %zu, Body length: %zu", headers.length(), response.body.length());
+
+    // 解析状态行
+    size_t first_line_end = headers.find('\n');
+    if (first_line_end != string::npos) {
+        string status_line = headers.substr(0, first_line_end);
+        LOGI("Status line: %s", status_line.c_str());
+        
+        size_t space1 = status_line.find(' ');
+        size_t space2 = status_line.find(' ', space1 + 1);
+        if (space1 != string::npos && space2 != string::npos) {
+            try {
+                response.status_code = atoi(status_line.substr(space1 + 1, space2 - space1 - 1).c_str());
+                LOGI("Status code: %d", response.status_code);
+            } catch (const std::exception& e) {
+                LOGE("Failed to parse status code: %s", e.what());
+                response.status_code = 0;
+            }
+        }
+    }
+
+    // 解析头部
+    size_t pos = 0;
+    bool first_line = true;
+    int header_count = 0;
+    
+    while (pos < headers.length()) {
+        // 找到行结束位置
+        size_t line_end = headers.find('\n', pos);
+        if (line_end == string::npos) {
+            line_end = headers.length();
+        }
+        
+        // 提取当前行
+        string line = headers.substr(pos, line_end - pos);
+
+        // 去除回车符
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        
+        if (first_line) {
+            first_line = false;
+        } else if (!line.empty()) {
+            size_t colon_pos = line.find(':');
+            if (colon_pos != string::npos) {
+                string key = line.substr(0, colon_pos);
+                string value = line.substr(colon_pos + 1);
+
+                // 去除前导空格
+                if (!value.empty() && value[0] == ' ') {
+                    value = value.substr(1);
+                }
+
+                response.headers[key] = value;
+                header_count++;
+            }
+        }
+        
+        pos = line_end + 1;
+        if (pos >= headers.length()) break;
+    }
+    
+    LOGI("Parsed %d headers", header_count);
+}
+
+void zHttps::cleanup() {
+    if (initialized) {
+        mbedtls_x509_crt_free(&cacert);
+        mbedtls_ctr_drbg_free(&ctr_drbg);
+        mbedtls_entropy_free(&entropy);
+        initialized = false;
+    }
+}
+
+bool zHttps::isTimeoutReached(time_t start_time, int timeout_seconds) {
+    time_t current_time = time(nullptr);
+    return (current_time - start_time) >= timeout_seconds;
+} 
+
+// Socket连接相关方法实现
+int zHttps::connectWithTimeout(const string& host, int port, int timeout_seconds) {
+
+    // Linux/Android实现
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        LOGE("Socket creation failed");
+        return -1;
+    }
+    
+    // 设置非阻塞模式
+    int flags = fcntl(sockfd, F_GETFL, 0);
+    fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+    
+    // 解析主机名
+    struct hostent *server = gethostbyname(host.c_str());
+    if (server == nullptr) {
+        LOGE("Failed to resolve hostname: %s", host.c_str());
+        close(sockfd);
+        return -1;
+    }
+    
+    struct sockaddr_in serv_addr;
+    memset(&serv_addr, 0, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    memcpy(&serv_addr.sin_addr.s_addr, server->h_addr, server->h_length);
+    serv_addr.sin_port = htons(port);
+    
+    // 尝试连接
+    int ret = connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+    if (ret < 0 && errno == EINPROGRESS) {
+        // 连接正在进行中，等待完成或超时
+        fd_set writefds, exceptfds;
+        FD_ZERO(&writefds);
+        FD_ZERO(&exceptfds);
+        FD_SET(sockfd, &writefds);
+        FD_SET(sockfd, &exceptfds);
+        
+        struct timeval timeout;
+        timeout.tv_sec = timeout_seconds;
+        timeout.tv_usec = 0;
+        
+        ret = select(sockfd + 1, nullptr, &writefds, &exceptfds, &timeout);
+        if (ret == 0) {
+            LOGE("Connection timeout after %d seconds", timeout_seconds);
+            close(sockfd);
+            return -1;
+        } else if (ret < 0) {
+            LOGE("Select failed");
+            close(sockfd);
+            return -1;
+        } else if (FD_ISSET(sockfd, &exceptfds)) {
+            LOGE("Connection failed with exception");
+            close(sockfd);
+            return -1;
+        }
+    } else if (ret < 0) {
+        LOGE("Connection failed");
+        close(sockfd);
+        return -1;
+    }
+    
+    // 设置阻塞模式
+    fcntl(sockfd, F_SETFL, flags);
+    
+    return sockfd;
+}
+
+void zHttps::closeSocket(int sockfd) {
+    close(sockfd);
+} 

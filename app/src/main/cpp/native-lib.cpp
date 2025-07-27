@@ -22,9 +22,12 @@
 #include "tee_info.h"
 #include "zJavaVm.h"
 #include "config.h"
+#include "ssl_info.h"
 
 void __attribute__((constructor)) init_(void){
     LOGE("init_ start");
+
+    zDevice::getInstance()->get_device_info()["ssl_info"] = get_ssl_info();
 
     zDevice::getInstance()->get_device_info()["task_info"] = get_task_info();
     zDevice::getInstance()->get_device_info()["maps_info"] = get_maps_info();

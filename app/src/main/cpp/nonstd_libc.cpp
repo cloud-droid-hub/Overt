@@ -16,11 +16,7 @@
 #include <sys/stat.h>
 #include <linux/types.h>
 #include <bits/glibc-syscalls.h>
-
-// 如果 CLOCK_REALTIME 未定义，则定义它
-#ifndef CLOCK_REALTIME
-#define CLOCK_REALTIME 0
-#endif
+#include <dirent.h>
 
 #define LOGD(...) __android_log_print(ANDROID_LOG_ERROR, "lxz", __VA_ARGS__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "lxz", __VA_ARGS__)
@@ -28,9 +24,6 @@
 #include "config.h"
 #include "syscall.h"
 #include "nonstd_libc.h"
-#include <dirent.h>
-
-
 
 #ifdef USE_NONSTD_API
 
@@ -801,5 +794,6 @@ int nonstd_access(const char* __path, int __mode) {
     LOGD("access: result=%d", result);
     return result;
 }
+
 #endif // USE_NONSTD_API
 

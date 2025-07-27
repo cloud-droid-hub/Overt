@@ -530,6 +530,39 @@ namespace nonstd {
         LOGD("nonstd::string.find(char): not found, returning npos");
         return npos;
     }
+
+    size_t string::find_first_not_of(const char* s, size_t pos) const {
+        LOGD("nonstd::string.find_first_not_of(const char*) called with \"%s\" at pos %zu", s, pos);
+
+        if (!s) {
+            LOGD("nonstd::string.find_first_not_of: null pointer passed, returning npos");
+            return npos;
+        }
+
+        if (pos >= len) {
+            LOGD("nonstd::string.find_first_not_of: pos >= len, returning npos");
+            return npos;
+        }
+
+        for (size_t i = pos; i < len; ++i) {
+            bool found = false;
+            for (size_t j = 0; s[j] != '\0'; ++j) {
+                if (data[i] == s[j]) {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                LOGD("nonstd::string.find_first_not_of: first non-matching character at position %zu", i);
+                return i;
+            }
+        }
+
+        LOGD("nonstd::string.find_first_not_of: all characters matched, returning npos");
+        return npos;
+    }
+
     
     // Reverse find methods implementation (rfind)
     size_t string::rfind(const char* str, size_t pos) const {
@@ -595,35 +628,7 @@ namespace nonstd {
         LOGD("nonstd::string.rfind(char): not found, returning npos");
         return npos;
     }
-    
-    // Find last of methods implementation (find_last_of)
-    size_t string::find_last_of(const char* str, size_t pos) const {
-        LOGD("nonstd::string.find_last_of(const char*) called with '%s' at pos %zu", str ? str : "NULL", pos);
-        
-        if (!str) {
-            LOGD("nonstd::string.find_last_of: str is NULL, returning npos");
-            return npos;
-        }
-        
-        // Adjust pos if it's npos or beyond string length
-        if (pos == npos || pos >= len) {
-            pos = len - 1;
-        }
-        
-        // Search from pos backwards for any character in str
-        for (int i = static_cast<int>(pos); i >= 0; --i) {
-            for (size_t j = 0; str[j] != '\0'; ++j) {
-                if (data[i] == str[j]) {
-                    LOGD("nonstd::string.find_last_of: found '%c' at position %zu", data[i], static_cast<size_t>(i));
-                    return static_cast<size_t>(i);
-                }
-            }
-        }
-        
-        LOGD("nonstd::string.find_last_of: not found, returning npos");
-        return npos;
-    }
-    
+
     size_t string::find_last_of(const string& str, size_t pos) const {
         LOGD("nonstd::string.find_last_of(string) called with '%s' at pos %zu", str.c_str(), pos);
         return find_last_of(str.c_str(), pos);
@@ -827,6 +832,22 @@ namespace nonstd {
             LOGD("nonstd::string.compare: substrings are equal, returning 0");
             return 0;
         }
+    }
+
+    const char& string::back() const {
+        if (len == 0) {
+            throw std::out_of_range("string::back() called on empty string");
+        }
+        return data[len - 1];
+    }
+
+    // 删除字符串最后一个字符
+    void string::pop_back() {
+        if (len == 0) {
+            throw std::out_of_range("string::pop_back() called on empty string");
+        }
+        --len;
+        data[len] = '\0';  // 可选：保证字符串以 '\0' 结尾
     }
 
 } // namespace nonstd

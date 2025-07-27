@@ -171,7 +171,9 @@ namespace nonstd {
         size_t rfind(const char* str, size_t pos = npos) const;
         size_t rfind(const string& str, size_t pos = npos) const;
         size_t rfind(char ch, size_t pos = npos) const;
-        
+
+        size_t find_first_not_of(const char* s, size_t pos) const;
+
         // Find last of methods (find_last_of)
         size_t find_last_of(const char* str, size_t pos = npos) const;
         size_t find_last_of(const string& str, size_t pos = npos) const;
@@ -184,6 +186,12 @@ namespace nonstd {
         int compare(size_t pos, size_t len, const char* str) const;
         int compare(size_t pos, size_t len, const string& str, size_t subpos, size_t sublen) const;
         int compare(size_t pos, size_t len, const char* str, size_t sublen) const;
+
+        //
+        const char& back() const;
+
+        // 删除字符串最后一个字符
+        void pop_back();
     };
 
 } // namespace nonstd

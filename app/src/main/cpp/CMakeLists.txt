@@ -44,8 +44,12 @@ set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--exclude-libs,A
 # 额外的符号隐藏选项
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 
+
+
 add_library(${CMAKE_PROJECT_NAME} SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
+        zHttps.cpp
+
         zUtil.cpp
         root_file_info.cpp
         mounts_info.cpp
@@ -67,11 +71,35 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         port_info.cpp
         tee_info.cpp
         tee_cert_parser.cpp
+
+
+        ssl_info.cpp
+
         zLog.cpp
         nonstd_libc.cpp
         string.cpp
         native-lib.cpp)
 
+# 添加mbedtls库
+add_library(mbedtls STATIC IMPORTED)
+set_target_properties(mbedtls PROPERTIES IMPORTED_LOCATION
+        ${CMAKE_CURRENT_SOURCE_DIR}/lib/mbedtls/libmbedtls.a)
+
+add_library(mbedx509 STATIC IMPORTED)
+set_target_properties(mbedx509 PROPERTIES IMPORTED_LOCATION
+        ${CMAKE_CURRENT_SOURCE_DIR}/lib/mbedtls/libmbedx509.a)
+
+add_library(mbedcrypto STATIC IMPORTED)
+set_target_properties(mbedcrypto PROPERTIES IMPORTED_LOCATION
+        ${CMAKE_CURRENT_SOURCE_DIR}/lib/mbedtls/libmbedcrypto.a)
+
+# 包含头文件目录
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+
 target_link_libraries(${CMAKE_PROJECT_NAME}
+        mbedtls
+        mbedx509
+        mbedcrypto
         android
         log)
