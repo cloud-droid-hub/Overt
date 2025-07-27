@@ -16,7 +16,7 @@
 
 #include "zUtil.h"
 #include "zLog.h"
-#include "crc.h"
+#include "zCrc32.h"
 #include "zElf.h"
 
 zElf::zElf() {

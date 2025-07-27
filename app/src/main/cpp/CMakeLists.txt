@@ -67,7 +67,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zFile.cpp
         maps_info.cpp
         task_info.cpp
-        crc.cpp
+        zCrc32.cpp
         port_info.cpp
         tee_info.cpp
         tee_cert_parser.cpp
