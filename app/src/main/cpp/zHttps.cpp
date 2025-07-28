@@ -68,12 +68,8 @@ string HttpsRequest::buildRequest() const {
 
 // zHttps方法实现
 zHttps::zHttps() : initialized(false), default_timeout_seconds(10) {
-    mbedtls_net_init(&server_fd);
-    mbedtls_ssl_init(&ssl);
-    mbedtls_ssl_config_init(&conf);
-    mbedtls_x509_crt_init(&cacert);
-    mbedtls_ctr_drbg_init(&ctr_drbg);
-    mbedtls_entropy_init(&entropy);
+    // 不在构造函数中初始化mbedtls资源，而是在需要时初始化
+    // 这样可以避免资源泄漏和状态污染
 }
 
 zHttps* zHttps::getInstance() {
@@ -99,11 +95,20 @@ zHttps::~zHttps() {
 bool zHttps::initialize() {
     if (initialized) return true;
 
+    // 初始化mbedtls资源
+    mbedtls_net_init(&server_fd);
+    mbedtls_ssl_init(&ssl);
+    mbedtls_ssl_config_init(&conf);
+    mbedtls_x509_crt_init(&cacert);
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+    mbedtls_entropy_init(&entropy);
+
     const char* pers = "https_client";
     int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
                                     (const unsigned char*)pers, strlen(pers));
     if (ret != 0) {
         LOGE("Failed to seed random number generator: %d", ret);
+        cleanup();
         return false;
     }
 
@@ -262,6 +267,22 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
             return response;
         }
     }
+    
+    // 确保每次请求都使用干净的状态
+    // 这可以防止前一次请求的失败状态影响当前请求
+    LOGI("Starting new HTTPS request to %s", request.host.c_str());
+    
+    // 重置全局SSL状态，确保每次请求都是独立的
+    // 这可以防止前一次请求的失败状态影响当前请求
+    if (initialized) {
+        // 重新初始化全局资源以确保干净状态
+        cleanup();
+        if (!initialize()) {
+            response.error_message = "Failed to reinitialize mbedtls";
+            LOGE("Failed to reinitialize mbedtls");
+            return response;
+        }
+    }
 
     // 记录本地设置的证书固定信息
     auto it = pinned_certificates.find(request.host);
@@ -322,6 +343,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
         mbedtls_strerror(ret, error_buf, sizeof(error_buf));
         response.error_message = "SSL config failed: " + string(error_buf);
         LOGE("SSL config failed: %s", error_buf);
+        // RequestResources会在析构时自动清理
         return response;
     }
 
@@ -351,6 +373,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
         mbedtls_strerror(ret, error_buf, sizeof(error_buf));
         response.error_message = "SSL setup failed: " + string(error_buf);
         LOGE("SSL setup failed: %s", error_buf);
+        // RequestResources会在析构时自动清理
         return response;
     }
 
@@ -397,6 +420,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
         mbedtls_strerror(ret, error_buf, sizeof(error_buf));
         response.error_message = "TLS handshake failed: " + string(error_buf);
         LOGE("TLS handshake failed: %s", error_buf);
+        // RequestResources会在析构时自动清理
         return response;
     }
 
@@ -614,6 +638,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     LOGI("Total Duration: %d seconds", timer.getTotalDuration());
 
     // 资源会在RequestResources析构函数中自动清理
+    LOGI("Request completed successfully, resources will be cleaned up automatically");
 
     return response;
 }
@@ -645,7 +670,7 @@ void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& respo
     
     if (body_start != string::npos) {
         string response_body = raw_response.substr(body_start + 4);
-        size_t body_preview_length = response_body.length() < 300 ? response_body.length() : 300;
+        size_t body_preview_length = response_body.length() < 1000 ? response_body.length() : 1000;
         string body_preview = response_body.substr(0, body_preview_length);
         LOGI("Response body preview (first %zu chars):", body_preview_length);
         LOGI("%s", body_preview.c_str());
@@ -740,10 +765,15 @@ void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& respo
 
 void zHttps::cleanup() {
     if (initialized) {
+        // 清理所有mbedtls资源
+        mbedtls_net_free(&server_fd);
+        mbedtls_ssl_free(&ssl);
+        mbedtls_ssl_config_free(&conf);
         mbedtls_x509_crt_free(&cacert);
         mbedtls_ctr_drbg_free(&ctr_drbg);
         mbedtls_entropy_free(&entropy);
         initialized = false;
+        LOGI("zHttps resources cleaned up");
     }
 }
 

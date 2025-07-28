@@ -329,8 +329,10 @@ public class InfoCard {
                 riskSymbol = "× "; // 红色叉号
             } else if ("warn".equals(risk)) {
                 riskSymbol = "⚠ "; // 警告符号
-            } else {
+            } else if ("safe".equals(risk)){
                 riskSymbol = "√ "; // 绿色对勾
+            }else{
+                continue;
             }
             
             textView.setText(riskSymbol + entry.getKey() + ": " + risk + ": " + explain);

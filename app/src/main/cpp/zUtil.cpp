@@ -367,3 +367,34 @@ jobject cmap_to_jmap_nested_3(JNIEnv* env, const map<string, map<string, map<str
 }
 
 
+string format_timestamp(long timestamp) {
+    LOGE("format_timestamp: called with timestamp=%ld", timestamp);
+
+    if (timestamp <= 0) {
+        LOGE("format_timestamp: invalid timestamp (<=0): %ld", timestamp);
+        return "Invalid timestamp";
+    }
+
+    // 转换为本地时间
+    time_t time = (time_t)timestamp;
+    LOGE("format_timestamp: converted to time_t: %ld", time);
+
+    struct tm* timeinfo = localtime(&time);
+    if (timeinfo == nullptr) {
+        LOGE("format_timestamp: localtime failed for timestamp=%ld", timestamp);
+        return "Failed to convert time";
+    }
+
+    // 格式化时间
+    char buffer[64];
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
+
+    // 输出调试信息
+    LOGE("Timestamp conversion: input=%ld, year=%d, month=%d, day=%d, hour=%d, min=%d, sec=%d",
+         timestamp, timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
+         timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+
+    LOGE("format_timestamp: returning formatted string: %s", buffer);
+    return string(buffer);
+}
+

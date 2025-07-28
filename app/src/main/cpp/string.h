@@ -192,6 +192,14 @@ namespace nonstd {
 
         // 删除字符串最后一个字符
         void pop_back();
+
+
+        void reserve(size_t new_cap);
+
+        string& append(const char* s, size_t n);
+
+        string& append(const char* s);
+
     };
 
 } // namespace nonstd

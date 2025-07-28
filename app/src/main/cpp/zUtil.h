@@ -20,6 +20,8 @@ vector<string> split_str(const string& str, char delim);
 
 bool string_end_with(const char *str, const char *suffix);
 
+string format_timestamp(long timestamp);
+
 // 将 map<string, string> 转换为 Java Map<String, String>
 jobject cmap_to_jmap(JNIEnv *env, const map<string, string>& cmap);
 

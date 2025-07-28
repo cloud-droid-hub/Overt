@@ -165,7 +165,11 @@ private:
                 closeSocket(sockfd);
                 sockfd = -1;
             }
-            mbedtls_ssl_close_notify(&ssl);
+            // 只有在SSL连接已经建立的情况下才发送close_notify
+            // 避免在连接失败时调用close_notify导致错误
+            if (ssl.state != MBEDTLS_SSL_HELLO_REQUEST) {
+                mbedtls_ssl_close_notify(&ssl);
+            }
             mbedtls_net_free(&server_fd);
             mbedtls_ssl_free(&ssl);
             mbedtls_ssl_config_free(&conf);

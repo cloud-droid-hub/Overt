@@ -37,7 +37,7 @@ namespace nonstd {
     }
 
 // Default constructor
-    string::string() : data(new char[1]{'\0'}), len(0) {
+    string::string() : data(new char[1]{'\0'}), len(0), capacity(1) {
         LOGD("nonstd::string() default constructor called, data=%p", data);
     }
 
@@ -48,10 +48,12 @@ namespace nonstd {
             LOGD("nonstd::string: str is NULL, creating empty string");
             data = new char[1]{'\0'};
             len = 0;
+            capacity = 1;
             return;
         }
         len = custom_strlen(str);  // Use custom strlen
         data = new char[len + 1];  // +1 for null terminator
+        capacity = len + 1;
         custom_strcpy(data, str);  // Use custom strcpy
         LOGD("nonstd::string(const char*) completed, data=%p, length=%zu", data, len);
     }
@@ -69,6 +71,7 @@ namespace nonstd {
         this->len = len;
         if (len > 0) {
             data = new char[len + 1];
+            capacity = len + 1;
             // Copy the specified length
             for (size_t i = 0; i < len; ++i) {
                 data[i] = str[i];
@@ -77,6 +80,7 @@ namespace nonstd {
         } else {
             // Empty string
             data = new char[1]{'\0'};
+            capacity = 1;
         }
         
         LOGD("nonstd::string(const char*, size_t) completed, data=%p, length=%zu", data, this->len);
@@ -87,6 +91,7 @@ namespace nonstd {
         LOGD("nonstd::string(const string& other) copy constructor called, other.data=%p, other.len=%zu", other.data, other.len);
         len = other.len;
         data = new char[len + 1];
+        capacity = len + 1;
         if (other.data) {
             custom_strcpy(data, other.data);  // Use custom strcpy
         } else {
@@ -96,10 +101,11 @@ namespace nonstd {
     }
 
 // Move constructor
-    string::string(string&& other) noexcept : data(other.data), len(other.len) {
+    string::string(string&& other) noexcept : data(other.data), len(other.len), capacity(other.capacity) {
         LOGD("nonstd::string(string&& other) move constructor called, other.data=%p, other.len=%zu", other.data, other.len);
         other.data = nullptr;  // Nullify the other object's data
         other.len = 0;
+        other.capacity = 0;
         LOGD("nonstd::string(string&&) completed, data=%p, length=%zu", data, len);
     }
 
@@ -122,6 +128,7 @@ namespace nonstd {
 
         len = other.len;
         data = new char[len + 1];
+        capacity = len + 1;
         if (other.data) {
             custom_strcpy(data, other.data);  
         } else {
@@ -142,9 +149,11 @@ namespace nonstd {
 
             data = other.data;
             len = other.len;
+            capacity = other.capacity;
 
             other.data = nullptr;  // Nullify the other object's data
             other.len = 0;
+            other.capacity = 0;
         }
         LOGD("nonstd::string.operator=(string&&) completed, data=%p, length=%zu", data, len);
         return *this;
@@ -175,6 +184,7 @@ namespace nonstd {
         }
         data = new char[1]{'\0'};
         len = 0;
+        capacity = 1;
         LOGD("nonstd::string.clear() completed, new data=%p, new length=%zu", data, len);
     }
 
@@ -245,6 +255,7 @@ namespace nonstd {
         string result;
         result.len = len + other.len;
         result.data = new char[result.len + 1];  // +1 for null terminator
+        result.capacity = result.len + 1;
 
         custom_strcpy(result.data, data);  // Copy this string
         custom_strcat(result.data, other.data);  // Concatenate the other string
@@ -264,6 +275,7 @@ namespace nonstd {
         string result;
         result.len = str_len + other.len;
         result.data = new char[result.len + 1];  // +1 for null terminator
+        result.capacity = result.len + 1;
         
         // Copy the C-string first
         char* dest = result.data;
@@ -292,6 +304,7 @@ namespace nonstd {
         delete[] data;  // Clean up old data
         data = new_data;
         len = new_len;
+        capacity = new_len + 1;
         
         LOGD("nonstd::string.operator+=(const string&) done, new len=%zu", len);
         return *this;
@@ -311,6 +324,7 @@ namespace nonstd {
         delete[] data;  // Clean up old data
         data = new_data;
         len = new_len;
+        capacity = new_len + 1;
         
         LOGD("nonstd::string.operator+=(const char*) done, new len=%zu", len);
         return *this;
@@ -330,6 +344,7 @@ namespace nonstd {
         delete[] data;  // Clean up old data
         data = new_data;
         len = new_len;
+        capacity = new_len + 1;
         
         LOGD("nonstd::string.operator+=(char) completed, new length=%zu", len);
         return *this;
@@ -848,6 +863,59 @@ namespace nonstd {
         }
         --len;
         data[len] = '\0';  // 可选：保证字符串以 '\0' 结尾
+    }
+
+    void string::reserve(size_t new_cap) {
+        LOGD("nonstd::string.reserve(new_cap=%zu) is called", new_cap);
+
+        if (new_cap <= capacity) {
+            LOGD("nonstd::string.reserve: no need to grow (current=%zu)", capacity);
+            return;
+        }
+
+        /* 新缓冲区 */
+        char* new_data = new char[new_cap + 1];   // +1 for '\0'
+        LOGD("nonstd::string.reserve: allocating %zu bytes", new_cap + 1);
+
+        /* 拷贝旧内容 */
+        if (data) {
+            for (size_t i = 0; i < len; ++i) new_data[i] = data[i];
+            delete[] data;
+            LOGD("nonstd::string.reserve: copied %zu chars, freed old buffer", len);
+        }
+
+        new_data[len] = '\0';
+        data     = new_data;
+        capacity = new_cap;
+    }
+
+    string& string::append(const char* s, size_t n) {
+        LOGD("nonstd::string.append(ptr=%p, n=%zu) is called", (void*)s, n);
+
+        if (!s || n == 0) return *this;
+
+        size_t needed = len + n;
+        if (needed > capacity) {
+            /* 至少按 2 倍策略扩容，避免频繁 realloc */
+            size_t new_cap = (capacity == 0) ? needed : (capacity * 2 > needed ? capacity * 2 : needed);
+            reserve(new_cap);
+        }
+
+        /* 逐字符拷贝 */
+        for (size_t i = 0; i < n; ++i) data[len + i] = s[i];
+
+        len += n;
+        data[len] = '\0';
+
+        LOGD("nonstd::string.append: appended %zu chars, new length=%zu", n, len);
+        return *this;
+    }
+
+    string& string::append(const char* s) {
+        if (!s) return *this;
+        size_t n = 0;
+        while (s[n] != '\0') ++n;   // 手动求长度
+        return append(s, n);
     }
 
 } // namespace nonstd
