@@ -179,6 +179,10 @@ map<string, map<string, string>> get_time_info(){
     time_t current_time = time(nullptr);
     LOGE("get_time_info: current_time=%ld", current_time);
 
+    LOGE("get_time_info: calling format_timestamp...");
+    string current_time_str = format_timestamp(current_time);
+    LOGE("get_time_info: format_timestamp result: %s", current_time_str.c_str());
+
     // 获取开机时间
     LOGE("get_time_info: calling get_boot_time_by_syscall...");
     long boot_time = get_boot_time_by_syscall();
@@ -213,6 +217,11 @@ map<string, map<string, string>> get_time_info(){
     } else {
         LOGE("get_time_info: boot time is not too short, not adding to map");
     }
+
+    info["current_time"]["risk"] = "safe";
+    info["current_time"]["explain"] = "current_time is " + current_time_str;
+
+
 
 //    获取文件的最早时间，不太稳定，或许有问题
 //    // 获取最早时间

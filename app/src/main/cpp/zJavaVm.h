@@ -24,17 +24,25 @@ private:
     JNIEnv *env = nullptr;
     jobject context = nullptr;
     jobject custom_context = nullptr;
+    jobject class_loader = nullptr;
 
 public:
 
     // Static method to get the singleton instance
     static zJavaVm* getInstance();
 
+    // 只能在主线程调用
+    void init();
+
     JavaVM* getJvm();
 
     JNIEnv* getEnv();
 
     jobject getContext();
+
+    jobject getClassLoader();
+
+    jclass findClass(const char* className);
 
     void exit();
 

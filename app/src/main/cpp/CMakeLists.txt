@@ -71,7 +71,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         port_info.cpp
         tee_info.cpp
         tee_cert_parser.cpp
-
+        zJson.cpp
 
         ssl_info.cpp
 

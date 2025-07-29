@@ -210,4 +210,26 @@ public class InfoCardContainer {
     public List<InfoCard> getAllCards() {
         return new ArrayList<>(cards);
     }
+    
+    /**
+     * 更新数据并刷新UI
+     * @param newCardData 新的卡片数据
+     */
+    public void updateData(Map<String, Map<String, Map<String, String>>> newCardData) {
+        if (newCardData == null || container == null) return;
+        
+        Log.d(TAG, "Updating data with " + newCardData.size() + " categories");
+        
+        // 清除现有卡片
+        container.removeAllViews();
+        cards.clear();
+        
+        // 添加新卡片数据
+        addAllCards(newCardData);
+        
+        // 显示所有新卡片
+        showAllCards();
+        
+        Log.d(TAG, "Data update completed, now have " + cards.size() + " cards");
+    }
 } 

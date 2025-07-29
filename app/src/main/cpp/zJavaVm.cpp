@@ -44,12 +44,25 @@ JavaVM* zJavaVm::getJvm(){
 }
 
 JNIEnv* zJavaVm::getEnv(){
-    if (jvm->GetEnv((void**)(&env), JNI_VERSION_1_6)!= JNI_OK) {
+    if(jvm == nullptr){
+      LOGE("JVM is not initialized");
+      return nullptr;
+    }
+
+    if (jvm->AttachCurrentThread((JNIEnv **) &env, nullptr)!= JNI_OK) {
         LOGE("Failed to get the environment");
         return nullptr;
     }
+
+//    if (jvm->GetEnv((void**)(&env), JNI_VERSION_1_6)!= JNI_OK) {
+//        LOGE("Failed to get the environment");
+//        return nullptr;
+//    }
     return env;
 }
+
+
+
 
 jobject createNewContext(JNIEnv* env) {
 
@@ -228,6 +241,33 @@ jobject getCurrentContext(JNIEnv* env) {
     return env->NewGlobalRef(context);
 }
 
+
+jobject getAppClassLoader(JNIEnv* env, jobject context) {
+  if (context == nullptr) return nullptr;
+
+  jclass ctxCls = env->GetObjectClass(context);
+  jmethodID getClassLoader = env->GetMethodID(
+      ctxCls, "getClassLoader", "()Ljava/lang/ClassLoader;");
+  jobject loader = env->CallObjectMethod(context, getClassLoader);
+
+  // 返回的是局部引用，调用者如果需要长期持有请转 GlobalRef
+  return env->NewGlobalRef(loader);;
+}
+
+jclass loadClassFromLoader(JNIEnv* env, jobject classLoader, const char* className) {
+  if (classLoader == nullptr || className == nullptr) return nullptr;
+
+  jclass loaderCls = env->FindClass("java/lang/ClassLoader");
+  jmethodID loadClass = env->GetMethodID(
+      loaderCls, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
+
+  jstring jName = env->NewStringUTF(className);
+  jclass  clazz = (jclass) env->CallObjectMethod(classLoader, loadClass, jName);
+  env->DeleteLocalRef(jName);
+
+  return clazz;   // 调用者决定是否提升为 GlobalRef
+}
+
 jobject zJavaVm::getContext() {
     if (getEnv() == nullptr) {
         LOGE("Failed to get the environment");
@@ -248,6 +288,18 @@ jobject zJavaVm::getContext() {
         }
     }
     return context;
+}
+
+jobject zJavaVm::getClassLoader(){
+  if(class_loader == nullptr){
+    class_loader = getAppClassLoader(getEnv(), getContext());
+  }
+  return class_loader;
+}
+
+// 子线程中获取非系统类 class 必须通过这个方法
+jclass zJavaVm::findClass(const char* className){
+  return loadClassFromLoader(getEnv(), getClassLoader(), className);
 }
 
 void zJavaVm::exit(){

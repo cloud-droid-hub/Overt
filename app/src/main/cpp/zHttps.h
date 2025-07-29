@@ -161,18 +161,24 @@ private:
         }
         
         void cleanup() {
-            if (sockfd >= 0) {
-                closeSocket(sockfd);
-                sockfd = -1;
-            }
             // 只有在SSL连接已经建立的情况下才发送close_notify
             // 避免在连接失败时调用close_notify导致错误
             if (ssl.state != MBEDTLS_SSL_HELLO_REQUEST) {
                 mbedtls_ssl_close_notify(&ssl);
             }
-            mbedtls_net_free(&server_fd);
+            
+            // 释放mbedtls资源
             mbedtls_ssl_free(&ssl);
             mbedtls_ssl_config_free(&conf);
+            
+            // 手动关闭socket
+            if (sockfd >= 0) {
+                closeSocket(sockfd);
+                sockfd = -1;
+            }
+            
+            // 重新初始化mbedtls网络上下文，避免重复关闭
+            mbedtls_net_init(&server_fd);
         }
         
         void closeSocket(int sockfd) {

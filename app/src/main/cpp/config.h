@@ -5,6 +5,7 @@
 // 通过这个宏来控制标准 API 和 非标准 API 的使用
 // 定义 USE_NONSTD_API 时使用 nonstd 命名空间同时开启 nonstd_ 系列的宏替换
 // 未定义时使用 std 命名空间
+
 #define USE_NONSTD_API
 
 #ifdef USE_NONSTD_API
