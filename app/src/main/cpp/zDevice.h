@@ -5,7 +5,7 @@
 #ifndef OVERT_ZDEVICE_H
 #define OVERT_ZDEVICE_H
 
-
+#include <shared_mutex>
 #include "config.h"
 #include "zLog.h"
 
@@ -20,6 +20,10 @@ private:
 
     static zDevice* instance;
 
+    static map<string, map<string, map<string, string>>> device_info;
+
+    mutable std::shared_mutex device_info_mtx_;
+
 public:
 
     static zDevice* getInstance() {
@@ -31,13 +35,9 @@ public:
 
     ~zDevice();
 
-    static map<string, map<string, map<string, string>>> device_info;
+    const map<string, map<string, map<string, string>>>& get_device_info() const;
 
-    map<string, map<string, map<string, string>>>& get_device_info(){
-        LOGE("zDevice::get_device_info: called, device_info size=%zu", device_info.size());
-        return device_info;
-    };
-
+    void update_device_info(const string& key, const map<string, map<string, string>>& value);
 
 };
 

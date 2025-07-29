@@ -36,6 +36,8 @@ public class MainActivity extends AppCompatActivity {
         
         // 将卡片容器添加到布局中
         NestedScrollView scrollView = cardContainer.getContainerView();
+
+
         cardContainerLayout.addView(scrollView);
     }
 }
