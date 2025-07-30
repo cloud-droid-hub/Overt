@@ -18,12 +18,15 @@
 
 // 构造函数
 zFile::zFile() : m_path("") {
-    LOGE("zFile()");
+    LOGD("[zFile] Default constructor called");
 }
 
 zFile::zFile(const string& path) : m_path(path) {
-    LOGE("zFile(const string& path)");
-    if(m_path.empty()) return;
+    LOGD("[zFile] Constructor called with path: %s", path.c_str());
+    if(m_path.empty()) {
+        LOGD("[zFile] Constructed with empty path");
+        return;
+    }
 
     // 设置属性（文件/目录）
     setAttribute();
@@ -34,10 +37,14 @@ zFile::zFile(const string& path) : m_path(path) {
 }
 
 void zFile::setAttribute(){
+    LOGD("[zFile] setAttribute called for path: %s", m_path.c_str());
 
     st_ret = stat(m_path.c_str(), &st);
 
-    if (st_ret != 0) return;
+    if (st_ret != 0) {
+        LOGD("[zFile] stat failed for path: %s", m_path.c_str());
+        return;
+    }
 
     earliest_time = st.st_mtim.tv_sec < st.st_ctim.tv_sec ? st.st_mtim.tv_sec : st.st_ctim.tv_sec;
 
@@ -46,41 +53,51 @@ void zFile::setAttribute(){
 }
 
 void zFile::setFd(){
+    LOGD("[zFile] setFd called for path: %s", m_path.c_str());
     if (m_fd >= 0) {
+        LOGD("[zFile] Closing previous fd: %d", m_fd);
         close(m_fd);
         m_fd = -1;
     }
 
-    if (m_path.empty()) return;
+    if (m_path.empty()) {
+        LOGD("[zFile] setFd: path is empty");
+        return;
+    }
 
     int flag = isDir() ? (O_RDONLY | O_DIRECTORY) : O_RDONLY;
 
     m_fd = open(m_path.c_str(), flag);
 
     if (m_fd < 0) {
-        LOGE("Failed to setFd %s: %s (errno=%d, %s)", isDir() ? "directory" : "file", m_path.c_str(), errno, strerror(errno));
+        LOGE("[zFile] setFd failed for %s: %s (errno=%d, %s)", m_path.c_str(), isDir() ? "directory" : "file", errno, strerror(errno));
     }else{
-        LOGE("setFd succeed %s  %s %d", m_path.c_str(), isDir() ? "directory" : "file", m_fd);
+        LOGI("[zFile] setFd succeed for %s, fd=%d", m_path.c_str(), m_fd);
     }
 }
 
 
 long zFile::getEarliestTime() const {
+    LOGD("[zFile] getEarliestTime called for path: %s", m_path.c_str());
     return earliest_time;
 }
 
 // 析构函数
 zFile::~zFile() {
+    LOGD("[zFile] Destructor called for path: %s", m_path.c_str());
     if (m_fd >= 0) {
+        LOGD("[zFile] Closing fd in destructor: %d", m_fd);
         close(m_fd);
     }
 }
 
 string zFile::getPath() const {
+    LOGD("[zFile] getPath called");
     return m_path;
 }
 
 string zFile::getFileName() const {
+    LOGD("[zFile] getFileName called for path: %s", m_path.c_str());
     if (m_path.empty()) return "";
 
     size_t lastSlash = m_path.find_last_of("/\\");
@@ -203,16 +220,16 @@ string zFile::getEarliestTimeFormatted() const {
 
 // 文件读取操作
 string zFile::readAllText() {
-    LOGE("readAllText %d %d", isDir(), m_fd);
+    LOGD("[zFile] readAllText %d %d", isDir(), m_fd);
     if (isDir() || m_fd < 0) {
-        LOGE("readAllText3");
+        LOGD("[zFile] readAllText3");
         return "";
     }
 
-    LOGE("readAllText2");
+    LOGD("[zFile] readAllText2");
     // 检查是否为文本文件
     if (!isTextFile()) {
-        LOGE("readAllText: 文件不是文本文件: %s", m_path.c_str());
+        LOGE("[zFile] readAllText: 文件不是文本文件: %s", m_path.c_str());
         return "";
     }
 
@@ -262,15 +279,16 @@ string zFile::readLine() {
     return getLine(m_fd);
 }
 vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
+    LOGD("[zFile] readBytes called with start_offset: %ld, size: %zu", start_offset, size);
     vector<uint8_t> data;
-    LOGE("readBytes start_offset: %ld, size: %zu", start_offset, size);
     if (isDir() || m_fd < 0) {
+        LOGD("[zFile] readBytes: file is directory or fd invalid");
         return data;
     }
 
     // 保存当前位置
     off_t current_pos = lseek(m_fd, 0, SEEK_CUR);
-    LOGE("当前偏移: %ld", current_pos);
+    LOGD("[zFile] 当前偏移: %ld", current_pos);
 
     // 移动到指定偏移位置
     if (start_offset > 0) {
@@ -279,7 +297,7 @@ vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
 
     if (size == 0) {
         // size 为 0，读取全部
-        LOGE("size 为 0，执行全量读取");
+        LOGD("[zFile] readBytes: size is 0, reading all content");
 
         char buffer[4096];
         ssize_t total_read = 0;
@@ -291,18 +309,18 @@ vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
             data.insert(data.end(), buffer, buffer + bytesRead);
             total_read += bytesRead;
 
-            LOGE("循环读取: 本次读取 %ld 字节, 总计 %ld 字节", bytesRead, total_read);
+            LOGD("[zFile] 循环读取: 本次读取 %ld 字节, 总计 %ld 字节", bytesRead, total_read);
         }
 
         if (total_read == 0) {
-            LOGE("读取失败或无数据");
+            LOGD("[zFile] readBytes: no data read");
         } else {
-            LOGE("全量读取完成: 总计 %zu 字节", data.size());
+            LOGI("[zFile] readBytes: read %zu bytes successfully", data.size());
         }
 
     } else {
         // size > 0，读取固定长度
-        LOGE("读取指定大小: %zu 字节", size);
+        LOGD("[zFile] readBytes: reading %zu bytes", size);
         data.resize(size);
         ssize_t bytesRead = read(m_fd, data.data(), size);
         if (bytesRead < 0) {
@@ -310,9 +328,9 @@ vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
             data.clear();
         } else if ((size_t)bytesRead < size) {
             data.resize(bytesRead);  // 只读到部分内容，缩小
-            LOGE("部分读取: 实际读取 %zd 字节", bytesRead);
+            LOGD("[zFile] 部分读取: 实际读取 %zd 字节", bytesRead);
         } else {
-            LOGE("成功读取 %zu 字节", size);
+            LOGI("[zFile] readBytes: read %zu bytes successfully", size);
         }
     }
 
@@ -328,16 +346,17 @@ vector<uint8_t> zFile::readAllBytes() {
 
 // 目录操作
 vector<string> zFile::listFiles() const {
+    LOGD("[zFile] listFiles called for path: %s", m_path.c_str());
     vector<string> files;
     
     if (!isDir()) {
-        LOGE("listFiles: %s 不是目录", m_path.c_str());
+        LOGD("[zFile] listFiles: %s is not a directory", m_path.c_str());
         return files;
     }
     
     DIR* dir = opendir(m_path.c_str());
     if (!dir) {
-        LOGE("listFiles: 无法打开目录 %s (errno: %d)", m_path.c_str(), errno);
+        LOGE("[zFile] listFiles: failed to open directory %s (errno: %d)", m_path.c_str(), errno);
         return files;
     }
 
@@ -364,21 +383,22 @@ vector<string> zFile::listFiles() const {
     }
 
     closedir(dir);
-    LOGE("listFiles: 在 %s 中找到 %zu 个文件", m_path.c_str(), files.size());
+    LOGI("[zFile] listFiles: found %zu files in %s", files.size(), m_path.c_str());
     return files;
 }
 
 vector<string> zFile::listDirectories() const {
+    LOGD("[zFile] listDirectories called for path: %s", m_path.c_str());
     vector<string> dirs;
     
     if (!isDir()) {
-        LOGE("listDirectories: %s 不是目录", m_path.c_str());
+        LOGD("[zFile] listDirectories: %s is not a directory", m_path.c_str());
         return dirs;
     }
 
     DIR* dir = opendir(m_path.c_str());
     if (!dir) {
-        LOGE("listDirectories: 无法打开目录 %s (errno: %d)", m_path.c_str(), errno);
+        LOGE("[zFile] listDirectories: failed to open directory %s (errno: %d)", m_path.c_str(), errno);
         return dirs;
     }
     
@@ -396,21 +416,22 @@ vector<string> zFile::listDirectories() const {
     }
 
     closedir(dir);
-    LOGE("listDirectories: 在 %s 中找到 %zu 个目录", m_path.c_str(), dirs.size());
+    LOGI("[zFile] listDirectories: found %zu directories in %s", dirs.size(), m_path.c_str());
     return dirs;
 }
 
 vector<string> zFile::listAll() const {
+    LOGD("[zFile] listAll called for path: %s", m_path.c_str());
     vector<string> all;
     
     if (!isDir()) {
-        LOGE("listAll: %s 不是目录", m_path.c_str());
+        LOGD("[zFile] listAll: %s is not a directory", m_path.c_str());
         return all;
     }
 
     DIR* dir = opendir(m_path.c_str());
     if (!dir) {
-        LOGE("listAll: 无法打开目录 %s (errno: %d)", m_path.c_str(), errno);
+        LOGE("[zFile] listAll: failed to open directory %s (errno: %d)", m_path.c_str(), errno);
         return all;
     }
     
@@ -426,7 +447,7 @@ vector<string> zFile::listAll() const {
     }
 
     closedir(dir);
-    LOGE("listAll: 在 %s 中找到 %zu 个条目", m_path.c_str(), all.size());
+    LOGI("[zFile] listAll: found %zu items in %s", all.size(), m_path.c_str());
     return all;
 }
 
@@ -529,10 +550,10 @@ bool zFile::isTextFile() {
     // 复用 readBytes 读取文件前1KB来检查
     vector<uint8_t> data = readBytes(0, 1024);
     
-    LOGE("isTextFile: 读取了 %zu 字节", data.size());
+    LOGD("[zFile] isTextFile: 读取了 %zu 字节", data.size());
 
     if (data.empty()) {
-        LOGE("isTextFile: 文件为空");
+        LOGD("[zFile] isTextFile: 文件为空");
         return false;
     }
 
@@ -564,7 +585,7 @@ bool zFile::isTextFile() {
             }
         } else {
             // 其他控制字符，认为是二进制文件
-            LOGE("isTextFile: 发现非ASCII可打印字符: %02X", c);
+            LOGD("[zFile] isTextFile: 发现非ASCII可打印字符: %02X", c);
             return false;
         }
     }
@@ -572,16 +593,18 @@ bool zFile::isTextFile() {
 }
 
 unsigned long zFile::getSum(long start_offset, size_t size){
+    LOGD("[zFile] getSum called with start_offset: %ld, size: %zu", start_offset, size);
     unsigned long sum = 0;
-    LOGE("111111111111 %d", m_fd);
     vector<uint8_t> data = readBytes(start_offset, size);
-    LOGE("222222222222 %d", data.size());
+    LOGD("[zFile] getSum: read %zu bytes", data.size());
     for(int i = 0; i < data.size(); i++){
         sum += data[i];
     }
+    LOGI("[zFile] getSum: calculated sum = %lu", sum);
     return sum;
 }
 
 unsigned long zFile::getSum(){
+    LOGD("[zFile] getSum called for entire file");
     return getSum(0, getFileSize());
 }

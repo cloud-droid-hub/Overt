@@ -34,6 +34,7 @@ void debug(JNIEnv *env, const char *format, jobject object) {
 }
 
 string get_class_loader_string(JNIEnv* env, jobject object){
+    LOGD("[zClassLoader] get_class_loader_string called");
     string info = "";
     if (object == nullptr) {
         return info;
@@ -51,10 +52,12 @@ string get_class_loader_string(JNIEnv* env, jobject object){
 }
 
 jclass getClass(JNIEnv *env, jobject jobject_) {
+    LOGD("[zClassLoader] getClass called");
     return env->GetObjectClass(jobject_);
 }
 
 string getClassName(JNIEnv *env, jclass jclass_) {
+    LOGD("[zClassLoader] getClassName called");
     jclass classClass = env->FindClass("java/lang/Class");
     jmethodID getNameMethod = env->GetMethodID(classClass, "getName", "()Ljava/lang/String;");
     jstring className = (jstring) env->CallObjectMethod(jclass_, getNameMethod);
@@ -67,11 +70,13 @@ string getClassName(JNIEnv *env, jclass jclass_) {
 }
 
 string getClassName(JNIEnv *env, jobject jobject_) {
+    LOGD("[zClassLoader] getClassName (object) called");
     jclass objectClass = getClass(env, jobject_);
     return getClassName(env, objectClass);
 }
 
 vector<string> getClassNameList(JNIEnv *env, jobject classloader) {
+    LOGD("[zClassLoader] getClassNameList called");
     vector<string> classNameList = {};
 
     // 获取 classloader 的类
@@ -234,6 +239,7 @@ private:
 };
 
 void zClassLoader::checkGlobalRef(JNIEnv *env, jclass clazz) {
+    LOGD("[zClassLoader] checkGlobalRef called");
     auto VisitRoots = (void (*)(void *, void *)) zLinker::getInstance()->find_lib("libart.so").find_symbol("_ZN3art9JavaVMExt10VisitRootsEPNS_11RootVisitorE");
 
     if (VisitRoots == nullptr) {
@@ -288,6 +294,7 @@ private:
 };
 
 void zClassLoader::checkWeakGlobalRef(JNIEnv *env, jclass clazz) {
+    LOGD("[zClassLoader] checkWeakGlobalRef called");
     // auto SweepJniWeakGlobals = (void (*)(void *, void *)) plt_dlsym("_ZN3art9JavaVMExt19SweepJniWeakGlobalsEPNS_15IsMarkedVisitorE", nullptr);
     auto SweepJniWeakGlobals = (void (*)(void *, void *)) zLinker::getInstance()->find_lib("libart.so").find_symbol("_ZN3art9JavaVMExt19SweepJniWeakGlobalsEPNS_15IsMarkedVisitorE");
 
@@ -304,6 +311,7 @@ void zClassLoader::checkWeakGlobalRef(JNIEnv *env, jclass clazz) {
 }
 
 void zClassLoader::traverseClassLoader(JNIEnv* env) {
+    LOGD("[zClassLoader] traverseClassLoader called");
     __android_log_print(6, "lxz", "checkClassloader11");
 
     if (env == nullptr){
@@ -344,6 +352,7 @@ void zClassLoader::traverseClassLoader(JNIEnv* env) {
 }
 
 zClassLoader::zClassLoader(){
+    LOGD("[zClassLoader] zClassLoader constructor called");
     classNameList = vector<string>();
     classLoaderStringList = vector<string>();
     traverseClassLoader(zJavaVm::getInstance()->getEnv());
@@ -351,6 +360,6 @@ zClassLoader::zClassLoader(){
 
 
 zClassLoader::~zClassLoader() {
-
+    LOGD("[zClassLoader] zClassLoader destructor called");
 }
 

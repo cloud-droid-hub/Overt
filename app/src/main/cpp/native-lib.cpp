@@ -26,79 +26,80 @@
 #include "zJson.h"
 
 void* overt_thread(void* arg) {
-  while (true) {
-    LOGE("thread_func");
+    LOGD("[native-lib] overt_thread started");
+    while (true) {
+        LOGD("[native-lib] overt_thread loop");
+        LOGI("[native-lib] thread_func: processing device info updates");
 
-    zDevice::getInstance()->update_device_info("ssl_info", get_ssl_info());
+        zDevice::getInstance()->update_device_info("ssl_info", get_ssl_info());
+        zDevice::getInstance()->update_device_info("time_info", get_time_info());
+        zDevice::getInstance()->update_device_info("task_info", get_task_info());
+        zDevice::getInstance()->update_device_info("maps_info",get_maps_info());
+        zDevice::getInstance()->update_device_info("root_file_info", get_root_file_info());
+        zDevice::getInstance()->update_device_info("mounts_info", get_mounts_info());
+        zDevice::getInstance()->update_device_info("system_prop_info", get_system_prop_info());
+        zDevice::getInstance()->update_device_info("linker_info", get_linker_info());
+        zDevice::getInstance()->update_device_info("time_info", get_time_info());
+        zDevice::getInstance()->update_device_info("port_info", get_port_info());
+        zDevice::getInstance()->update_device_info("class_loader_info", get_class_loader_info());
+        zDevice::getInstance()->update_device_info("package_info", get_package_info());
+        zDevice::getInstance()->update_device_info("system_setting_info", get_system_setting_info());
+        zDevice::getInstance()->update_device_info("tee_info", get_tee_info());
 
-    zDevice::getInstance()->update_device_info("time_info", get_time_info());
+        // 通知Java层更新设备信息
+        JNIEnv *env = zJavaVm::getInstance()->getEnv();
 
-    zDevice::getInstance()->update_device_info("task_info", get_task_info());
-    zDevice::getInstance()->update_device_info("maps_info",get_maps_info());
-    zDevice::getInstance()->update_device_info("root_file_info", get_root_file_info());
+        if(env == nullptr){
+            LOGE("[native-lib] thread_func: env is null");
+            continue;
+        }
 
-    zDevice::getInstance()->update_device_info("mounts_info", get_mounts_info());
-    zDevice::getInstance()->update_device_info("system_prop_info", get_system_prop_info());
-    zDevice::getInstance()->update_device_info("linker_info", get_linker_info());
-    zDevice::getInstance()->update_device_info("time_info", get_time_info());
-    zDevice::getInstance()->update_device_info("port_info", get_port_info());
+        jclass activity_class = zJavaVm::getInstance()->findClass("com/example/overt/MainActivity");
+        if (activity_class == nullptr) {
+            LOGE("[native-lib] thread_func: activity_class is null");
+            continue;
+        }
 
-    zDevice::getInstance()->update_device_info("class_loader_info", get_class_loader_info());
-    zDevice::getInstance()->update_device_info("package_info", get_package_info());
-    zDevice::getInstance()->update_device_info("system_setting_info", get_system_setting_info());
-    zDevice::getInstance()->update_device_info("tee_info", get_tee_info());
+        jmethodID method_id = env->GetStaticMethodID(activity_class, "onDeviceInfoUpdated", "()V");
+        if (method_id == nullptr){
+            LOGE("[native-lib] thread_func: method_id onDeviceInfoUpdated is null");
+            continue;
+        }
 
-    // 通知Java层更新设备信息
-    JNIEnv *env = zJavaVm::getInstance()->getEnv();
+        LOGI("[native-lib] thread_func: calling onDeviceInfoUpdated");
+        env->CallStaticVoidMethod(activity_class, method_id);
 
-    if(env == nullptr){
-      LOGE("thread_func: env is null");
-      continue;
+        sleep(10);
     }
-
-    jclass activity_class = zJavaVm::getInstance()->findClass("com/example/overt/MainActivity");
-    if (activity_class == nullptr) {
-      LOGE("thread_func: activity_class is null");
-      continue;
-    }
-
-    jmethodID method_id = env->GetStaticMethodID(activity_class, "onDeviceInfoUpdated", "()V");
-    if (method_id == nullptr){
-      LOGE("thread_func: method_id onDeviceInfoUpdated is null");
-      continue;
-    }
-
-    LOGE("thread_func: calling onDeviceInfoUpdated");
-    env->CallStaticVoidMethod(activity_class, method_id);
-
-    sleep(10);
-  }
-  return nullptr;
+    return nullptr;
 }
 
 void __attribute__((constructor)) init_(void){
-    LOGE("init_ start");
+    LOGD("[native-lib] init_ constructor called");
+    LOGI("[native-lib] init_ start");
 
     pthread_t tid;
     if (pthread_create(&tid, nullptr, overt_thread, nullptr) != 0) {
-      perror("pthread_create failed");
-      return;
+        LOGE("[native-lib] pthread_create failed");
+        return;
     }
 
-    LOGE("init_ over");
+    LOGI("[native-lib] init_ over");
 }
 
 extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-    LOGE("JNI_OnLoad");
+    LOGD("[native-lib] JNI_OnLoad called");
+    LOGI("[native-lib] JNI_OnLoad");
     return JNI_VERSION_1_6;
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_example_overt_MainActivity_get_1device_1info(JNIEnv *env, jobject thiz) {
-    LOGE("get_device_info: starting JNI call");
+    LOGD("[native-lib] get_device_info JNI call");
+    LOGI("[native-lib] get_device_info: starting JNI call");
     jobject result = cmap_to_jmap_nested_3(env, zDevice::getInstance()->get_device_info());
-    LOGE("get_device_info: conversion completed successfully");
+    LOGI("[native-lib] get_device_info: conversion completed successfully");
     return result;
 }

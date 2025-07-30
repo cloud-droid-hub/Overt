@@ -8,6 +8,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "zLog.h"
 
 uint32_t crc32c_fold(const void *data, size_t len);
 

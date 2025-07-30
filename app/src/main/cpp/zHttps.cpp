@@ -9,8 +9,10 @@ zHttps* zHttps::instance = nullptr;
 
 // HttpsRequest方法实现
 void HttpsRequest::parseUrl() {
+    LOGD("[zHttps] parseUrl called for URL: %s", url.c_str());
     // 强制只支持HTTPS的URL解析
     if (url.substr(0, 8) != "https://") {
+        LOGD("[zHttps] parseUrl: URL is not HTTPS, skipping");
         return;
     }
 
@@ -35,17 +37,19 @@ void HttpsRequest::parseUrl() {
             port = atoi(port_str.c_str());
             host = host.substr(0, port_start);
         } catch (const std::exception& e) {
-            LOGE("Invalid port number: %s", port_str.c_str());
+            LOGE("[zHttps] Invalid port number: %s", port_str.c_str());
             port = 443; // 默认HTTPS端口
         }
     } else {
         port = 443; // 默认HTTPS端口
     }
+    
+    LOGI("[zHttps] parseUrl: parsed host=%s, port=%d, path=%s", host.c_str(), port, path.c_str());
 }
 
 string HttpsRequest::buildRequest() const {
+    LOGD("[zHttps] buildRequest called");
     string request = method + " " + path + " HTTP/1.1\r\n";
-//    request += "Host: " + host + ":" + std::to_string(port) + "\r\n";
     request += "Host: ";
     request += host;
     request += ":";
@@ -63,16 +67,19 @@ string HttpsRequest::buildRequest() const {
     if (!body.empty()) {
         request += body;
     }
+    LOGI("[zHttps] buildRequest: request length=%zu", request.length());
     return request;
 }
 
 // zHttps方法实现
 zHttps::zHttps() : initialized(false), default_timeout_seconds(10) {
+    LOGD("[zHttps] Constructor called");
     // 不在构造函数中初始化mbedtls资源，而是在需要时初始化
     // 这样可以避免资源泄漏和状态污染
 }
 
 zHttps* zHttps::getInstance() {
+    LOGD("[zHttps] getInstance called");
     if (!instance) {
         instance = new zHttps();
     }
@@ -80,20 +87,27 @@ zHttps* zHttps::getInstance() {
 }
 
 void zHttps::setTimeout(int timeout_seconds) {
+    LOGD("[zHttps] setTimeout called with %d", timeout_seconds);
     default_timeout_seconds = timeout_seconds;
-    LOGI("Default timeout set to %d seconds", timeout_seconds);
+    LOGI("[zHttps] Default timeout set to %d seconds", timeout_seconds);
 }
 
 int zHttps::getTimeout() const {
+    LOGD("[zHttps] getTimeout called");
     return default_timeout_seconds;
 }
 
 zHttps::~zHttps() {
+    LOGD("[zHttps] Destructor called");
     cleanup();
 }
 
 bool zHttps::initialize() {
-    if (initialized) return true;
+    LOGD("[zHttps] initialize called");
+    if (initialized) {
+        LOGD("[zHttps] initialize: already initialized");
+        return true;
+    }
 
     // 初始化mbedtls资源
     mbedtls_net_init(&server_fd);
@@ -107,7 +121,7 @@ bool zHttps::initialize() {
     int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
                                     (const unsigned char*)pers, strlen(pers));
     if (ret != 0) {
-        LOGE("Failed to seed random number generator: %d", ret);
+        LOGE("[zHttps] Failed to seed random number generator: %d", ret);
         cleanup();
         return false;
     }
@@ -117,11 +131,12 @@ bool zHttps::initialize() {
     if (ret < 0) {
         ret = mbedtls_x509_crt_parse_path(&cacert, "/system/etc/ssl/certs");
         if (ret < 0) {
-            LOGI("Warning: No CA certificates loaded, continuing without verification");
+            LOGW("[zHttps] Warning: No CA certificates loaded, continuing without verification");
         }
     }
 
     initialized = true;
+    LOGI("[zHttps] initialize: mbedtls initialized successfully");
     return true;
 }
 
@@ -129,6 +144,7 @@ void zHttps::addPinnedCertificate(const string& hostname,
                                  const string& expected_serial,
                                  const string& expected_fingerprint,
                                  const string& expected_subject) {
+    LOGD("[zHttps] addPinnedCertificate called for hostname: %s", hostname.c_str());
     CertificateInfo cert_info;
     cert_info.serial_number = expected_serial;
     cert_info.fingerprint_sha256 = expected_fingerprint;
@@ -140,13 +156,17 @@ void zHttps::addPinnedCertificate(const string& hostname,
     cert_info.public_key_size = 0;
     
     pinned_certificates[hostname] = cert_info;
-    LOGI("Added pinned certificate for %s", hostname.c_str());
+    LOGI("[zHttps] Added pinned certificate for %s", hostname.c_str());
 }
 
 CertificateInfo zHttps::extractCertificateInfo(const mbedtls_x509_crt* cert) {
+    LOGD("[zHttps] extractCertificateInfo called");
     CertificateInfo info;
 
-    if (!cert) return info;
+    if (!cert) {
+        LOGD("[zHttps] extractCertificateInfo: cert is null");
+        return info;
+    }
 
     // 序列号
     char serial_hex[256];
@@ -194,13 +214,15 @@ CertificateInfo zHttps::extractCertificateInfo(const mbedtls_x509_crt* cert) {
     info.is_future = mbedtls_x509_time_is_future(&cert->valid_from);
     info.is_valid = !info.is_expired && !info.is_future;
 
+    LOGI("[zHttps] extractCertificateInfo: extracted certificate info for subject: %s", info.subject.c_str());
     return info;
 }
 
 bool zHttps::verifyCertificatePinning(const mbedtls_x509_crt* cert, const string& hostname) {
+    LOGD("[zHttps] verifyCertificatePinning called for hostname: %s", hostname.c_str());
     auto it = pinned_certificates.find(hostname);
     if (it == pinned_certificates.end()) {
-        LOGI("No pinned certificate for hostname: %s, skipping pinning check.", hostname.c_str());
+        LOGI("[zHttps] No pinned certificate for hostname: %s, skipping pinning check.", hostname.c_str());
         return true; // 没有固定证书时跳过验证
     }
 
@@ -215,29 +237,29 @@ bool zHttps::verifyCertificatePinning(const mbedtls_x509_crt* cert, const string
     }
 
     if (!serial_match || !fingerprint_match || !subject_match) {
-        LOGE("Certificate pinning verification failed for %s", hostname.c_str());
-        LOGE("serial_match %d fingerprint_match %d subject_match %d ", serial_match, fingerprint_match, subject_match);
+        LOGE("[zHttps] Certificate pinning verification failed for %s", hostname.c_str());
+        LOGD("[zHttps] serial_match %d fingerprint_match %d subject_match %d ", serial_match, fingerprint_match, subject_match);
         
         // 输出详细信息用于调试
         if (!serial_match) {
-            LOGE("Expected serial: %s, Got: %s", 
+            LOGD("[zHttps] Expected serial: %s, Got: %s", 
                  pinned.serial_number.c_str(), 
                  extractCertificateInfo(cert).serial_number.c_str());
         }
         if (!fingerprint_match) {
-            LOGE("Expected fingerprint: %s, Got: %s", 
+            LOGD("[zHttps] Expected fingerprint: %s, Got: %s", 
                  pinned.fingerprint_sha256.c_str(), 
                  extractCertificateInfo(cert).fingerprint_sha256.c_str());
         }
         if (!subject_match && !pinned.subject.empty()) {
-            LOGE("Expected subject: %s, Got: %s", 
+            LOGD("[zHttps] Expected subject: %s, Got: %s", 
                  pinned.subject.c_str(), 
                  extractCertificateInfo(cert).subject.c_str());
         }
         
         return false;
     }
-    LOGI("Certificate pinning verification passed for %s", hostname.c_str());
+    LOGI("[zHttps] Certificate pinning verification passed for %s", hostname.c_str());
     return true;
 }
 
@@ -880,6 +902,7 @@ void zHttps::processChunkedBody(string& body) {
 }
 
 void zHttps::cleanup() {
+    LOGD("[zHttps] cleanup called");
     if (initialized) {
         // 清理所有mbedtls资源
         mbedtls_net_free(&server_fd);
@@ -894,12 +917,16 @@ void zHttps::cleanup() {
 }
 
 bool zHttps::isTimeoutReached(time_t start_time, int timeout_seconds) {
+    LOGD("[zHttps] isTimeoutReached called with start_time: %ld, timeout_seconds: %d", start_time, timeout_seconds);
     time_t current_time = time(nullptr);
-    return (current_time - start_time) >= timeout_seconds;
+    bool result = (current_time - start_time) >= timeout_seconds;
+    LOGD("[zHttps] isTimeoutReached returning %d", result);
+    return result;
 } 
 
 // Socket连接相关方法实现
 int zHttps::connectWithTimeout(const string& host, int port, int timeout_seconds) {
+    LOGD("[zHttps] connectWithTimeout called with host: %s, port: %d, timeout_seconds: %d", host.c_str(), port, timeout_seconds);
 
     // Linux/Android实现
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -963,9 +990,11 @@ int zHttps::connectWithTimeout(const string& host, int port, int timeout_seconds
     // 设置阻塞模式
     fcntl(sockfd, F_SETFL, flags);
     
+    LOGI("Connection established successfully with sockfd: %d", sockfd);
     return sockfd;
 }
 
 void zHttps::closeSocket(int sockfd) {
+    LOGD("[zHttps] closeSocket called with sockfd: %d", sockfd);
     close(sockfd);
 } 

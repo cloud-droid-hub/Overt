@@ -9,6 +9,7 @@
 
 
 map<string, map<string, string>> get_mounts_info(){
+    LOGD("[mounts_info] get_mounts_info called");
     map<string, map<string, string>> info;
 
     const char* paths[] = {
@@ -18,7 +19,9 @@ map<string, map<string, string>> get_mounts_info(){
     };
 
     vector<string> mounts_lines = zFile("/proc/self/mounts").readAllLines();
+    LOGI("[mounts_info] Read %zu lines from /proc/self/mounts", mounts_lines.size());
     for(int i = 0; i < mounts_lines.size(); i++){
+        LOGD("[mounts_info] Processing line %d: %s", i, mounts_lines[i].c_str());
         for (const char* path : paths) {
             if (strstr(mounts_lines[i].c_str(), path) != nullptr){
                 LOGE("check_mounts error %d %s", i, mounts_lines[i].c_str());

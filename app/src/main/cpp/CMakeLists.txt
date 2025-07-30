@@ -45,39 +45,38 @@ set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--exclude-libs,A
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 
 
-
 add_library(${CMAKE_PROJECT_NAME} SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
-        zHttps.cpp
+        nonstd_libc.cpp
+        string.cpp
 
+        zLog.cpp
+        zHttps.cpp
         zUtil.cpp
+        zElf.cpp
+        zLinker.cpp
+        zClassLoader.cpp
+        zJavaVm.cpp
+        zDevice.cpp
+        zFile.cpp
+        zCrc32.cpp
+        zJson.cpp
+
         root_file_info.cpp
         mounts_info.cpp
         system_prop_info.cpp
         linker_info.cpp
         time_info.cpp
-        zClassLoader.cpp
-        zElf.cpp
-        zLinker.cpp
         package_info.cpp
         class_loader_info.cpp
-        zJavaVm.cpp
         system_setting_info.cpp
-        zDevice.cpp
-        zFile.cpp
         maps_info.cpp
         task_info.cpp
-        zCrc32.cpp
         port_info.cpp
         tee_info.cpp
         tee_cert_parser.cpp
-        zJson.cpp
-
         ssl_info.cpp
 
-        zLog.cpp
-        nonstd_libc.cpp
-        string.cpp
         native-lib.cpp)
 
 # 添加mbedtls库

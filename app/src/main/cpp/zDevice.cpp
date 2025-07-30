@@ -10,23 +10,26 @@ map<string, map<string, map<string, string>>> zDevice::device_info;
 
 // 构造函数实现
 zDevice::zDevice() {
-    LOGE("zDevice: constructor called");
+    LOGD("[zDevice] Constructor called");
     // 初始化代码可以在这里添加
 }
 
 // 析构函数实现
 zDevice::~zDevice() {
+    LOGD("[zDevice] Destructor called");
     // 清理代码可以在这里添加
 }
 
 const map<string, map<string, map<string, string>>>& zDevice::get_device_info() const{
-  std::shared_lock<std::shared_mutex> lock(device_info_mtx_);
-  LOGE("zDevice::get_device_info: called, device_info size=%zu", device_info.size());
-  return device_info;
+    LOGD("[zDevice] get_device_info called");
+    std::shared_lock<std::shared_mutex> lock(device_info_mtx_);
+    LOGI("[zDevice] get_device_info: device_info size=%zu", device_info.size());
+    return device_info;
 };
 
 void zDevice::update_device_info(const string& key, const map<string, map<string, string>>& value){
-  LOGE("zDevice::update_device_info: called, key=%s", key.c_str());
-  std::unique_lock<std::shared_mutex> lock(device_info_mtx_);
-  device_info[key] = value;
+    LOGD("[zDevice] update_device_info called, key=%s", key.c_str());
+    std::unique_lock<std::shared_mutex> lock(device_info_mtx_);
+    device_info[key] = value;
+    LOGI("[zDevice] update_device_info: updated key=%s", key.c_str());
 };

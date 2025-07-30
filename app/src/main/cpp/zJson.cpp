@@ -7,6 +7,7 @@
 
 // 构造函数
 zJson::zJson(const string& json_str) : type_(Type::NULL_VALUE), value_(nullptr), json_str_(json_str), is_error_(true) {
+    LOGD("[zJson] Constructor called with json_str: %s", json_str.c_str());
     if (!json_str.empty()) {
         parse(json_str);
     }
@@ -14,6 +15,7 @@ zJson::zJson(const string& json_str) : type_(Type::NULL_VALUE), value_(nullptr),
 
 // 创建无效的JSON对象
 zJson zJson::createInvalid() {
+    LOGD("[zJson] createInvalid called");
     zJson json;
     json.type_ = Type::INVALID;
     json.is_error_ = true;
@@ -22,10 +24,12 @@ zJson zJson::createInvalid() {
 
 // 拷贝构造函数
 zJson::zJson(const zJson& other) : type_(other.type_), value_(other.value_), json_str_(other.json_str_), is_error_(other.is_error_) {
+    LOGD("[zJson] Copy constructor called");
 }
 
 // 赋值运算符
 zJson& zJson::operator=(const zJson& other) {
+    LOGD("[zJson] operator= called");
     if (this != &other) {
         type_ = other.type_;
         value_ = other.value_;
@@ -37,6 +41,7 @@ zJson& zJson::operator=(const zJson& other) {
 
 // 解析JSON字符串
 void zJson::parse(const string& json_str) {
+    LOGD("[zJson] parse called with json_str: %s", json_str.c_str());
     try {
         size_t pos = 0;
         skipWhitespace(json_str, pos);
@@ -44,28 +49,30 @@ void zJson::parse(const string& json_str) {
         
         // 检查解析是否成功
         if (is_error_) {
-          LOGE("JSON parsing failed for: %s", json_str.c_str());
+            LOGE("[zJson] JSON parsing failed for: %s", json_str.c_str());
         } else {
-          LOGE("JSON parsing successful for: %s", json_str.c_str());
+            LOGI("[zJson] JSON parsing successful for: %s", json_str.c_str());
         }
     } catch (...) {
         // 解析失败时设置为错误状态
+        LOGE("[zJson] JSON parsing exception occurred");
         type_ = Type::INVALID;
     }
 }
 
 // 解析JSON值
 void zJson::parseValue(const string& json_str, size_t& pos) {
+    LOGD("[zJson] parseValue called at pos: %zu", pos);
     skipWhitespace(json_str, pos);
     
     if (pos >= json_str.length()) {
-        LOGE("JSON parsing failed: Unexpected end of JSON string at position %zu", pos);
+        LOGE("[zJson] JSON parsing failed: Unexpected end of JSON string at position %zu", pos);
         type_ = Type::INVALID;
         return;
     }
     
     char c = json_str[pos];
-    LOGE("JSON parsing: current char '%c' at position %zu", c, pos);
+    LOGD("[zJson] JSON parsing: current char '%c' at position %zu", c, pos);
     
     if (c == '{') {
         parseObject(json_str, pos);
@@ -83,14 +90,14 @@ void zJson::parseValue(const string& json_str, size_t& pos) {
         type_ = Type::NUMBER;
         value_ = parseNumber(json_str, pos);
     } else {
-        LOGE("JSON parsing failed: Unexpected character '%c' at position %zu", c, pos);
+        LOGE("[zJson] JSON parsing failed: Unexpected character '%c' at position %zu", c, pos);
         type_ = Type::INVALID;
     }
 }
 
 // 解析对象
 void zJson::parseObject(const string& json_str, size_t& pos) {
-    LOGE("JSON parsing: parsing object at position %zu", pos);
+    LOGD("[zJson] parseObject called at pos: %zu", pos);
     type_ = Type::OBJECT;
     map<string, zJson> obj;
     
@@ -98,74 +105,82 @@ void zJson::parseObject(const string& json_str, size_t& pos) {
     skipWhitespace(json_str, pos);
     
     if (pos >= json_str.length()) {
-        LOGE("JSON parsing failed: Unexpected end of JSON string in object at position %zu", pos);
+        LOGE("[zJson] JSON parsing failed: Unexpected end of JSON string in object at position %zu", pos);
         type_ = Type::INVALID;
         return;
     }
     
+    // 检查是否为空对象
     if (json_str[pos] == '}') {
-        pos++; // 跳过 '}'
+        pos++;
         value_ = obj;
-        is_error_ = false; // 解析成功
-        LOGE("JSON parsing: empty object parsed successfully");
         return;
     }
     
     while (pos < json_str.length()) {
-        skipWhitespace(json_str, pos);
-        
+        // 解析键
         if (json_str[pos] != '"') {
-            LOGE("JSON parsing failed: Expected string key in object, got '%c' at position %zu", json_str[pos], pos);
+            LOGE("[zJson] JSON parsing failed: Expected '\"' for object key at position %zu", pos);
             type_ = Type::INVALID;
             return;
         }
         
         string key = parseString(json_str, pos);
-        LOGE("JSON parsing: parsed key '%s'", key.c_str());
+        if (is_error_) {
+            LOGE("[zJson] JSON parsing failed: Failed to parse object key");
+            return;
+        }
+        
         skipWhitespace(json_str, pos);
         
+        // 检查冒号
         if (pos >= json_str.length() || json_str[pos] != ':') {
-            LOGE("JSON parsing failed: Expected ':' after object key at position %zu", pos);
+            LOGE("[zJson] JSON parsing failed: Expected ':' after object key at position %zu", pos);
             type_ = Type::INVALID;
             return;
         }
-        pos++; // 跳过 ':'
+        pos++;
         
         skipWhitespace(json_str, pos);
         
+        // 解析值
         zJson value;
         value.parseValue(json_str, pos);
+        if (value.isError()) {
+            LOGE("[zJson] JSON parsing failed: Failed to parse object value");
+            type_ = Type::INVALID;
+            return;
+        }
+        
         obj[key] = value;
         
         skipWhitespace(json_str, pos);
         
         if (pos >= json_str.length()) {
-            LOGE("JSON parsing failed: Unexpected end of JSON string in object at position %zu", pos);
+            LOGE("[zJson] JSON parsing failed: Unexpected end of JSON string in object at position %zu", pos);
             type_ = Type::INVALID;
             return;
         }
         
         if (json_str[pos] == '}') {
-            pos++; // 跳过 '}'
-            is_error_ = false; // 解析成功
-            LOGE("JSON parsing: object parsed successfully");
+            pos++;
             break;
         } else if (json_str[pos] == ',') {
-            pos++; // 跳过 ','
+            pos++;
+            skipWhitespace(json_str, pos);
         } else {
-            LOGE("JSON parsing failed: Expected ',' or '}' in object, got '%c' at position %zu", json_str[pos], pos);
+            LOGE("[zJson] JSON parsing failed: Expected ',' or '}' in object at position %zu", pos);
             type_ = Type::INVALID;
             return;
         }
     }
     
     value_ = obj;
-    is_error_ = false; // 解析成功
 }
 
 // 解析数组
 void zJson::parseArray(const string& json_str, size_t& pos) {
-    LOGE("JSON parsing: parsing array at position %zu", pos);
+    LOGD("[zJson] JSON parsing: parsing array at position %zu", pos);
     type_ = Type::ARRAY;
     vector<zJson> arr;
     
@@ -173,7 +188,7 @@ void zJson::parseArray(const string& json_str, size_t& pos) {
     skipWhitespace(json_str, pos);
     
     if (pos >= json_str.length()) {
-        LOGE("JSON parsing failed: Unexpected end of JSON string in array at position %zu", pos);
+        LOGE("[zJson] JSON parsing failed: Unexpected end of JSON string in array at position %zu", pos);
         type_ = Type::INVALID;
         return;
     }
@@ -182,7 +197,7 @@ void zJson::parseArray(const string& json_str, size_t& pos) {
         pos++; // 跳过 ']'
         value_ = arr;
         is_error_ = false; // 解析成功
-        LOGE("JSON parsing: empty array parsed successfully");
+        LOGD("[zJson] JSON parsing: empty array parsed successfully");
         return;
     }
     
@@ -196,7 +211,7 @@ void zJson::parseArray(const string& json_str, size_t& pos) {
         skipWhitespace(json_str, pos);
         
         if (pos >= json_str.length()) {
-            LOGE("JSON parsing failed: Unexpected end of JSON string in array at position %zu", pos);
+            LOGE("[zJson] JSON parsing failed: Unexpected end of JSON string in array at position %zu", pos);
             type_ = Type::INVALID;
             return;
         }
@@ -204,12 +219,12 @@ void zJson::parseArray(const string& json_str, size_t& pos) {
         if (json_str[pos] == ']') {
             pos++; // 跳过 ']'
             is_error_ = false; // 解析成功
-            LOGE("JSON parsing: array parsed successfully with %zu elements", arr.size());
+            LOGD("[zJson] JSON parsing: array parsed successfully with %zu elements", arr.size());
             break;
         } else if (json_str[pos] == ',') {
             pos++; // 跳过 ','
         } else {
-            LOGE("JSON parsing failed: Expected ',' or ']' in array, got '%c' at position %zu", json_str[pos], pos);
+            LOGE("[zJson] JSON parsing failed: Expected ',' or ']' in array, got '%c' at position %zu", json_str[pos], pos);
             type_ = Type::INVALID;
             return;
         }
@@ -221,7 +236,7 @@ void zJson::parseArray(const string& json_str, size_t& pos) {
 
 // 解析字符串
 string zJson::parseString(const string& json_str, size_t& pos) {
-    LOGE("JSON parsing: parsing string at position %zu", pos);
+    LOGD("[zJson] JSON parsing: parsing string at position %zu", pos);
     pos++; // 跳过开始的引号
     string result;
     
@@ -230,16 +245,16 @@ string zJson::parseString(const string& json_str, size_t& pos) {
         
         if (c == '"') {
             is_error_ = false; // 解析成功
-            LOGE("JSON parsing: string parsed successfully: '%s'", result.c_str());
+            LOGD("[zJson] JSON parsing: string parsed successfully: '%s'", result.c_str());
             return result; // 直接返回，不进行反转义处理
         } else if (c == '\\') {
             if (pos >= json_str.length()) {
-                LOGE("JSON parsing failed: Unexpected end of JSON string in string at position %zu", pos);
+                LOGE("[zJson] JSON parsing failed: Unexpected end of JSON string in string at position %zu", pos);
                 type_ = Type::INVALID;
                 return "";
             }
             char next = json_str[pos++];
-            LOGE("JSON parsing: escape sequence '\\%c'", next);
+            LOGD("[zJson] JSON parsing: escape sequence '\\%c'", next);
             switch (next) {
                 case '"': result += '"'; break;
                 case '\\': result += '\\'; break;
@@ -251,7 +266,7 @@ string zJson::parseString(const string& json_str, size_t& pos) {
                 case 't': result += '\t'; break;
                 case 'u': {
                     if (pos + 4 > json_str.length()) {
-                        LOGE("JSON parsing failed: Invalid unicode escape sequence at position %zu", pos);
+                        LOGE("[zJson] JSON parsing failed: Invalid unicode escape sequence at position %zu", pos);
                         type_ = Type::INVALID;
                         return "";
                     }
@@ -262,7 +277,7 @@ string zJson::parseString(const string& json_str, size_t& pos) {
                 }
                 default:
                     // 对于未知的转义字符，直接保留原字符
-                    LOGE("JSON parsing: unknown escape sequence '\\%c', keeping as-is", next);
+                    LOGD("[zJson] JSON parsing: unknown escape sequence '\\%c', keeping as-is", next);
                     result += next;
                     break;
             }
@@ -271,14 +286,14 @@ string zJson::parseString(const string& json_str, size_t& pos) {
         }
     }
     
-    LOGE("JSON parsing failed: Unterminated string");
+    LOGE("[zJson] JSON parsing failed: Unterminated string");
     type_ = Type::INVALID;
     return "";
 }
 
 // 解析数字
 double zJson::parseNumber(const string& json_str, size_t& pos) {
-    LOGE("JSON parsing: parsing number at position %zu", pos);
+    LOGD("[zJson] JSON parsing: parsing number at position %zu", pos);
     size_t start = pos;
     
     if (json_str[pos] == '-') {
@@ -307,36 +322,36 @@ double zJson::parseNumber(const string& json_str, size_t& pos) {
     }
     
     string num_str = json_str.substr(start, pos - start);
-    LOGE("JSON parsing: number string '%s'", num_str.c_str());
+    LOGD("[zJson] JSON parsing: number string '%s'", num_str.c_str());
     char* endptr;
     double result = strtod(num_str.c_str(), &endptr);
     
     if (*endptr != '\0') {
-        LOGE("JSON parsing failed: Invalid number format '%s'", num_str.c_str());
+        LOGE("[zJson] JSON parsing failed: Invalid number format '%s'", num_str.c_str());
         type_ = Type::INVALID;
         return 0.0;
     }
     
     is_error_ = false; // 解析成功
-    LOGE("JSON parsing: number parsed successfully: %f", result);
+    LOGD("[zJson] JSON parsing: number parsed successfully: %f", result);
     return result;
 }
 
 // 解析布尔值
 bool zJson::parseBoolean(const string& json_str, size_t& pos) {
-    LOGE("JSON parsing: parsing boolean at position %zu", pos);
+    LOGD("[zJson] JSON parsing: parsing boolean at position %zu", pos);
     if (json_str.substr(pos, 4) == "true") {
         pos += 4;
         is_error_ = false; // 解析成功
-        LOGE("JSON parsing: boolean parsed successfully: true");
+        LOGD("[zJson] JSON parsing: boolean parsed successfully: true");
         return true;
     } else if (json_str.substr(pos, 5) == "false") {
         pos += 5;
         is_error_ = false; // 解析成功
-        LOGE("JSON parsing: boolean parsed successfully: false");
+        LOGD("[zJson] JSON parsing: boolean parsed successfully: false");
         return false;
     } else {
-        LOGE("JSON parsing failed: Invalid boolean value at position %zu", pos);
+        LOGE("[zJson] JSON parsing failed: Invalid boolean value at position %zu", pos);
         type_ = Type::INVALID;
         return false;
     }
@@ -344,15 +359,15 @@ bool zJson::parseBoolean(const string& json_str, size_t& pos) {
 
 // 解析null
 void zJson::parseNull(const string& json_str, size_t& pos) {
-    LOGE("JSON parsing: parsing null at position %zu", pos);
+    LOGD("[zJson] JSON parsing: parsing null at position %zu", pos);
     if (json_str.substr(pos, 4) == "null") {
         pos += 4;
         type_ = Type::NULL_VALUE;
         value_ = nullptr;
         is_error_ = false; // 解析成功
-        LOGE("JSON parsing: null parsed successfully");
+        LOGD("[zJson] JSON parsing: null parsed successfully");
     } else {
-        LOGE("JSON parsing failed: Invalid null value at position %zu", pos);
+        LOGE("[zJson] JSON parsing failed: Invalid null value at position %zu", pos);
         type_ = Type::INVALID;
     }
 }
@@ -405,22 +420,22 @@ int zJson::getInt(const string& key, int defaultValue) const {
 
 // 直接获取对象中的长整数
 long zJson::getLong(const string& key, long defaultValue) const {
-    LOGE("getLong called for key: '%s', defaultValue: %ld", key.c_str(), defaultValue);
+    LOGD("[zJson] getLong called for key: '%s', defaultValue: %ld", key.c_str(), defaultValue);
     
     if (type_ != Type::OBJECT) {
-        LOGE("getLong failed: not an object, type: %d", (int)type_);
+        LOGD("[zJson] getLong failed: not an object, type: %d", (int)type_);
         return defaultValue;
     }
     const auto& obj = std::get<map<string, zJson>>(value_);
     auto it = obj.find(key);
     if (it == obj.end()) {
-        LOGE("getLong failed: key '%s' not found", key.c_str());
+        LOGD("[zJson] getLong failed: key '%s' not found", key.c_str());
         return defaultValue;
     }
     
-    LOGE("getLong: found key '%s', calling getLongValue", key.c_str());
+    LOGD("[zJson] getLong: found key '%s', calling getLongValue", key.c_str());
     long result = it->second.getLongValue(defaultValue);
-    LOGE("getLong: result: %ld", result);
+    LOGD("[zJson] getLong: result: %ld", result);
     return result;
 }
 
@@ -495,16 +510,16 @@ int zJson::getIntValue(int defaultValue) const {
 
 // 获取当前对象的长整数
 long zJson::getLongValue(long defaultValue) const {
-    LOGE("getLongValue called, type: %d, defaultValue: %ld", (int)type_, defaultValue);
+    LOGD("[zJson] getLongValue called, type: %d, defaultValue: %ld", (int)type_, defaultValue);
     
     if (type_ != Type::NUMBER) {
-        LOGE("getLongValue failed: not a number, type: %d", (int)type_);
+        LOGD("[zJson] getLongValue failed: not a number, type: %d", (int)type_);
         return defaultValue;
     }
     
     double doubleValue = std::get<double>(value_);
     long result = static_cast<long>(doubleValue);
-    LOGE("getLongValue: double value: %f, long result: %ld", doubleValue, result);
+    LOGD("[zJson] getLongValue: double value: %f, long result: %ld", doubleValue, result);
     return result;
 }
 

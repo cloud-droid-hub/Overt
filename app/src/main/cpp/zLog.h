@@ -27,7 +27,7 @@
 // 日志宏定义
 #ifdef ENABLE_LOGGING
     #define LOGV(...) zLogPrint(LOG_LEVEL_VERBOSE, LOG_TAG, __VA_ARGS__)
-    #define LOGD(...)
+    #define LOGD(...) zLogPrint(LOG_LEVEL_DEBUG, LOG_TAG, __VA_ARGS__)
     #define LOGI(...) zLogPrint(LOG_LEVEL_INFO, LOG_TAG, __VA_ARGS__)
     #define LOGW(...) zLogPrint(LOG_LEVEL_WARN, LOG_TAG, __VA_ARGS__)
     #define LOGE(...) zLogPrint(LOG_LEVEL_ERROR, LOG_TAG, __VA_ARGS__)

@@ -94,8 +94,8 @@ static int get_extension_by_oid_manual(const unsigned char *data, int len, const
     *ext_data = NULL;
     *ext_len = 0;
 
-    LOGE("[Native-TEE] get_extension_by_oid_manual: called with len=%d, oid=%s", len, oid_str);
-    LOGE("[Native-TEE] get_extension_by_oid_manual: data pointer=%p", data);
+    LOGD("[Native-TEE] get_extension_by_oid_manual: called with len=%d, oid=%s", len, oid_str);
+    LOGD("[Native-TEE] get_extension_by_oid_manual: data pointer=%p", data);
 
     if (!data || len <= 0) {
         LOGE("[Native-TEE] get_extension_by_oid_manual: invalid parameters");
@@ -882,8 +882,8 @@ int parse_tee_certificate(const unsigned char *cert_data, int cert_len, tee_info
         return -1;
     }
 
-    LOGE("[Native-TEE] TEE certificate parsing completed");
-    LOGE("[Native-TEE] Security level: %d", tee_info->security_level);
+    LOGI("[Native-TEE] TEE certificate parsing completed");
+    LOGI("[Native-TEE] Security level: %d", tee_info->security_level);
     LOGE("[Native-TEE] Has attestation extension: %d", tee_info->has_attestation_extension);
 
     if (tee_info->root_of_trust.valid) {

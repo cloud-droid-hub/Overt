@@ -11,6 +11,7 @@
 #include "root_file_info.h"
 
 map<string, map<string, string>> get_root_file_info(){
+    LOGD("[root_file_info] get_root_file_info called");
     map<string, map<string, string>> info;
     const char* paths[] = {
             "/sbin/su",
@@ -27,8 +28,10 @@ map<string, map<string, string>> get_root_file_info(){
     };
 
     for (const char* path : paths) {
+        LOGD("[root_file_info] Checking path: %s", path);
         zFile file(path);
         if(file.exists()){
+            LOGI("[root_file_info] Black file exists: %s", path);
             info[path]["risk"] = "error";
             info[path]["explain"] = "black file but exist";
         }

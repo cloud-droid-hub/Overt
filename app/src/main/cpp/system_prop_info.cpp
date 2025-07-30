@@ -31,6 +31,7 @@ struct prop_info_internal {
 
 // 封装函数，返回以 name 为键的 map
 map<string, PropertyValue> getAllSystemProperties() {
+    LOGD("[system_prop_info] getAllSystemProperties called");
     map<string, PropertyValue> properties;
     __system_property_foreach([](const prop_info* pi, void* cookie) {
 
@@ -47,18 +48,21 @@ map<string, PropertyValue> getAllSystemProperties() {
         uint32_t version = (serial & ~SERIAL_DIRTY & ~SERIAL_VALUE_LEN_MASK);  // 去掉 dirty 和 value_len 部分
         properties->emplace(name, PropertyValue{value, serial, version});
 
-        LOGE("properties %s %s %x", name.c_str(), value.c_str(), serial);
+        LOGD("[system_prop_info] properties %s %s %x", name.c_str(), value.c_str(), serial);
         sleep(0);
 
     }, &properties);
+    LOGI("[system_prop_info] getAllSystemProperties finished, found %zu properties", properties.size());
     return properties;
 }
 
 
 
 map<string, map<string, string>> get_system_prop_info() {
+    LOGD("[system_prop_info] get_system_prop_info called");
     map<string, map<string, string>> info;
     auto properties = getAllSystemProperties();
+    LOGI("[system_prop_info] Got %zu properties", properties.size());
 
     vector<string> prop_list{
             "ro.secure",
@@ -90,7 +94,9 @@ map<string, map<string, string>> get_system_prop_info() {
     };
 
     for(const auto& [key, value] : prop_map){
+        LOGD("[system_prop_info] Checking property: %s", key.c_str());
         if(properties.find(key) == properties.end()) {
+            LOGD("[system_prop_info] Property not found: %s", key.c_str());
             continue;
         }
 

@@ -9,10 +9,12 @@
 #include "class_loader_info.h"
 
 map<string, map<string, string>> get_class_loader_info(){
+    LOGD("[class_loader_info] get_class_loader_info called");
     map<string, map<string, string>> info;
 
     // 处理类加载器列表
     for(const string& str : zClassLoader::getInstance()->classLoaderStringList) {
+        LOGD("[class_loader_info] Checking classloader string: %s", str.c_str());
         if (str.empty()) {
             continue;
         }
@@ -29,6 +31,7 @@ map<string, map<string, string>> get_class_loader_info(){
 }
 
 map<string, map<string, string>> get_class_info(){
+    LOGD("[class_loader_info] get_class_info called");
     map<string, map<string, string>> info;
 
     vector<string> black_name_list = {
@@ -36,7 +39,9 @@ map<string, map<string, string>> get_class_info(){
     };
 
     for(string black_name: black_name_list){
+        LOGD("[class_loader_info] Checking black_name: %s", black_name.c_str());
         for(string className : zClassLoader::getInstance()->classNameList){
+            LOGD("[class_loader_info] Checking className: %s", className.c_str());
             if (className.empty()) {
                 continue;
             }

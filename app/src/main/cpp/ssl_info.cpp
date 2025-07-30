@@ -30,7 +30,7 @@ string get_location() {
 
   if (response.certificate.fingerprint_sha256 != qq_location_url_fingerprint_sha256) {
     LOGE("Server Certificate Fingerprint Local : %s", qq_location_url_fingerprint_sha256.c_str());
-    LOGE("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
+    LOGD("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
     return location;
   }
 
@@ -88,7 +88,7 @@ map<string, map<string, string>> get_ssl_info(){
         }
         if (response.certificate.fingerprint_sha256 != item.second) {
             LOGE("Server Certificate Fingerprint Local : %s", item.second.c_str());
-            LOGE("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
+            LOGD("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
             info[item.first]["risk"] = "error";
             info[item.first]["explain"] = "Certificate Fingerprint is wrong " + response.certificate.fingerprint_sha256;
             continue;

@@ -20,10 +20,12 @@
 #include "zElf.h"
 
 zElf::zElf() {
+    LOGD("[zElf] Default constructor called");
     // 空实现，因为所有成员变量都已经在类定义中初始化
 }
 
 zElf::zElf(void *elf_mem_addr) {
+    LOGD("[zElf] Constructor called with elf_mem_addr: %p", elf_mem_addr);
     link_view = LINK_VIEW::MEMORY_VIEW;
     this->elf_mem_ptr = (char *) elf_mem_addr;
     parse_elf_head();
@@ -42,6 +44,7 @@ static ElfW(Dyn) *find_dyn_by_tag2(ElfW(Dyn) *dyn, ElfW(Sxword) tag) {
 }
 
 zElf::zElf(char *elf_file_name) {
+    LOGD("[zElf] Constructor called with elf_file_name: %s", elf_file_name);
     if (strncmp(elf_file_name, "lib", 3) == 0) {
         link_view = LINK_VIEW::MEMORY_VIEW;
         this->elf_mem_ptr = get_maps_base(elf_file_name);
@@ -60,17 +63,19 @@ zElf::zElf(char *elf_file_name) {
 }
 
 void zElf::parse_elf_head() {
+    LOGD("[zElf] parse_elf_head called");
     char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
 
     elf_header = (Elf64_Ehdr *) base_addr;
-    LOGE("elf_header->e_shoff 0x%llx", elf_header->e_shoff);
-    LOGE("elf_header->e_shnum %x", elf_header->e_shnum);
+    LOGD("elf_header->e_shoff 0x%llx", elf_header->e_shoff);
+    LOGD("elf_header->e_shnum %x", elf_header->e_shnum);
     elf_header_size = elf_header->e_ehsize;
     program_header_table = (Elf64_Phdr*)(base_addr + elf_header->e_phoff);
     program_header_table_num = elf_header->e_phnum;
 }
 
 void zElf::parse_program_header_table() {
+    LOGD("[zElf] parse_program_header_table called");
     char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
 
     bool found_load_segment = false;
@@ -79,53 +84,54 @@ void zElf::parse_program_header_table() {
             found_load_segment = true;
             load_segment_virtual_offset = program_header_table[i].p_vaddr;
             load_segment_physical_offset = program_header_table[i].p_paddr;
-            LOGE("load_segment_virtual_offset %llu", load_segment_virtual_offset);
+            LOGD("[zElf] load_segment_virtual_offset %llu", load_segment_virtual_offset);
         }
         if (program_header_table[i].p_type== PT_LOAD && program_header_table[i].p_flags == (PF_X | PF_R)) {
             loadable_rx_segment = &(program_header_table[i]);
-            LOGE("loadable_rx_segment %p", loadable_rx_segment);
+            LOGD("[zElf] loadable_rx_segment %p", loadable_rx_segment);
         }
 
         if (program_header_table[i].p_type == PT_DYNAMIC) {
             dynamic_table_offset = program_header_table[i].p_offset;
             dynamic_table = (Elf64_Dyn*)(base_addr + program_header_table[i].p_vaddr);
             dynamic_element_num = (program_header_table[i].p_memsz) / sizeof(Elf64_Dyn);
-            LOGE("dynamic_table_offset 0x%llx", program_header_table[i].p_vaddr);
-            LOGE("dynamic_table %p", dynamic_table);
-            LOGE("dynamic_element_num %llu", dynamic_element_num);
+            LOGD("dynamic_table_offset 0x%llx", program_header_table[i].p_vaddr);
+            LOGD("dynamic_table %p", dynamic_table);
+            LOGD("[zElf] dynamic_element_num %llu", dynamic_element_num);
         }
     }
 }
 
 void zElf::parse_dynamic_table() {
+    LOGD("[zElf] parse_dynamic_table called");
     char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
 
-    LOGE("parse_dynamic_table %p", dynamic_table);
-    LOGE("load_segment_virtual_offset %llu", load_segment_virtual_offset);
+    LOGD("parse_dynamic_table %p", dynamic_table);
+    LOGD("load_segment_virtual_offset %llu", load_segment_virtual_offset);
 
     Elf64_Dyn *dynamic_element = dynamic_table;
 
     for (int i = 0; i < dynamic_element_num; i++) {
         if (dynamic_element->d_tag == DT_STRTAB) {
-            LOGE("DT_STRTAB 0x%llx", dynamic_element->d_un.d_ptr);
+            LOGD("[zElf] DT_STRTAB 0x%llx", dynamic_element->d_un.d_ptr);
             dynamic_string_table_offset = dynamic_element->d_un.d_ptr;
             dynamic_string_table = base_addr + dynamic_element->d_un.d_ptr + load_segment_virtual_offset;
         } else if (dynamic_element->d_tag == DT_STRSZ) {
-            LOGE("DT_STRSZ 0x%llx", dynamic_element->d_un.d_val);
+            LOGD("[zElf] DT_STRSZ 0x%llx", dynamic_element->d_un.d_val);
             dynamic_string_table_size = dynamic_element->d_un.d_val;
         } else if (dynamic_element->d_tag == DT_SYMTAB) {
-            LOGE("DT_SYMTAB 0x%llx", dynamic_element->d_un.d_ptr);
+            LOGD("[zElf] DT_SYMTAB 0x%llx", dynamic_element->d_un.d_ptr);
             dynamic_symbol_table_offset = dynamic_element->d_un.d_ptr;
             dynamic_symbol_table = (Elf64_Sym*)(base_addr + dynamic_element->d_un.d_ptr + load_segment_virtual_offset);
         } else if (dynamic_element->d_tag == DT_SYMENT) {
-            LOGE("DT_SYMENT 0x%llx", dynamic_element->d_un.d_ptr);
+            LOGD("[zElf] DT_SYMENT 0x%llx", dynamic_element->d_un.d_ptr);
             dynamic_symbol_element_size = dynamic_element->d_un.d_val;
         } else if (dynamic_element->d_tag == DT_SONAME) {
-            LOGE("DT_SONAME 0x%llx", dynamic_element->d_un.d_ptr);
+            LOGD("[zElf] DT_SONAME 0x%llx", dynamic_element->d_un.d_ptr);
             soname_offset = dynamic_element->d_un.d_ptr - load_segment_virtual_offset;
-            LOGE("soname_offset 0x%llx", soname_offset);
+            LOGD("[zElf] soname_offset 0x%llx", soname_offset);
         } else if (dynamic_element->d_tag == DT_GNU_HASH) {
-            LOGE("DT_GNU_HASH 0x%llx", dynamic_element->d_un.d_ptr);
+            LOGD("[zElf] DT_GNU_HASH 0x%llx", dynamic_element->d_un.d_ptr);
             gnu_hash_table_offset = dynamic_element->d_un.d_ptr;
             gnu_hash_table = base_addr + dynamic_element->d_un.d_ptr + load_segment_virtual_offset;
         }
@@ -134,68 +140,69 @@ void zElf::parse_dynamic_table() {
 
     // 一般来讲 string_table 都在后面，所以要在遍历结束再对 so_name 进行赋值
     so_name = dynamic_string_table + soname_offset;
-    LOGE("soname %s", so_name);
+    LOGD("[zElf] soname %s", so_name);
 
     if (dynamic_string_table == nullptr || dynamic_symbol_table == nullptr) {
-        LOGE("parse_dynamic_table failed, try parse_section_table");
+        LOGE("[zElf] parse_dynamic_table failed, try parse_section_table");
         return;
     }
-    LOGE("parse_dynamic_table succeed");
+    LOGI("[zElf] parse_dynamic_table succeed");
 }
 
 void zElf::parse_section_table() {
+    LOGD("[zElf] parse_section_table called");
     char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
 
-    LOGE("parse_section_table is called elf_mem_ptr %p", base_addr);
+    LOGD("[zElf] parse_section_table is called elf_mem_ptr %p", base_addr);
 
     Elf64_Off session_table_offset = elf_header->e_shoff;
-    LOGE("parse_section_table session_table_offset 0x%llx", session_table_offset);
+    LOGD("[zElf] parse_section_table session_table_offset 0x%llx", session_table_offset);
 
     Elf64_Shdr* section_table = (Elf64_Shdr*)(base_addr + session_table_offset);
-    LOGE("parse_section_table section_table %p", section_table);
+    LOGD("[zElf] parse_section_table section_table %p", section_table);
 
     unsigned long section_table_value = *(unsigned long *) section_table;
-    LOGE("section_table_value  0x%lx", section_table_value);
+    LOGD("[zElf] section_table_value  0x%lx", section_table_value);
 
     int section_num = elf_header->e_shnum;
-    LOGE("parse_section_table section_num %d", section_num);
+    LOGD("[zElf] parse_section_table section_num %d", section_num);
 
     int section_string_section_id = elf_header->e_shstrndx;
-    LOGE("parse_section_table section_string_section_id %d", section_string_section_id);
+    LOGD("[zElf] parse_section_table section_string_section_id %d", section_string_section_id);
 
     Elf64_Shdr *section_element = section_table;
-    LOGE("parse_section_table section_element %p", section_element);
+    LOGD("[zElf] parse_section_table section_element %p", section_element);
 
     section_string_table = base_addr + (section_element + section_string_section_id)->sh_offset;
-    LOGE("parse_section_table section_string_table %p", section_string_table);
+    LOGD("[zElf] parse_section_table section_string_table %p", section_string_table);
 
     for (int i = 0; i < section_num; i++) {
 
         char *section_name = section_string_table + section_element->sh_name;
         if (strcmp(section_name, ".strtab") == 0) {
-            LOGE("strtab %llx", section_element->sh_offset);
+            LOGD("[zElf] strtab %llx", section_element->sh_offset);
             string_table = base_addr + section_element->sh_offset;
         } else if (strcmp(section_name, ".dynsym") == 0) {
-            LOGE("dynsym %llx", section_element->sh_offset);
+            LOGD("[zElf] dynsym %llx", section_element->sh_offset);
             dynamic_symbol_table = (Elf64_Sym*)(base_addr + section_element->sh_offset);
             dynamic_symbol_table_num = section_element->sh_size / sizeof(Elf64_Sym);
-            LOGE("symbol_table_num %llu", dynamic_symbol_table_num);
+            LOGD("[zElf] symbol_table_num %llu", dynamic_symbol_table_num);
 
         } else if (strcmp(section_name, ".dynstr") == 0) {
-            LOGE("dynstr %llx", section_element->sh_offset);
+            LOGD("[zElf] dynstr %llx", section_element->sh_offset);
             dynamic_string_table = base_addr + section_element->sh_offset;
         } else if (strcmp(section_name, ".symtab") == 0) {
 
             symbol_table = (Elf64_Sym*) (base_addr + section_element->sh_offset);
 
             unsigned long long section_symbol_table_size = section_element->sh_size;
-            LOGE("section_symbol_table_size %llx", section_symbol_table_size);
+            LOGD("[zElf] section_symbol_table_size %llx", section_symbol_table_size);
 
             unsigned long long symbol_table_element_size = section_element->sh_entsize;
-            LOGE("section_symbol_element_size %llx", symbol_table_element_size);
+            LOGD("[zElf] section_symbol_element_size %llx", symbol_table_element_size);
 
             section_symbol_num = section_symbol_table_size / symbol_table_element_size;
-            LOGE("section_symbol_num %llx", section_symbol_num);
+            LOGD("[zElf] section_symbol_num %llx", section_symbol_num);
 
         } else if (strcmp(section_name, ".rodata") == 0) {
 
@@ -204,27 +211,27 @@ void zElf::parse_section_table() {
         }
         section_element++;
     }
-    LOGE("parse_section_table succeed");
+    LOGI("[zElf] parse_section_table succeed");
 }
 
 
 Elf64_Addr zElf::find_symbol_offset_by_dynamic(const char *symbol_name) {
 
-    LOGE("find_symbol_by_dynamic dynamic_symbol_table_offset 0x%llx", dynamic_symbol_table_offset);
-    LOGE("find_symbol_by_dynamic dynamic_symbol_table_num %llu", dynamic_symbol_table_num);
+    LOGD("find_symbol_by_dynamic dynamic_symbol_table_offset 0x%llx", dynamic_symbol_table_offset);
+    LOGD("find_symbol_by_dynamic dynamic_symbol_table_num %llu", dynamic_symbol_table_num);
 
-    LOGE("find_symbol_by_dynamic string_table_offset 0x%llx", string_table_offset);
-    LOGE("find_symbol_by_dynamic string_table_num %d", string_table_num);
+    LOGD("find_symbol_by_dynamic string_table_offset 0x%llx", string_table_offset);
+    LOGD("find_symbol_by_dynamic string_table_num %d", string_table_num);
 
-    LOGE("find_symbol_by_dynamic dynamic_string_table_offset 0x%llx", dynamic_string_table_offset);
-    LOGE("find_symbol_by_dynamic dynamic_string_table_num %d", dynamic_string_table_num);
+    LOGD("find_symbol_by_dynamic dynamic_string_table_offset 0x%llx", dynamic_string_table_offset);
+    LOGD("find_symbol_by_dynamic dynamic_string_table_num %d", dynamic_string_table_num);
 
     // 确保字符串的范围在字符串表的范围内
     Elf64_Sym* dynamic_symbol = dynamic_symbol_table;
     for (int i = 0; dynamic_symbol->st_name >= 0 && dynamic_symbol->st_name <= dynamic_string_table_offset +dynamic_string_table_size; i++) {
         const char *name = dynamic_string_table + dynamic_symbol->st_name;
         if (strcmp(name, symbol_name) == 0) {
-            LOGE("find_dynamic_symbol [%d] %s 0x%x", i, name, dynamic_symbol->st_name);
+            LOGD("find_dynamic_symbol [%d] %s 0x%x", i, name, dynamic_symbol->st_name);
             return dynamic_symbol->st_value - load_segment_virtual_offset;
         }
         dynamic_symbol++;
@@ -240,7 +247,7 @@ Elf64_Addr zElf::find_symbol_offset_by_section(const char *symbol_name) {
     for (int j = 0; j < section_symbol_num; j++) {
         const char *name = string_table + symbol->st_name;
         if (strcmp(name, symbol_name) == 0) {
-            LOGE("find_dynamic_symbol [%d] %s 0x%x", j, name, symbol->st_name);
+            LOGD("find_dynamic_symbol [%d] %s 0x%x", j, name, symbol->st_name);
             return symbol->st_value - physical_address;
         }
         symbol++;
@@ -273,75 +280,75 @@ char* zElf::find_symbol(const char *symbol_name) {
         LOGE("find_symbol %s failed", symbol_name);
         return nullptr;
     }
-    LOGE("find_symbol %s 0x%llx", symbol_name, symbol_offset);
+    LOGI("find_symbol %s 0x%llx", symbol_name, symbol_offset);
 
     return elf_mem_ptr + symbol_offset;
 }
 
 char *zElf::parse_elf_file(char *elf_path) {
 
-    LOGE("parse_elf_file %s", elf_path);
+    LOGI("[zElf] parse_elf_file %s", elf_path);
 
     // 打开文件，获取文件描述符
     elf_file_fd = open(elf_path, O_RDONLY);
     if (elf_file_fd == -1) {
         // 处理文件打开失败的情况
-        LOGE("parse_elf_file 1");
+        LOGE("[zElf] parse_elf_file: failed to open file");
         return nullptr;
     }
-    LOGE("parse_elf_file 11");
+    LOGD("[zElf] parse_elf_file: file opened successfully");
     // 获取文件大小
     elf_file_size = lseek(elf_file_fd, 0, SEEK_END);
     if (elf_file_size == -1) {
         // 处理获取文件大小失败的情况
-        LOGE("parse_elf_file 2");
+        LOGE("[zElf] parse_elf_file: failed to get file size");
         close(elf_file_fd);
         return nullptr;
     }
-    LOGE("parse_elf_file 22");
+    LOGD("[zElf] parse_elf_file: file size obtained");
     // 将文件映射到内存中
     elf_file_ptr = (char *) mmap(NULL, elf_file_size, PROT_READ, MAP_PRIVATE, elf_file_fd, 0);
     if (elf_file_ptr == MAP_FAILED) {
         // 处理映射失败的情况
-        LOGE("parse_elf_file 3");
+        LOGE("[zElf] parse_elf_file: failed to mmap file");
         close(elf_file_fd);
         return nullptr;
     }
-    LOGE("parse_elf_file 33");
+    LOGI("[zElf] parse_elf_file: file mapped successfully");
     return elf_file_ptr;
 }
 
 // 不回收内存的版本，仅用于测试
 char *zElf::parse_elf_file_(char *elf_path) {
 
-    LOGE("parse_elf_file %s", elf_path);
+    LOGI("[zElf] parse_elf_file_ %s", elf_path);
 
     // 打开文件，获取文件描述符
     int elf_file_fd = open(elf_path, O_RDONLY);
     if (elf_file_fd == -1) {
         // 处理文件打开失败的情况
-        LOGE("parse_elf_file 1");
+        LOGE("[zElf] parse_elf_file_: failed to open file");
         return nullptr;
     }
-    LOGE("parse_elf_file 11");
+    LOGD("[zElf] parse_elf_file_: file opened successfully");
     // 获取文件大小
     size_t elf_file_size = lseek(elf_file_fd, 0, SEEK_END);
     if (elf_file_size == -1) {
         // 处理获取文件大小失败的情况
-        LOGE("parse_elf_file 2");
+        LOGE("[zElf] parse_elf_file_: failed to get file size");
         close(elf_file_fd);
         return nullptr;
     }
-    LOGE("parse_elf_file 22");
+    LOGD("[zElf] parse_elf_file_: file size obtained");
     // 将文件映射到内存中
     char *elf_file_ptr = (char *) mmap(NULL, elf_file_size, PROT_READ, MAP_PRIVATE, elf_file_fd, 0);
     if (elf_file_ptr == MAP_FAILED) {
         // 处理映射失败的情况
-        LOGE("parse_elf_file 3");
+        LOGE("[zElf] parse_elf_file_: failed to mmap file");
         close(elf_file_fd);
         return nullptr;
     }
-    LOGE("parse_elf_file 33");
+    LOGI("[zElf] parse_elf_file_: file mapped successfully");
     return elf_file_ptr;
 }
 
@@ -350,12 +357,12 @@ uint64_t zElf::get_text_segment_crc(){
 
     void* code_mem_ptr = (void*)(base_addr + loadable_rx_segment->p_vaddr);
     Elf64_Xword code_mem_size = loadable_rx_segment->p_memsz;
-    LOGE("check_text_segment offset:%llx code_mem_ptr: %p, code_mem_size: %llx", loadable_rx_segment->p_vaddr, code_mem_ptr, code_mem_size);
+    LOGD("[zElf] check_text_segment offset:%llx code_mem_ptr: %p, code_mem_size: %llx", loadable_rx_segment->p_vaddr, code_mem_ptr, code_mem_size);
 
     // 初始化累加和变量
     uint64_t crc = crc32c_fold(code_mem_ptr, code_mem_size);
-    LOGE("check_text_segment code_mem_ptr: %p, code_mem_size: %llx", code_mem_ptr, code_mem_size);
-    LOGE("check_text_segment crc: %lu", crc);
+    LOGD("check_text_segment code_mem_ptr: %p, code_mem_size: %llx", code_mem_ptr, code_mem_size);
+    LOGD("check_text_segment crc: %lu", crc);
     return crc;
 }
 
@@ -364,12 +371,12 @@ uint64_t zElf::get_elf_header_crc(){
 
     void* code_mem_ptr = (void*)(base_addr);
     Elf64_Xword code_mem_size = elf_header_size;
-    LOGE("get_elf_header_crc offset:%llx code_mem_ptr: %p, code_mem_size: %llx", 0, code_mem_ptr, code_mem_size);
+    LOGD("[zElf] get_elf_header_crc offset:%llx code_mem_ptr: %p, code_mem_size: %llx", 0, code_mem_ptr, code_mem_size);
 
     // 初始化累加和变量
     uint64_t crc = crc32c_fold(code_mem_ptr, code_mem_size);
-    LOGE("get_elf_header_crc code_mem_ptr: %p, code_mem_size: %llx", code_mem_ptr, code_mem_size);
-    LOGE("get_elf_header_crc crc: %lu", crc);
+    LOGD("get_elf_header_crc code_mem_ptr: %p, code_mem_size: %llx", code_mem_ptr, code_mem_size);
+    LOGD("get_elf_header_crc crc: %lu", crc);
     return crc;
 }
 
@@ -378,12 +385,12 @@ uint64_t zElf::get_program_header_crc(){
 
     void* code_mem_ptr = (void*)(base_addr + elf_header_size);
     Elf64_Xword code_mem_size = sizeof(Elf64_Phdr) * program_header_table_num;
-    LOGE("get_program_header_crc offset:%llx code_mem_ptr: %p, code_mem_size: %llx", 0, code_mem_ptr, code_mem_size);
+    LOGD("[zElf] get_program_header_crc offset:%llx code_mem_ptr: %p, code_mem_size: %llx", 0, code_mem_ptr, code_mem_size);
 
     // 初始化累加和变量
     uint64_t crc = crc32c_fold(code_mem_ptr, code_mem_size);
-    LOGE("get_program_header_crc code_mem_ptr: %p, code_mem_size: %llx", code_mem_ptr, code_mem_size);
-    LOGE("get_program_header_crc crc: %lu", crc);
+    LOGD("get_program_header_crc code_mem_ptr: %p, code_mem_size: %llx", code_mem_ptr, code_mem_size);
+    LOGD("get_program_header_crc crc: %lu", crc);
     return crc;
 }
 
@@ -397,29 +404,29 @@ zElf::~zElf() {
 
 
 char *zElf::get_maps_base(const char *so_name) {
-    LOGE("get_maps_base so_name:%s", so_name);
+    LOGI("[zElf] get_maps_base so_name:%s", so_name);
     char *elf_mem_ptr = nullptr;
-    LOGE("elf_mem_ptr:%p", elf_mem_ptr); sleep(0);
+    LOGD("[zElf] elf_mem_ptr:%p", elf_mem_ptr);
     vector<string> lines = get_file_lines("/proc/self/maps");
-    LOGE("get_maps_base lines size:%d", lines.size()); sleep(0);
+    LOGD("[zElf] get_maps_base lines size:%zu", lines.size());
     for(int i = 0; i < lines.size(); i++){
         if (!strstr(lines[i].c_str(), "p 00000000 ")) continue;
         if (!strstr(lines[i].c_str(), so_name)) continue;
         vector<string> split_line = split_str(lines[i], "-");
         if(split_line.empty()){
-            LOGE("get_maps_base split_line is empty");
+            LOGE("[zElf] get_maps_base split_line is empty");
             return nullptr;
         }
-        LOGE("get_maps_base split_line[0]:%s", split_line[0].c_str()); sleep(0);
+        LOGD("[zElf] get_maps_base split_line[0]:%s", split_line[0].c_str());
         char* start = (char *) (strtoul(split_line[0].c_str(), nullptr, 16));
-        LOGE("get_maps_base start:%p", start); sleep(0);
+        LOGD("[zElf] get_maps_base start:%p", start);
         if (start == nullptr || memcmp(start, "\x7f""ELF", 4) != 0) continue;
-        LOGE("get_maps_base start:%p", start); sleep(0);
+        LOGD("[zElf] get_maps_base start:%p", start);
         elf_mem_ptr = start;
 
     }
 
-    LOGE("elf_mem_ptr:%p", elf_mem_ptr); sleep(0);
+    LOGI("[zElf] elf_mem_ptr:%p", elf_mem_ptr);
     return elf_mem_ptr;
 
 }

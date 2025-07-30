@@ -117,17 +117,6 @@ namespace nonstd {
 
         // Insert a new node with given key and value
         Node* insertNode(const K& key, const V& value) {
-            // 使用条件编译来处理不同类型的key
-            #ifdef __cpp_rtti
-            if constexpr (std::is_same_v<K, string> || std::is_same_v<K, const char*>) {
-                LOGD("nonstd::map: insertNode called for key='%s'", key.c_str());
-            } else {
-                LOGD("nonstd::map: insertNode called for key (non-string type)");
-            }
-            #else
-            LOGD("nonstd::map: insertNode called for key");
-            #endif
-
             Node* newNode = new Node(key, value);
 
             if (!root) {
