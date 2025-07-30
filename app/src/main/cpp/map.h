@@ -223,6 +223,55 @@ namespace nonstd {
             }
         };
 
+        // Const Iterator class
+        class const_iterator {
+        private:
+            Node* current;
+            const map* container;
+
+        public:
+            const_iterator(Node* node, const map* cont) : current(node), container(cont) {}
+
+            const pair<K, V>& operator*() const {
+                static pair<K, V> temp;
+                if (current) {
+                    temp.first = current->key;
+                    temp.second = current->value;
+                }
+                return temp;
+            }
+
+            const pair<K, V>* operator->() const {
+                static pair<K, V> temp;
+                if (current) {
+                    temp.first = current->key;
+                    temp.second = current->value;
+                }
+                return &temp;
+            }
+
+            const_iterator& operator++() {
+                if (current) {
+                    current = container->successor(current);
+                }
+                return *this;
+            }
+
+            const_iterator operator++(int) {
+                const_iterator temp = *this;
+                ++(*this);
+                return temp;
+            }
+
+            bool operator==(const const_iterator& other) const {
+                return current == other.current;
+            }
+
+            bool operator!=(const const_iterator& other) const {
+                return current != other.current;
+            }
+        };
+
         // Default constructor
         map() : root(nullptr), size_(0) {
             LOGD("nonstd::map: default constructor");
@@ -320,6 +369,16 @@ namespace nonstd {
             return node->value;
         }
 
+        const V& operator[](const K& key) const {
+            LOGD("nonstd::map: operator[] const, key=...");
+            Node* node = findNode(key);
+            if (!node) {
+                static V default_value;
+                return default_value;
+            }
+            return node->value;
+        }
+
         V& at(const K& key) {
             LOGD("nonstd::map: at(), key=...");
             Node* node = findNode(key);
@@ -410,6 +469,12 @@ namespace nonstd {
             return iterator(node, this);
         }
 
+        const_iterator find(const K& key) const {
+            LOGD("nonstd::map: const find, key=..., size=%zu", size_);
+            Node* node = findNode(key);
+            return const_iterator(node, this);
+        }
+
         bool contains(const K& key) const {
             return findNode(key) != nullptr;
         }
@@ -427,12 +492,12 @@ namespace nonstd {
             return iterator(nullptr, this);
         }
 
-        iterator begin() const {
-            return iterator(minimum(root), this);
+        const_iterator begin() const {
+            return const_iterator(minimum(root), this);
         }
 
-        iterator end() const {
-            return iterator(nullptr, this);
+        const_iterator end() const {
+            return const_iterator(nullptr, this);
         }
     };
 

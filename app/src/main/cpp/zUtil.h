@@ -19,6 +19,7 @@ vector<string> split_str(const string& str, const string& split);
 vector<string> split_str(const string& str, char delim);
 
 bool string_end_with(const char *str, const char *suffix);
+bool string_start_with(const char *str, const char *prefix);
 
 string format_timestamp(long timestamp);
 

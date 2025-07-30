@@ -662,20 +662,6 @@ int zHttps::getCertificateFingerprintSha256(const mbedtls_x509_crt* cert, unsign
 void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& response) {
     LOGI("Parsing HTTPS response, length: %zu", raw_response.length());
     
-    // 打印响应体的前300个字符
-    size_t body_start = raw_response.find("\r\n\r\n");
-    if (body_start == string::npos) {
-        body_start = raw_response.find("\n\n");
-    }
-    
-    if (body_start != string::npos) {
-        string response_body = raw_response.substr(body_start + 4);
-        size_t body_preview_length = response_body.length() < 1000 ? response_body.length() : 1000;
-        string body_preview = response_body.substr(0, body_preview_length);
-        LOGI("Response body preview (first %zu chars):", body_preview_length);
-        LOGI("%s", body_preview.c_str());
-    }
-    
     if (raw_response.empty()) {
         response.error_message = "Empty response received";
         LOGE("Empty response");
@@ -694,10 +680,19 @@ void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& respo
         return;
     }
     
-    response.body = raw_response.substr(header_end + 4);
-
+    // 分离头部和主体
     string headers = raw_response.substr(0, header_end);
+    response.body = raw_response.substr(header_end + 4);
+    
     LOGI("Headers length: %zu, Body length: %zu", headers.length(), response.body.length());
+    
+    // 打印响应体的预览
+    if (!response.body.empty()) {
+        size_t body_preview_length = response.body.length() < 1000 ? response.body.length() : 1000;
+        string body_preview = response.body.substr(0, body_preview_length);
+        LOGI("Response body preview (first %zu chars):", body_preview_length);
+        LOGI("%s", body_preview.c_str());
+    }
 
     // 解析状态行
     size_t first_line_end = headers.find('\n');
@@ -705,23 +700,43 @@ void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& respo
         string status_line = headers.substr(0, first_line_end);
         LOGI("Status line: %s", status_line.c_str());
         
+        // 去除回车符
+        if (!status_line.empty() && status_line.back() == '\r') {
+            status_line.pop_back();
+        }
+        
+        // 解析状态码
         size_t space1 = status_line.find(' ');
-        size_t space2 = status_line.find(' ', space1 + 1);
-        if (space1 != string::npos && space2 != string::npos) {
-            try {
-                response.status_code = atoi(status_line.substr(space1 + 1, space2 - space1 - 1).c_str());
-                LOGI("Status code: %d", response.status_code);
-            } catch (const std::exception& e) {
-                LOGE("Failed to parse status code: %s", e.what());
-                response.status_code = 0;
+        if (space1 != string::npos) {
+            size_t space2 = status_line.find(' ', space1 + 1);
+            if (space2 != string::npos) {
+                try {
+                    string status_code_str = status_line.substr(space1 + 1, space2 - space1 - 1);
+                    response.status_code = atoi(status_code_str.c_str());
+                    LOGI("Status code: %d", response.status_code);
+                } catch (const std::exception& e) {
+                    LOGE("Failed to parse status code: %s", e.what());
+                    response.status_code = 0;
+                }
+            } else {
+                // 只有两个空格的情况
+                try {
+                    string status_code_str = status_line.substr(space1 + 1);
+                    response.status_code = atoi(status_code_str.c_str());
+                    LOGI("Status code: %d", response.status_code);
+                } catch (const std::exception& e) {
+                    LOGE("Failed to parse status code: %s", e.what());
+                    response.status_code = 0;
+                }
             }
         }
     }
 
     // 解析头部
-    size_t pos = 0;
-    bool first_line = true;
+    size_t pos = first_line_end + 1;  // 跳过状态行
     int header_count = 0;
+    string current_key;
+    string current_value;
     
     while (pos < headers.length()) {
         // 找到行结束位置
@@ -738,29 +753,130 @@ void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& respo
             line.pop_back();
         }
         
-        if (first_line) {
-            first_line = false;
-        } else if (!line.empty()) {
+        // 跳过空行
+        if (line.empty()) {
+            pos = line_end + 1;
+            continue;
+        }
+        
+        // 检查是否是续行（以空格或制表符开头）
+        if ((line[0] == ' ' || line[0] == '\t') && !current_key.empty()) {
+            // 这是续行，添加到当前值
+            current_value += " " + line.substr(1);  // 去除前导空格
+        } else {
+            // 保存前一个头部（如果有的话）
+            if (!current_key.empty()) {
+                response.headers[current_key] = current_value;
+                header_count++;
+            }
+            
+            // 解析新的头部行
             size_t colon_pos = line.find(':');
             if (colon_pos != string::npos) {
-                string key = line.substr(0, colon_pos);
-                string value = line.substr(colon_pos + 1);
-
+                current_key = line.substr(0, colon_pos);
+                current_value = line.substr(colon_pos + 1);
+                
                 // 去除前导空格
-                if (!value.empty() && value[0] == ' ') {
-                    value = value.substr(1);
+                if (!current_value.empty() && current_value[0] == ' ') {
+                    current_value = current_value.substr(1);
                 }
-
-                response.headers[key] = value;
-                header_count++;
+            } else {
+                // 无效的头部行，重置
+                current_key.clear();
+                current_value.clear();
             }
         }
         
         pos = line_end + 1;
-        if (pos >= headers.length()) break;
+    }
+    
+    // 保存最后一个头部
+    if (!current_key.empty()) {
+        response.headers[current_key] = current_value;
+        header_count++;
     }
     
     LOGI("Parsed %d headers", header_count);
+    
+    // 检查是否需要处理分块传输编码
+    auto transfer_encoding_it = response.headers.find("Transfer-Encoding");
+    if (transfer_encoding_it != response.headers.end() && 
+        transfer_encoding_it->second.find("chunked") != string::npos) {
+        LOGI("Detected chunked transfer encoding, processing...");
+        processChunkedBody(response.body);
+    }
+}
+
+// 处理分块传输编码的辅助方法
+void zHttps::processChunkedBody(string& body) {
+    LOGI("Processing chunked body, original length: %zu", body.length());
+    LOGI("Original body: '%s'", body.c_str());
+    
+    string processed_body;
+    size_t pos = 0;
+    int chunk_count = 0;
+    
+    while (pos < body.length()) {
+        // 找到块大小行的结束位置
+        size_t size_line_end = body.find('\n', pos);
+        if (size_line_end == string::npos) {
+            LOGE("No newline found for chunk size at position %zu", pos);
+            break;
+        }
+        
+        // 提取块大小行
+        string size_line = body.substr(pos, size_line_end - pos);
+        if (!size_line.empty() && size_line.back() == '\r') {
+            size_line.pop_back();
+        }
+        
+        LOGI("Chunk %d size line: '%s'", chunk_count + 1, size_line.c_str());
+        
+        // 解析块大小（十六进制），处理可能的扩展信息
+        size_t semicolon_pos = size_line.find(';');
+        string size_str = (semicolon_pos != string::npos) ? 
+                         size_line.substr(0, semicolon_pos) : size_line;
+        
+        size_t chunk_size = 0;
+        try {
+            chunk_size = std::stoul(size_str.c_str(), nullptr, 16);
+            LOGI("Chunk %d size: %zu", chunk_count + 1, chunk_size);
+        } catch (const std::exception& e) {
+            LOGE("Failed to parse chunk size '%s': %s", size_str.c_str(), e.what());
+            break;
+        }
+        
+        if (chunk_size == 0) {
+            LOGI("Found end chunk (size 0), processing complete");
+            break;
+        }
+        
+        // 移动到块数据开始位置（跳过块大小行和\r\n）
+        pos = size_line_end + 1;
+        
+        // 检查是否有足够的数据
+        if (pos + chunk_size > body.length()) {
+            LOGE("Chunk data incomplete: need %zu bytes, have %zu bytes", 
+                 chunk_size, body.length() - pos);
+            break;
+        }
+        
+        // 提取块数据
+        string chunk_data = body.substr(pos, chunk_size);
+        LOGI("Chunk %d data: '%s'", chunk_count + 1, chunk_data.c_str());
+        
+        // 添加块数据到处理后的主体
+        processed_body += chunk_data;
+        
+        // 移动到下一个块（跳过块数据和\r\n）
+        pos += chunk_size + 2;  // +2 for \r\n after chunk data
+        
+        chunk_count++;
+    }
+    
+    body = processed_body;
+    LOGI("Processed chunked body: %d chunks, new length: %zu", chunk_count, body.length());
+    LOGI("Final body: '%s'", body.c_str());
 }
 
 void zHttps::cleanup() {

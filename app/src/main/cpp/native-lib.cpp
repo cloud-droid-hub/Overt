@@ -23,6 +23,7 @@
 #include "zJavaVm.h"
 #include "config.h"
 #include "ssl_info.h"
+#include "zJson.h"
 
 void* overt_thread(void* arg) {
   while (true) {
@@ -70,7 +71,7 @@ void* overt_thread(void* arg) {
     LOGE("thread_func: calling onDeviceInfoUpdated");
     env->CallStaticVoidMethod(activity_class, method_id);
 
-    sleep(5);
+    sleep(10);
   }
   return nullptr;
 }

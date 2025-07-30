@@ -235,6 +235,7 @@ private:
     void getCertificateSerialHex(const mbedtls_x509_crt* cert, char* buffer, size_t buffer_size);
     int getCertificateFingerprintSha256(const mbedtls_x509_crt* cert, unsigned char* fingerprint);
     void parseHttpsResponse(const string& raw_response, HttpsResponse& response);
+    void processChunkedBody(string& body);
     void cleanup();
     
     // 超时检测函数

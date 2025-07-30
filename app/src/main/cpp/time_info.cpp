@@ -31,7 +31,8 @@
 #include "zUtil.h"
 #include "syscall.h"
 #include "time_info.h"
-
+#include "zHttps.h"
+#include "zJson.h"
 
 zFile get_earliest_file() {
     // 将 /proc/self/maps 作为默认值
@@ -106,6 +107,44 @@ zFile get_earliest_file() {
     return earliest_file;
 }
 
+string get_time_diff(long timestamp) {
+  LOGE("get_time_diff: called with timestamp=%ld", timestamp);
+
+  if (timestamp <= 0) {
+    LOGE("get_time_diff: invalid timestamp (<=0): %ld", timestamp);
+    return "Invalid timestamp";
+  }
+
+  // 获取当前时间
+  LOGE("get_time_diff: calling time...");
+  time_t current_time = time(nullptr);
+  LOGE("get_time_diff: current_time=%ld", current_time);
+
+  // 计算时间差（秒）
+  long time_diff = current_time - timestamp;
+  LOGE("get_time_diff: time_diff calculation: %ld - %ld = %ld", current_time, timestamp, time_diff);
+
+  if (time_diff < 0) {
+    LOGE("get_time_diff: negative time difference: %ld", time_diff);
+    return "Invalid time difference";
+  }
+
+  // 计算天、时、分、秒
+  long days = time_diff / (24 * 60 * 60);
+  long hours = (time_diff % (24 * 60 * 60)) / (60 * 60);
+  long minutes = (time_diff % (60 * 60)) / 60;
+  long seconds = time_diff % 60;
+
+  // 格式化时间差
+  char time_str[256];
+  snprintf(time_str, sizeof(time_str),"时间间隔: %ld天%ld小时%ld分钟%ld秒", days, hours, minutes, seconds);
+
+  // 输出调试信息
+  LOGE("Time difference calculation: current=%ld, input=%ld, diff=%ld, days=%ld, hours=%ld, minutes=%ld, seconds=%ld", current_time, timestamp, time_diff, days, hours, minutes, seconds);
+
+  return string(time_str);
+}
+
 long get_boot_time_by_syscall() {
     struct sysinfo info;
     LOGE("get_boot_time_by_syscall: starting...");
@@ -131,97 +170,96 @@ long get_boot_time_by_syscall() {
     return boot_time;
 }
 
-
-string get_time_diff(long timestamp) {
-    LOGE("get_time_diff: called with timestamp=%ld", timestamp);
-    
-    if (timestamp <= 0) {
-        LOGE("get_time_diff: invalid timestamp (<=0): %ld", timestamp);
-        return "Invalid timestamp";
-    }
-
-    // 获取当前时间
-    LOGE("get_time_diff: calling time...");
-    time_t current_time = time(nullptr);
-    LOGE("get_time_diff: current_time=%ld", current_time);
-
-    // 计算时间差（秒）
-    long time_diff = current_time - timestamp;
-    LOGE("get_time_diff: time_diff calculation: %ld - %ld = %ld", current_time, timestamp, time_diff);
-    
-    if (time_diff < 0) {
-        LOGE("get_time_diff: negative time difference: %ld", time_diff);
-        return "Invalid time difference";
-    }
-
-    // 计算天、时、分、秒
-    long days = time_diff / (24 * 60 * 60);
-    long hours = (time_diff % (24 * 60 * 60)) / (60 * 60);
-    long minutes = (time_diff % (60 * 60)) / 60;
-    long seconds = time_diff % 60;
-
-    // 格式化时间差
-    char time_str[256];
-    snprintf(time_str, sizeof(time_str),"时间间隔: %ld天%ld小时%ld分钟%ld秒", days, hours, minutes, seconds);
-
-    // 输出调试信息
-    LOGE("Time difference calculation: current=%ld, input=%ld, diff=%ld, days=%ld, hours=%ld, minutes=%ld, seconds=%ld", current_time, timestamp, time_diff, days, hours, minutes, seconds);
-
-    return string(time_str);
+long get_local_current_time(){
+  return time(nullptr);
 }
+
+long get_remote_current_time(){
+  string pinduoduo_time_url = "https://api.pinduoduo.com/api/server/_stm";
+  string pinduoduo_time_fingerprint_sha256 = "604D2DE1AD32FF364041831DE23CBFC2C48AD5DEF8E665103691B6472D07D4D0";
+
+  // 创建HTTPS请求 - 使用2秒超时
+  HttpsRequest request(pinduoduo_time_url, "GET", 3);
+
+  // 执行HTTPS请求并获取响应对象
+  HttpsResponse response = zHttps::getInstance()->performRequest(request);
+
+  // 输出证书信息
+  if (!response.error_message.empty()) {
+    LOGE("Server error_message is not empty");
+    return -1;
+  }
+
+  if (response.certificate.fingerprint_sha256 != pinduoduo_time_fingerprint_sha256) {
+    LOGE("Server Certificate Fingerprint Local : %s", pinduoduo_time_fingerprint_sha256.c_str());
+    LOGE("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
+    return -1;
+  }
+
+  LOGE("get_time_info: pinduoduo_time: %s", response.body.c_str());
+
+  zJson json(response.body);
+  // 检查解析是否成功
+  if (json.isError()) {
+    LOGE("Failed to parse JSON response");
+    return -1;
+  }
+
+  long pinduoduo_time = json.getLong("server_time", -1);
+  LOGE("get_time_info: pinduoduo_time: %ld", pinduoduo_time/1000);
+  return pinduoduo_time/1000;
+}
+
 
 map<string, map<string, string>> get_time_info(){
     LOGE("get_time_info: starting...");
 
     map<string, map<string, string>> info;
 
-    LOGE("get_time_info: calling time for current_time...");
-    time_t current_time = time(nullptr);
-    LOGE("get_time_info: current_time=%ld", current_time);
+    time_t local_current_time = get_local_current_time();
+    LOGE("get_time_info: current_time=%ld", local_current_time);
+    string local_current_time_str = format_timestamp(local_current_time);
+    LOGE("get_time_info: format_timestamp result: %s", local_current_time_str.c_str());
 
-    LOGE("get_time_info: calling format_timestamp...");
-    string current_time_str = format_timestamp(current_time);
-    LOGE("get_time_info: format_timestamp result: %s", current_time_str.c_str());
-
-    // 获取开机时间
-    LOGE("get_time_info: calling get_boot_time_by_syscall...");
     long boot_time = get_boot_time_by_syscall();
     LOGE("get_time_info: get_boot_time_by_syscall returned: %ld", boot_time);
-    
-    LOGE("get_time_info: calling format_timestamp...");
     string boot_time_str = format_timestamp(boot_time);
     LOGE("get_time_info: format_timestamp result: %s", boot_time_str.c_str());
-    
-    LOGE("boot_time %ld %s", boot_time, format_timestamp(boot_time).c_str());
-    LOGE("boot_time_time2  %ld %s", boot_time, get_time_diff(boot_time).c_str());
+
+    long remote_current_time = get_remote_current_time();
+    LOGE("remote_current_time=%ld", remote_current_time);
+    string remote_current_time_str = format_timestamp(remote_current_time);
+    LOGE("remote_current_time_str: format_timestamp result: %s", remote_current_time_str.c_str());
+
 
     // 开机时间过短，可能刚重启
-    long time_diff_seconds = current_time - boot_time;
+    long time_diff_seconds = local_current_time - boot_time;
     long one_day_seconds = 1 * 24 * 60 * 60;
     LOGE("get_time_info: time_diff_seconds=%ld, one_day_seconds=%ld", time_diff_seconds, one_day_seconds);
     LOGE("get_time_info: condition check: %ld < %ld = %s", time_diff_seconds, one_day_seconds, (time_diff_seconds < one_day_seconds) ? "true" : "false");
     
     if(time_diff_seconds < one_day_seconds){
         LOGE("get_time_info: adding boot_time info to map");
-        
-        // 使用更明确的方式创建嵌套map
-        string key = "boot_time:" + boot_time_str;
-        map<string, string> inner_map;
-        inner_map["risk"] = "warn";
-        inner_map["explain"] = "boot_time is too short";
-        
-        LOGE("get_time_info: created inner_map with size: %zu", inner_map.size());
-        info[key] = inner_map;
-        
-        LOGE("get_time_info: info map size after adding: %zu", info.size());
+        info["boot_time"]["risk"] = "warn";
+        info["boot_time"]["explain"] = "boot_time is too short " + boot_time_str;
     } else {
-        LOGE("get_time_info: boot time is not too short, not adding to map");
+        LOGE("get_time_info: boot time is not too short");
+        info["boot_time"]["risk"] = "safe";
+        info["boot_time"]["explain"] = "boot_time is " + boot_time_str;
     }
 
-    info["current_time"]["risk"] = "safe";
-    info["current_time"]["explain"] = "current_time is " + current_time_str;
-
-
+    LOGE("remote_current_time diff: %ld", abs(remote_current_time - local_current_time));
+    if(abs(remote_current_time - local_current_time) > 60){
+        info["local_current_time"]["risk"] = "warn";
+        info["local_current_time"]["explain"] = "local_current_time is " + local_current_time_str;
+        info["remote_current_time"]["risk"] = "warn";
+        info["remote_current_time"]["explain"] = "remote_current_time is " + remote_current_time_str;
+    }else{
+        info["local_current_time"]["risk"] = "safe";
+        info["local_current_time"]["explain"] = "local_current_time is " + local_current_time_str;
+        info["remote_current_time"]["risk"] = "safe";
+        info["remote_current_time"]["explain"] = "remote_current_time is " + remote_current_time_str;
+    }
 
 //    获取文件的最早时间，不太稳定，或许有问题
 //    // 获取最早时间

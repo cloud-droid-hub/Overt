@@ -108,6 +108,21 @@ bool string_end_with(const char *str, const char *suffix) {
     return (strcmp(str + len_str - len_suffix, suffix) == 0);
 }
 
+bool string_start_with(const char *str, const char *prefix) {
+  if (!str || !prefix) {
+    return false;
+  }
+
+  size_t len_str    = strlen(str);
+  size_t len_prefix = strlen(prefix);
+
+  if (len_prefix > len_str) {
+    return false;
+  }
+
+  return (strncmp(str, prefix, len_prefix) == 0);
+}
+
 // 将 map<string, string> 转换为 Java Map<String, String>
 jobject cmap_to_jmap(JNIEnv *env, const map<string, string>& cmap){
     LOGE("cmap_to_jmap: starting conversion, map size=%zu", cmap.size());
