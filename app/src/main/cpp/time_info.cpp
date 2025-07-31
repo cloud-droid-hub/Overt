@@ -111,7 +111,7 @@ string get_time_diff(long timestamp) {
   LOGD("[time_info] get_time_diff: called with timestamp=%ld", timestamp);
 
   if (timestamp <= 0) {
-    LOGE("[time_info] get_time_diff: invalid timestamp (<=0): %ld", timestamp);
+            LOGW("[time_info] get_time_diff: invalid timestamp (<=0): %ld", timestamp);
     return "Invalid timestamp";
   }
 
@@ -125,7 +125,7 @@ string get_time_diff(long timestamp) {
   LOGD("[time_info] get_time_diff: time_diff calculation: %ld - %ld = %ld", current_time, timestamp, time_diff);
 
   if (time_diff < 0) {
-    LOGE("[time_info] get_time_diff: negative time difference: %ld", time_diff);
+            LOGW("[time_info] get_time_diff: negative time difference: %ld", time_diff);
     return "Invalid time difference";
   }
 
@@ -186,7 +186,7 @@ long get_remote_current_time(){
 
   // 输出证书信息
   if (!response.error_message.empty()) {
-    LOGE("[time_info] Server error_message is not empty");
+            LOGW("[time_info] Server error_message is not empty");
     return -1;
   }
 
@@ -201,7 +201,7 @@ long get_remote_current_time(){
   zJson json(response.body);
   // 检查解析是否成功
   if (json.isError()) {
-    LOGE("[time_info] Failed to parse JSON response");
+            LOGW("[time_info] Failed to parse JSON response");
     return -1;
   }
 

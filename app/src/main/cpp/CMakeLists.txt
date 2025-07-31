@@ -54,6 +54,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zHttps.cpp
         zUtil.cpp
         zElf.cpp
+        zTee.cpp
         zLinker.cpp
         zClassLoader.cpp
         zJavaVm.cpp
@@ -74,7 +75,6 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         task_info.cpp
         port_info.cpp
         tee_info.cpp
-        tee_cert_parser.cpp
         ssl_info.cpp
 
         native-lib.cpp)

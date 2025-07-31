@@ -144,32 +144,32 @@ jobject cmap_to_jmap(JNIEnv *env, const map<string, string>& cmap){
     // 查找类和方法ID（只查找一次）
     jclass hashMapClass = env->FindClass("java/util/HashMap");
     if (!hashMapClass) {
-        LOGE("[zUtil] cmap_to_jmap: Failed to find HashMap class");
+        LOGD("[zUtil] cmap_to_jmap: Failed to find HashMap class");
         return nullptr;
     }
     
     jmethodID hashMapConstructor = env->GetMethodID(hashMapClass, "<init>", "()V");
     if (!hashMapConstructor) {
-        LOGE("[zUtil] cmap_to_jmap: Failed to find HashMap constructor");
+        LOGD("[zUtil] cmap_to_jmap: Failed to find HashMap constructor");
         return nullptr;
     }
     
     jmethodID putMethod = env->GetMethodID(hashMapClass, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
     if (!putMethod) {
-        LOGE("[zUtil] cmap_to_jmap: Failed to find HashMap put method");
+        LOGD("[zUtil] cmap_to_jmap: Failed to find HashMap put method");
         return nullptr;
     }
     
     // 创建HashMap对象
     jobject jobjectMap = env->NewObject(hashMapClass, hashMapConstructor);
     if (!jobjectMap) {
-        LOGE("[zUtil] cmap_to_jmap: Failed to create HashMap object");
+        LOGD("[zUtil] cmap_to_jmap: Failed to create HashMap object");
         return nullptr;
     }
     
     // 检查是否抛出异常
     if (env->ExceptionCheck()) {
-        LOGE("[zUtil] cmap_to_jmap: Exception occurred during HashMap creation");
+        LOGD("[zUtil] cmap_to_jmap: Exception occurred during HashMap creation");
         env->ExceptionDescribe();
         env->ExceptionClear();
         return nullptr;
@@ -184,7 +184,7 @@ jobject cmap_to_jmap(JNIEnv *env, const map<string, string>& cmap){
         jstring jvalue = env->NewStringUTF(entry.second.c_str());
         
         if (!jkey || !jvalue) {
-            LOGE("[zUtil] cmap_to_jmap: Failed to create string objects");
+            LOGD("[zUtil] cmap_to_jmap: Failed to create string objects");
             if (jkey) env->DeleteLocalRef(jkey);
             if (jvalue) env->DeleteLocalRef(jvalue);
             continue;
@@ -194,7 +194,7 @@ jobject cmap_to_jmap(JNIEnv *env, const map<string, string>& cmap){
         
         // 检查是否抛出异常
         if (env->ExceptionCheck()) {
-            LOGE("[zUtil] cmap_to_jmap: Exception occurred during put operation");
+            LOGD("[zUtil] cmap_to_jmap: Exception occurred during put operation");
             env->ExceptionDescribe();
             env->ExceptionClear();
             env->DeleteLocalRef(jkey);

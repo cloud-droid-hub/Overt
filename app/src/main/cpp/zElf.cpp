@@ -143,7 +143,7 @@ void zElf::parse_dynamic_table() {
     LOGD("[zElf] soname %s", so_name);
 
     if (dynamic_string_table == nullptr || dynamic_symbol_table == nullptr) {
-        LOGE("[zElf] parse_dynamic_table failed, try parse_section_table");
+        LOGW("[zElf] parse_dynamic_table failed, try parse_section_table");
         return;
     }
     LOGI("[zElf] parse_dynamic_table succeed");
@@ -414,7 +414,7 @@ char *zElf::get_maps_base(const char *so_name) {
         if (!strstr(lines[i].c_str(), so_name)) continue;
         vector<string> split_line = split_str(lines[i], "-");
         if(split_line.empty()){
-            LOGE("[zElf] get_maps_base split_line is empty");
+            LOGW("[zElf] get_maps_base split_line is empty");
             return nullptr;
         }
         LOGD("[zElf] get_maps_base split_line[0]:%s", split_line[0].c_str());

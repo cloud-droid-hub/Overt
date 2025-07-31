@@ -31,20 +31,20 @@ void* overt_thread(void* arg) {
         LOGD("[native-lib] overt_thread loop");
         LOGI("[native-lib] thread_func: processing device info updates");
 
-        zDevice::getInstance()->update_device_info("ssl_info", get_ssl_info());
-        zDevice::getInstance()->update_device_info("time_info", get_time_info());
         zDevice::getInstance()->update_device_info("task_info", get_task_info());
         zDevice::getInstance()->update_device_info("maps_info",get_maps_info());
         zDevice::getInstance()->update_device_info("root_file_info", get_root_file_info());
         zDevice::getInstance()->update_device_info("mounts_info", get_mounts_info());
         zDevice::getInstance()->update_device_info("system_prop_info", get_system_prop_info());
         zDevice::getInstance()->update_device_info("linker_info", get_linker_info());
-        zDevice::getInstance()->update_device_info("time_info", get_time_info());
         zDevice::getInstance()->update_device_info("port_info", get_port_info());
         zDevice::getInstance()->update_device_info("class_loader_info", get_class_loader_info());
         zDevice::getInstance()->update_device_info("package_info", get_package_info());
         zDevice::getInstance()->update_device_info("system_setting_info", get_system_setting_info());
         zDevice::getInstance()->update_device_info("tee_info", get_tee_info());
+
+        zDevice::getInstance()->update_device_info("ssl_info", get_ssl_info());
+        zDevice::getInstance()->update_device_info("time_info", get_time_info());
 
         // 通知Java层更新设备信息
         JNIEnv *env = zJavaVm::getInstance()->getEnv();

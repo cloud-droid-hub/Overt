@@ -18,7 +18,7 @@ map<string, map<string, string>> get_class_loader_info(){
         if (str.empty()) {
             continue;
         }
-        LOGE("classloader：%s", str.c_str());
+        LOGI("[class_loader_info] classloader：%s", str.c_str());
         if(strstr(str.c_str(), "LspModuleClassLoader")) {
             info[str]["risk"] = "error";
             info[str]["explain"] = "black classloader";
@@ -46,7 +46,7 @@ map<string, map<string, string>> get_class_info(){
                 continue;
             }
             if(strstr(className.c_str(), black_name.c_str())){
-                LOGE("get_class_info className %s is find", className.c_str());
+                LOGE("[class_loader_info] get_class_info className %s is find", className.c_str());
                 info[className]["risk"] = "error";
                 info[className]["explain"] = "Risk: black class";
                 break;

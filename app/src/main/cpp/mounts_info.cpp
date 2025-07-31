@@ -24,12 +24,12 @@ map<string, map<string, string>> get_mounts_info(){
         LOGD("[mounts_info] Processing line %d: %s", i, mounts_lines[i].c_str());
         for (const char* path : paths) {
             if (strstr(mounts_lines[i].c_str(), path) != nullptr){
-                LOGE("check_mounts error %d %s", i, mounts_lines[i].c_str());
+                LOGE("[mounts_info] check_mounts error %d %s", i, mounts_lines[i].c_str());
                 info[mounts_lines[i].c_str()]["risk"] = "error";
                 info[mounts_lines[i].c_str()]["explain"] = "black name but in system path";
 
             }else if(strstr(mounts_lines[i].c_str(), "/system ") != nullptr && strstr(mounts_lines[i].c_str(), "overlay") != nullptr){
-                LOGE("check_mounts error %d %s", i, mounts_lines[i].c_str());
+                LOGE("[mounts_info] check_mounts error %d %s", i, mounts_lines[i].c_str());
                 info[mounts_lines[i].c_str()]["risk"] = "error";
                 info[mounts_lines[i].c_str()]["explain"] = "black name but in system path";
 

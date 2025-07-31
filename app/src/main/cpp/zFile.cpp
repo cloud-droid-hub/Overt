@@ -229,7 +229,7 @@ string zFile::readAllText() {
     LOGD("[zFile] readAllText2");
     // 检查是否为文本文件
     if (!isTextFile()) {
-        LOGE("[zFile] readAllText: 文件不是文本文件: %s", m_path.c_str());
+        LOGW("[zFile] readAllText: 文件不是文本文件: %s", m_path.c_str());
         return "";
     }
 
@@ -356,7 +356,7 @@ vector<string> zFile::listFiles() const {
     
     DIR* dir = opendir(m_path.c_str());
     if (!dir) {
-        LOGE("[zFile] listFiles: failed to open directory %s (errno: %d)", m_path.c_str(), errno);
+        LOGW("[zFile] listFiles: failed to open directory %s (errno: %d)", m_path.c_str(), errno);
         return files;
     }
 
@@ -398,7 +398,7 @@ vector<string> zFile::listDirectories() const {
 
     DIR* dir = opendir(m_path.c_str());
     if (!dir) {
-        LOGE("[zFile] listDirectories: failed to open directory %s (errno: %d)", m_path.c_str(), errno);
+        LOGW("[zFile] listDirectories: failed to open directory %s (errno: %d)", m_path.c_str(), errno);
         return dirs;
     }
     
@@ -431,7 +431,7 @@ vector<string> zFile::listAll() const {
 
     DIR* dir = opendir(m_path.c_str());
     if (!dir) {
-        LOGE("[zFile] listAll: failed to open directory %s (errno: %d)", m_path.c_str(), errno);
+        LOGW("[zFile] listAll: failed to open directory %s (errno: %d)", m_path.c_str(), errno);
         return all;
     }
     

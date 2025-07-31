@@ -49,13 +49,13 @@ void zJson::parse(const string& json_str) {
         
         // 检查解析是否成功
         if (is_error_) {
-            LOGE("[zJson] JSON parsing failed for: %s", json_str.c_str());
+            LOGW("[zJson] JSON parsing failed for: %s", json_str.c_str());
         } else {
             LOGI("[zJson] JSON parsing successful for: %s", json_str.c_str());
         }
     } catch (...) {
         // 解析失败时设置为错误状态
-        LOGE("[zJson] JSON parsing exception occurred");
+        LOGW("[zJson] JSON parsing exception occurred");
         type_ = Type::INVALID;
     }
 }

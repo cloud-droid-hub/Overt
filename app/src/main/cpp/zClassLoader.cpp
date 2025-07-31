@@ -20,13 +20,13 @@ zClassLoader* zClassLoader::instance = nullptr;
 
 void debug(JNIEnv *env, const char *format, jobject object) {
     if (object == nullptr) {
-        LOGE(format);
+        LOGE("[zClassLoader] %s", format);
     } else {
         jclass objectClass = env->FindClass("java/lang/Object");
         jmethodID toString = env->GetMethodID(objectClass, "toString", "()Ljava/lang/String;");
         auto string = (jstring) env->CallObjectMethod(object, toString);
         const char *value = env->GetStringUTFChars(string, nullptr);
-        LOGE(format);
+        LOGE("[zClassLoader] %s", format);
         env->ReleaseStringUTFChars(string, value);
         env->DeleteLocalRef(string);
         env->DeleteLocalRef(objectClass);
@@ -85,13 +85,13 @@ vector<string> getClassNameList(JNIEnv *env, jobject classloader) {
     // 获取 pathList 字段
     jfieldID pathListFieldID = env->GetFieldID(classloaderClass, "pathList","Ldalvik/system/DexPathList;");
     if (pathListFieldID == nullptr) {
-        LOGE("Failed to find field 'pathList' in classloader");
+        LOGE("[zClassLoader] Failed to find field 'pathList' in classloader");
         return classNameList;
     }
 
     jobject pathList = env->GetObjectField(classloader, pathListFieldID);
     if (pathList == nullptr) {
-        LOGE("pathList is null");
+        LOGE("[zClassLoader] pathList is null");
         return classNameList;
     }
 
@@ -100,13 +100,13 @@ vector<string> getClassNameList(JNIEnv *env, jobject classloader) {
     jfieldID dexElementsFieldID = env->GetFieldID(dexPathListClass, "dexElements",
                                                   "[Ldalvik/system/DexPathList$Element;");
     if (dexElementsFieldID == nullptr) {
-        LOGE("Failed to find field 'dexElements' in DexPathList");
+        LOGE("[zClassLoader] Failed to find field 'dexElements' in DexPathList");
         return classNameList;
     }
 
     jobjectArray dexElements = (jobjectArray) env->GetObjectField(pathList, dexElementsFieldID);
     if (dexElements == nullptr) {
-        LOGE("dexElements is null");
+        LOGE("[zClassLoader] dexElements is null");
         return classNameList;
     }
 
@@ -120,13 +120,13 @@ vector<string> getClassNameList(JNIEnv *env, jobject classloader) {
         jfieldID dexFileFieldID = env->GetFieldID(dexElementClass, "dexFile",
                                                   "Ldalvik/system/DexFile;");
         if (dexFileFieldID == nullptr) {
-            LOGE("Failed to find field 'dexFile' in DexPathList$Element");
+            LOGE("[zClassLoader] Failed to find field 'dexFile' in DexPathList$Element");
             continue;
         }
 
         jobject dexFile = env->GetObjectField(dexElement, dexFileFieldID);
         if (dexFile == nullptr) {
-            LOGE("dexFile is null");
+            LOGE("[zClassLoader] dexFile is null");
             continue;
         }
 
@@ -134,13 +134,13 @@ vector<string> getClassNameList(JNIEnv *env, jobject classloader) {
         jclass dexFileClass = env->GetObjectClass(dexFile);
         jmethodID entriesMethodID = env->GetMethodID(dexFileClass, "entries", "()Ljava/util/Enumeration;");
         if (entriesMethodID == nullptr) {
-            LOGE("Failed to find method 'entries' in DexFile");
+            LOGE("[zClassLoader] Failed to find method 'entries' in DexFile");
             continue;
         }
 
         jobject entries = env->CallObjectMethod(dexFile, entriesMethodID);
         if (entries == nullptr) {
-            LOGE("entries is null");
+            LOGE("[zClassLoader] entries is null");
             continue;
         }
 
@@ -219,9 +219,9 @@ public:
         if (object != nullptr) {
             if (env_->IsInstanceOf(object, classLoader_)) {
                 string classLoaderName = getClassName((JNIEnv *) env_, object);
-                LOGE("ClassLoaderVisitor classLoaderName %s", classLoaderName.c_str());
+                LOGE("[zClassLoader] ClassLoaderVisitor classLoaderName %s", classLoaderName.c_str());
                 string classLoaderString = get_class_loader_string(env_, object);
-                LOGE("ClassLoaderVisitor %s", classLoaderString.c_str());
+                LOGE("[zClassLoader] ClassLoaderVisitor %s", classLoaderString.c_str());
                 vector<string> classLoaderClassNameList = getClassNameList((JNIEnv *) env_, object);
 
                 classLoaderStringList.push_back(classLoaderString);
@@ -243,7 +243,7 @@ void zClassLoader::checkGlobalRef(JNIEnv *env, jclass clazz) {
     auto VisitRoots = (void (*)(void *, void *)) zLinker::getInstance()->find_lib("libart.so").find_symbol("_ZN3art9JavaVMExt10VisitRootsEPNS_11RootVisitorE");
 
     if (VisitRoots == nullptr) {
-        LOGE("Failed to find method 'VisitRoots' in JavaVMExt");
+        LOGE("[zClassLoader] Failed to find method 'VisitRoots' in JavaVMExt");
         return;
     }
     JavaVM *jvm;
@@ -257,7 +257,7 @@ void zClassLoader::checkGlobalRef(JNIEnv *env, jclass clazz) {
 
     classNameList.insert(classNameList.end(), visitor.classNameList.begin(), visitor.classNameList.end());
 
-    LOGE("ClassLoaderVisitor classLoaderStringList size %zu", visitor.classLoaderStringList.size());
+            LOGE("[zClassLoader] ClassLoaderVisitor classLoaderStringList size %zu", visitor.classLoaderStringList.size());
 }
 
 
@@ -276,10 +276,10 @@ public :
         if (object != nullptr) {
             if (env_->IsInstanceOf(object, classLoader_)) {
                 string classLoaderName = getClassName(env_, object);
-                LOGE("WeakClassLoaderVisitor classLoaderName %s", classLoaderName.c_str());
+                LOGD("[zClassLoader] WeakClassLoaderVisitor classLoaderName %s", classLoaderName.c_str());
                 string classLoaderSting = get_class_loader_string(env_, object);
                 classLoaderStringList.push_back(get_class_loader_string(env_, object));
-                LOGE("WeakClassLoaderVisitor %s", classLoaderSting.c_str());
+                LOGD("[zClassLoader] WeakClassLoaderVisitor %s", classLoaderSting.c_str());
                 vector<string> classLoaderClassNameList = getClassNameList(env_, object);
                 classNameList.insert(classNameList.end(), classLoaderClassNameList.begin(), classLoaderClassNameList.end());
             }
@@ -307,7 +307,7 @@ void zClassLoader::checkWeakGlobalRef(JNIEnv *env, jclass clazz) {
     SweepJniWeakGlobals(jvm, &visitor);
     classLoaderStringList.insert(classLoaderStringList.end(), visitor.classLoaderStringList.begin(), visitor.classLoaderStringList.end());
     classNameList.insert(classNameList.end(), visitor.classNameList.begin(), visitor.classNameList.end());
-    LOGE("WeakClassLoaderVisitor classLoaderStringList size %zu", visitor.classLoaderStringList.size());
+            LOGE("[zClassLoader] WeakClassLoaderVisitor classLoaderStringList size %zu", visitor.classLoaderStringList.size());
 }
 
 void zClassLoader::traverseClassLoader(JNIEnv* env) {
@@ -315,7 +315,7 @@ void zClassLoader::traverseClassLoader(JNIEnv* env) {
     __android_log_print(6, "lxz", "checkClassloader11");
 
     if (env == nullptr){
-        LOGE("traverseClassLoader env is null");
+        LOGE("[zClassLoader] traverseClassLoader env is null");
         return;
     }
 
@@ -324,11 +324,11 @@ void zClassLoader::traverseClassLoader(JNIEnv* env) {
     int sdk_version = atoi(buffer);
 
     if (sdk_version < 21) {
-        LOGE("traverseClassLoader sdk_version < 21");
+        LOGE("[zClassLoader] traverseClassLoader sdk_version < 21");
         return;
     }
 
-    LOGE("traverseClassLoader start");
+            LOGE("[zClassLoader] traverseClassLoader start");
 
     jclass clazz = env->FindClass("dalvik/system/BaseDexClassLoader");
     if (env->ExceptionCheck()) {
@@ -336,17 +336,17 @@ void zClassLoader::traverseClassLoader(JNIEnv* env) {
     }
 
     if (clazz == nullptr) {
-        LOGE("traverseClassLoader clazz is null");
+        LOGE("[zClassLoader] traverseClassLoader clazz is null");
         return;
     }
 
-    LOGE("traverseClassLoader checkGlobalRef");
+            LOGE("[zClassLoader] traverseClassLoader checkGlobalRef");
     checkGlobalRef(env, clazz);
 
-    LOGE("traverseClassLoader checkWeakGlobalRef");
+            LOGE("[zClassLoader] traverseClassLoader checkWeakGlobalRef");
     checkWeakGlobalRef(env, clazz);
 
-    LOGE("traverseClassLoader end");
+            LOGE("[zClassLoader] traverseClassLoader end");
     env->DeleteLocalRef(clazz);
 
 }
