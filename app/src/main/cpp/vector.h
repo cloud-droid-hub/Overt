@@ -22,7 +22,7 @@ namespace nonstd {
         size_t capacity_;
         
         void resize_capacity(size_t new_capacity) {
-            LOGD("nonstd::vector: resize_capacity, old capacity=%zu, new capacity=%zu", capacity_, new_capacity);
+            LOGV("[vector] nonstd::vector: resize_capacity, old capacity=%zu, new capacity=%zu", capacity_, new_capacity);
             T* new_data = new T[new_capacity];
             
             if (data_) {
@@ -109,12 +109,12 @@ namespace nonstd {
         
         // Default constructor
         vector() : data_(nullptr), size_(0), capacity_(0) {
-            LOGD("nonstd::vector: default constructor, size=%zu, capacity=%zu", size_, capacity_);
+            LOGV("[vector] nonstd::vector: default constructor, size=%zu, capacity=%zu", size_, capacity_);
         }
         
         // Constructor with initial size and value
         vector(size_t count, const T& value) : size_(count), capacity_(count), data_(nullptr) {
-            LOGD("nonstd::vector(size_t count=%zu, const T& value) is called", count);
+            LOGV("[vector] nonstd::vector(size_t count=%zu, const T& value) is called", count);
             
             if (count > 0) {
                 data_ = new T[count];
@@ -123,24 +123,24 @@ namespace nonstd {
                 }
             }
             
-            LOGD("nonstd::vector(size_t, const T&) completed, size=%zu", size_);
+            LOGV("[vector] nonstd::vector(size_t, const T&) completed, size=%zu", size_);
         }
         
         // Constructor with initial size (default value)
         vector(size_t count) : size_(count), capacity_(count), data_(nullptr) {
-            LOGD("nonstd::vector(size_t count=%zu) is called", count);
+            LOGV("[vector] nonstd::vector(size_t count=%zu) is called", count);
             
             if (count > 0) {
                 data_ = new T[count];
                 // Elements are default-constructed
             }
             
-            LOGD("nonstd::vector(size_t) completed, size=%zu", size_);
+            LOGV("[vector] nonstd::vector(size_t) completed, size=%zu", size_);
         }
         
         // Constructor with C-style array
         vector(const T* arr, size_t count) : size_(count), capacity_(count), data_(nullptr) {
-            LOGD("nonstd::vector(const T* arr, size_t count=%zu) is called", count);
+            LOGV("[vector] nonstd::vector(const T* arr, size_t count=%zu) is called", count);
             
             if (count > 0 && arr != nullptr) {
                 data_ = new T[count];
@@ -149,12 +149,12 @@ namespace nonstd {
                 }
             }
             
-            LOGD("nonstd::vector(const T*, size_t) completed, size=%zu", size_);
+            LOGV("[vector] nonstd::vector(const T*, size_t) completed, size=%zu", size_);
         }
         
         // Constructor with initializer list (for brace initialization)
         vector(initializer_list<T> init) : size_(0), capacity_(0), data_(nullptr) {
-            LOGD("nonstd::vector(initializer_list) is called with %zu elements", init.size());
+            LOGV("[vector] nonstd::vector(initializer_list) is called with %zu elements", init.size());
             
             size_t init_size = init.size();
             if (init_size > 0) {
@@ -169,12 +169,12 @@ namespace nonstd {
                 size_ = init_size;
             }
             
-            LOGD("nonstd::vector(initializer_list) completed, size=%zu", size_);
+            LOGV("[vector] nonstd::vector(initializer_list) completed, size=%zu", size_);
         }
         
         // Initializer list assignment operator
         vector& operator=(initializer_list<T> init) {
-            LOGD("nonstd::vector: initializer_list assignment with %zu elements", init.size());
+            LOGV("[vector] nonstd::vector: initializer_list assignment with %zu elements", init.size());
             
             clear();
             
@@ -191,13 +191,13 @@ namespace nonstd {
                 size_ = init_size;
             }
             
-            LOGD("nonstd::vector: initializer_list assignment completed, size=%zu", size_);
+            LOGV("[vector] nonstd::vector: initializer_list assignment completed, size=%zu", size_);
             return *this;
         }
         
         // Copy constructor
         vector(const vector& other) : data_(nullptr), size_(other.size_), capacity_(other.capacity_) {
-            LOGD("nonstd::vector: copy constructor, size=%zu, capacity=%zu", size_, capacity_);
+            LOGV("[vector] nonstd::vector: copy constructor, size=%zu, capacity=%zu", size_, capacity_);
             if (capacity_ > 0) {
                 data_ = new T[capacity_];
                 for (size_t i = 0; i < size_; ++i) {
@@ -208,7 +208,7 @@ namespace nonstd {
         
         // Move constructor
         vector(vector&& other) noexcept : data_(other.data_), size_(other.size_), capacity_(other.capacity_) {
-            LOGD("nonstd::vector: move constructor, size=%zu, capacity=%zu", size_, capacity_);
+            LOGV("[vector] nonstd::vector: move constructor, size=%zu, capacity=%zu", size_, capacity_);
             other.data_ = nullptr;
             other.size_ = 0;
             other.capacity_ = 0;
@@ -216,13 +216,13 @@ namespace nonstd {
         
         // Destructor
         ~vector() {
-            LOGD("nonstd::vector: destructor, size=%zu, capacity=%zu", size_, capacity_);
+            LOGV("[vector] nonstd::vector: destructor, size=%zu, capacity=%zu", size_, capacity_);
             delete[] data_;
         }
         
         // Copy assignment operator
         vector& operator=(const vector& other) {
-            LOGD("nonstd::vector: copy assignment, old size=%zu, new size=%zu", size_, other.size_);
+            LOGV("[vector] nonstd::vector: copy assignment, old size=%zu, new size=%zu", size_, other.size_);
             if (this != &other) {
                 delete[] data_;
                 size_ = other.size_;
@@ -242,7 +242,7 @@ namespace nonstd {
         
         // Move assignment operator
         vector& operator=(vector&& other) noexcept {
-            LOGD("nonstd::vector: move assignment, old size=%zu, new size=%zu", size_, other.size_);
+            LOGV("[vector] nonstd::vector: move assignment, old size=%zu, new size=%zu", size_, other.size_);
             if (this != &other) {
                 delete[] data_;
                 data_ = other.data_;
@@ -342,7 +342,7 @@ namespace nonstd {
         }
 
         void reserve(size_t new_capacity) {
-            LOGD("nonstd::vector: reserve, old capacity=%zu, new capacity=%zu", capacity_, new_capacity);
+            LOGV("[vector] nonstd::vector: reserve, old capacity=%zu, new capacity=%zu", capacity_, new_capacity);
             if (new_capacity > capacity_) {
                 resize_capacity(new_capacity);
             }
@@ -350,7 +350,7 @@ namespace nonstd {
         
         // Modifiers
         void clear() {
-            LOGD("nonstd::vector: clear, old size=%zu", size_);
+            LOGV("[vector] nonstd::vector: clear, old size=%zu", size_);
             delete[] data_;
             data_ = nullptr;
             size_ = 0;
@@ -359,7 +359,7 @@ namespace nonstd {
         
         // Add element to the end
         void push_back(const T& value) {
-            LOGD("nonstd::vector.push_back() is called, current size=%zu, capacity=%zu", size_, capacity_);
+            LOGV("[vector] nonstd::vector.push_back() is called, current size=%zu, capacity=%zu", size_, capacity_);
             
             if (size_ >= capacity_) {
                 resize_capacity(capacity_ == 0 ? 1 : capacity_ * 2);
@@ -368,13 +368,13 @@ namespace nonstd {
             data_[size_] = value;
             size_++;
             
-            LOGD("nonstd::vector.push_back() completed, new size=%zu", size_);
+            LOGV("[vector] nonstd::vector.push_back() completed, new size=%zu", size_);
         }
         
         // Construct element in place at the end
         template<typename... Args>
         void emplace_back(Args&&... args) {
-            LOGD("nonstd::vector.emplace_back() is called, current size=%zu, capacity=%zu", size_, capacity_);
+            LOGV("[vector] nonstd::vector.emplace_back() is called, current size=%zu, capacity=%zu", size_, capacity_);
             
             if (size_ >= capacity_) {
                 resize_capacity(capacity_ == 0 ? 1 : capacity_ * 2);
@@ -385,21 +385,21 @@ namespace nonstd {
             
             size_++;
             
-            LOGD("nonstd::vector.emplace_back() completed, new size=%zu", size_);
+            LOGV("[vector] nonstd::vector.emplace_back() completed, new size=%zu", size_);
         }
         
         void pop_back() {
-            LOGD("nonstd::vector: pop_back, size(before)=%zu", size_);
+            LOGV("[vector] nonstd::vector: pop_back, size(before)=%zu", size_);
             if (!empty()) {
                 --size_;
             }
-            LOGD("nonstd::vector: pop_back done, size(after)=%zu", size_);
+            LOGV("[vector] nonstd::vector: pop_back done, size(after)=%zu", size_);
         }
         
         void resize(size_t count, const T& value = T()) {
-            LOGD("nonstd::vector: resize, old size=%zu, new size=%zu", size_, count);
+            LOGV("[vector] nonstd::vector: resize, old size=%zu, new size=%zu", size_, count);
             if (count > capacity_) {
-                LOGD("nonstd::vector: resize triggers resize_capacity to %zu", count);
+                LOGV("[vector] nonstd::vector: resize triggers resize_capacity to %zu", count);
                 resize_capacity(count);
             }
             
@@ -409,16 +409,16 @@ namespace nonstd {
                 }
             }
             size_ = count;
-            LOGD("nonstd::vector: resize done, size=%zu", size_);
+            LOGV("[vector] nonstd::vector: resize done, size=%zu", size_);
         }
 
 
         void insert(iterator pos, const T& value) {
             size_t index = pos - begin();
-            LOGD("nonstd::vector: insert at index=%zu, value=..., size(before)=%zu", index, size_);
+            LOGV("[vector] nonstd::vector: insert at index=%zu, value=..., size(before)=%zu", index, size_);
             if (size_ >= capacity_) {
                 size_t new_capacity = (capacity_ == 0) ? 1 : capacity_ * 2;
-                LOGD("nonstd::vector: insert triggers resize_capacity to %zu", new_capacity);
+                LOGV("[vector] nonstd::vector: insert triggers resize_capacity to %zu", new_capacity);
                 resize_capacity(new_capacity);
             }
 
@@ -429,7 +429,7 @@ namespace nonstd {
 
             data_[index] = value;
             ++size_;
-            LOGD("nonstd::vector: insert done, size(after)=%zu", size_);
+            LOGV("[vector] nonstd::vector: insert done, size(after)=%zu", size_);
         }
 
         // Insert range of elements from iterators
@@ -443,10 +443,10 @@ namespace nonstd {
                 ++count;
             }
 
-            LOGD("nonstd::vector: insert range at index=%zu, count=%zu, size(before)=%zu", index, count, size_);
+            LOGV("[vector] nonstd::vector: insert range at index=%zu, count=%zu, size(before)=%zu", index, count, size_);
 
             if (count == 0) {
-                LOGD("nonstd::vector: insert range - no elements to insert");
+                LOGV("[vector] nonstd::vector: insert range - no elements to insert");
                 return;
             }
 
@@ -456,7 +456,7 @@ namespace nonstd {
                 while (new_capacity < size_ + count) {
                     new_capacity *= 2;
                 }
-                LOGD("nonstd::vector: insert range triggers resize_capacity to %zu", new_capacity);
+                LOGV("[vector] nonstd::vector: insert range triggers resize_capacity to %zu", new_capacity);
                 resize_capacity(new_capacity);
             }
 
@@ -472,12 +472,12 @@ namespace nonstd {
             }
 
             size_ += count;
-            LOGD("nonstd::vector: insert range done, size(after)=%zu", size_);
+            LOGV("[vector] nonstd::vector: insert range done, size(after)=%zu", size_);
         }
         
         void erase(iterator pos) {
             size_t index = pos - begin();
-            LOGD("nonstd::vector: erase at index=%zu, size(before)=%zu", index, size_);
+            LOGV("[vector] nonstd::vector: erase at index=%zu, size(before)=%zu", index, size_);
             if (index < size_) {
                 // Shift elements to fill the gap
                 for (size_t i = index; i < size_ - 1; ++i) {
@@ -485,7 +485,7 @@ namespace nonstd {
                 }
                 --size_;
             }
-            LOGD("nonstd::vector: erase done, size(after)=%zu", size_);
+            LOGV("[vector] nonstd::vector: erase done, size(after)=%zu", size_);
         }
         
         // Iterators

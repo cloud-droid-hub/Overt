@@ -36,12 +36,12 @@
  * */
 
 DIR* nonstd_opendir(const char* name) {
-    LOGE("nonstd_opendir called: name='%s'", name ? name : "NULL");
+    LOGV("[nonstd_libc] nonstd_opendir called: name='%s'", name ? name : "NULL");
     auto function_ptr= opendir;
     for(int i=0; i<4; i++){
         unsigned int inst = *((unsigned int*)function_ptr+i);
         if((inst & 0xff000000) == 0xD6000000){
-            LOGD("opendir is unsafe");
+            LOGV("[nonstd_libc] opendir is unsafe");
             return opendir("");
         }
     }
@@ -60,12 +60,12 @@ struct dirent* nonstd_readdir(DIR* dirp) {
     return readdir((DIR*)dirp);
 }
 int nonstd_closedir(DIR* dirp) {
-    LOGD("nonstd_closedir called: dirp=%p", dirp);
+    LOGV("[nonstd_libc] nonstd_closedir called: dirp=%p", dirp);
     auto function_ptr= closedir;
     for(int i=0; i<4; i++){
         unsigned int inst = *((unsigned int*)function_ptr+i);
         if((inst & 0xff000000) == 0xD6000000){
-            LOGD("closedir is unsafe");
+            LOGV("[nonstd_libc] closedir is unsafe");
             return closedir(nullptr);
         }
     }
@@ -74,19 +74,19 @@ int nonstd_closedir(DIR* dirp) {
 
 // 手动实现strcmp函数 - 自定义版本
 int nonstd_strcmp(const char *str1, const char *str2) {
-    LOGD("nonstd_strcmp called: str1='%s', str2='%s'", str1 ? str1 : "NULL", str2 ? str2 : "NULL");
+    LOGV("[nonstd_libc] nonstd_strcmp called: str1='%s', str2='%s'", str1 ? str1 : "NULL", str2 ? str2 : "NULL");
     
     // 处理NULL指针
     if (!str1 && !str2) {
-        LOGD("Both strings are NULL, returning 0");
+        LOGV("[nonstd_libc] Both strings are NULL, returning 0");
         return 0;
     }
     if (!str1) {
-        LOGD("str1 is NULL, returning -1");
+        LOGV("[nonstd_libc] str1 is NULL, returning -1");
         return -1;
     }
     if (!str2) {
-        LOGD("str2 is NULL, returning 1");
+        LOGV("[nonstd_libc] str2 is NULL, returning 1");
         return 1;
     }
     
@@ -95,7 +95,7 @@ int nonstd_strcmp(const char *str1, const char *str2) {
     while (str1[i] != '\0' && str2[i] != '\0') {
         if (str1[i] != str2[i]) {
             int result = (unsigned char)str1[i] - (unsigned char)str2[i];
-            LOGD("Strings differ at position %d: '%c' vs '%c', returning %d", i, str1[i], str2[i], result);
+            LOGV("[nonstd_libc] Strings differ at position %d: '%c' vs '%c', returning %d", i, str1[i], str2[i], result);
             return result;
         }
         i++;
@@ -103,13 +103,13 @@ int nonstd_strcmp(const char *str1, const char *str2) {
     
     // 检查字符串长度
     if (str1[i] == '\0' && str2[i] == '\0') {
-        LOGD("Strings are identical, returning 0");
+        LOGV("[nonstd_libc] Strings are identical, returning 0");
         return 0;
     } else if (str1[i] == '\0') {
-        LOGD("str1 is shorter, returning -1");
+        LOGV("[nonstd_libc] str1 is shorter, returning -1");
         return -1;
     } else {
-        LOGD("str2 is shorter, returning 1");
+        LOGV("[nonstd_libc] str2 is shorter, returning 1");
         return 1;
     }
 }
@@ -117,10 +117,10 @@ int nonstd_strcmp(const char *str1, const char *str2) {
 // ==================== 字符串函数 ====================
 
 size_t nonstd_strlen(const char *str) {
-    LOGD("nonstd_strlen called: str='%s'", str ? str : "NULL");
+    LOGV("[nonstd_libc] nonstd_strlen called: str='%s'", str ? str : "NULL");
     
     if (!str) {
-        LOGD("strlen: NULL pointer, returning 0");
+        LOGV("[nonstd_libc] strlen: NULL pointer, returning 0");
         return 0;
     }
     
@@ -129,7 +129,7 @@ size_t nonstd_strlen(const char *str) {
         len++;
     }
     
-    LOGD("strlen: length = %zu", len);
+    LOGV("[nonstd_libc] strlen: length = %zu", len);
     return len;
 }
 
