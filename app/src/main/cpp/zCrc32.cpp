@@ -35,7 +35,7 @@ static inline uint32_t crc32c_tail(const uint8_t *p, size_t len, uint32_t crc)
 /* 5. 入口函数 */
 uint32_t crc32c_fold(const void *data, size_t len)
 {
-    LOGD("[zCrc32] crc32c_fold called, len: %zu", len);
+    LOGD("crc32c_fold called, len: %zu", len);
     uint32_t crc = 0xFFFFFFFF;      /* 初始值 CRC-32C */
 
     /* 5-1. 8 字节主循环 */
@@ -49,7 +49,7 @@ uint32_t crc32c_fold(const void *data, size_t len)
     /* 5-2. 剩余 0–7 字节 */
     data = (const uint8_t *)p64;
     crc  = crc32c_tail((const uint8_t *)data, len, crc);
-    LOGD("[zCrc32] crc32c_fold, after crc32c_tail: %u, len: %zu", crc, len);
+    LOGD("crc32c_fold, after crc32c_tail: %u, len: %zu", crc, len);
 
     return crc ^ 0xFFFFFFFF;        /* 最终异或 */
 }

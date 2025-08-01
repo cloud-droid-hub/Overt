@@ -26,33 +26,22 @@
 
 // 日志宏定义
 #ifdef ENABLE_LOGGING
-    #define LOGV(...) zLogPrint(LOG_LEVEL_VERBOSE, LOG_TAG, __VA_ARGS__)
-    #define LOGD(...) zLogPrint(LOG_LEVEL_DEBUG, LOG_TAG, __VA_ARGS__)
-    #define LOGI(...) zLogPrint(LOG_LEVEL_INFO, LOG_TAG, __VA_ARGS__)
-    #define LOGW(...) zLogPrint(LOG_LEVEL_WARN, LOG_TAG, __VA_ARGS__)
-    #define LOGE(...) zLogPrint(LOG_LEVEL_ERROR, LOG_TAG, __VA_ARGS__)
-    
-    // 带标签的日志
-    #define LOGT(tag, ...) zLogPrint(LOG_LEVEL_DEBUG, tag, __VA_ARGS__)
+    #define LOGV(...) zLogPrint(LOG_LEVEL_VERBOSE, LOG_TAG, __FILE_NAME__, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+    #define LOGD(...) zLogPrint(LOG_LEVEL_DEBUG, LOG_TAG, __FILE_NAME__, __FUNCTION__,__LINE__, ##__VA_ARGS__)
+    #define LOGI(...) zLogPrint(LOG_LEVEL_INFO, LOG_TAG, __FILE_NAME__, __FUNCTION__,__LINE__, ##__VA_ARGS__)
+    #define LOGW(...) zLogPrint(LOG_LEVEL_WARN, LOG_TAG, __FILE_NAME__, __FUNCTION__,__LINE__, ##__VA_ARGS__)
+    #define LOGE(...) zLogPrint(LOG_LEVEL_ERROR, LOG_TAG, __FILE_NAME__, __FUNCTION__,__LINE__, ##__VA_ARGS__)
+
 #else
     #define LOGV(...)
     #define LOGD(...)
     #define LOGI(...)
     #define LOGW(...)
     #define LOGE(...)
-    #define LOGT(...)
 #endif
 
-// 兼容旧的DEBUG宏
-#ifdef DEBUG
-    #define LOGT_OLD(...) zLogPrint(LOG_LEVEL_DEBUG, LOG_TAG, __VA_ARGS__)
-#else
-    #define LOGT_OLD(...)
-#endif
 
-// C接口函数声明
-extern "C" {
-    void zLogPrint(int level, const char* tag, const char* format, ...);
-}
+void zLogPrint(int level, const char* tag, const char* file_name, const char* function_name, int line_num, const char* format, ...);
+
 
 #endif //TESTPOST_LOGQUEUE_H

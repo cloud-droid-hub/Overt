@@ -10,7 +10,7 @@
 #include "zUtil.h"
 
 string get_line(int fd) {
-    LOGD("[zUtil] get_line called with fd: %d", fd);
+    LOGD("get_line called with fd: %d", fd);
     char buffer;
     string line = "";
     while (true) {
@@ -23,7 +23,7 @@ string get_line(int fd) {
 }
 
 vector<string> get_file_lines(string path){
-    LOGD("[zUtil] get_file_lines called with path: %s", path.c_str());
+    LOGD("get_file_lines called with path: %s", path.c_str());
     vector<string> file_lines = vector<string>();
     int fd = open(path.c_str(), O_RDONLY);
     if (fd == -1) {
@@ -42,7 +42,7 @@ vector<string> get_file_lines(string path){
 
 // 分割字符串，返回字符串数组，分割算法用 c 来实现，不利用 api
 vector<string> split_str(const string& str, const string& split) {
-    LOGD("[zUtil] split_str called with str: %s, split: %s", str.c_str(), split.c_str());
+    LOGD("split_str called with str: %s, split: %s", str.c_str(), split.c_str());
     vector<string> result;
 
     if (split.empty()) {
@@ -79,7 +79,7 @@ vector<string> split_str(const string& str, const string& split) {
 }
 
 vector<string> split_str(const string& str, char delim) {
-    LOGD("[zUtil] split_str called with char delim: %c", delim);
+    LOGD("split_str called with char delim: %c", delim);
     vector<string> result;
     const char* s = str.c_str();
     size_t start = 0;
@@ -98,7 +98,7 @@ vector<string> split_str(const string& str, char delim) {
 }
 
 bool string_end_with(const char *str, const char *suffix) {
-    LOGD("[zUtil] string_end_with called");
+    LOGD("string_end_with called");
     if (!str || !suffix) {
         return false;
     }
@@ -114,7 +114,7 @@ bool string_end_with(const char *str, const char *suffix) {
 }
 
 bool string_start_with(const char *str, const char *prefix) {
-  LOGD("[zUtil] string_start_with called");
+  LOGD("string_start_with called");
   if (!str || !prefix) {
     return false;
   }
@@ -131,45 +131,45 @@ bool string_start_with(const char *str, const char *prefix) {
 
 // 将 map<string, string> 转换为 Java Map<String, String>
 jobject cmap_to_jmap(JNIEnv *env, const map<string, string>& cmap){
-    LOGD("[zUtil] cmap_to_jmap called, map size: %zu", cmap.size());
-    LOGI("[zUtil] cmap_to_jmap: starting conversion, map size=%zu", cmap.size());
-    LOGD("[zUtil] cmap_to_jmap: map type info - is nonstd::map: %s", typeid(cmap).name());
+    LOGD("cmap_to_jmap called, map size: %zu", cmap.size());
+    LOGI("cmap_to_jmap: starting conversion, map size=%zu", cmap.size());
+    LOGD("cmap_to_jmap: map type info - is nonstd::map: %s", typeid(cmap).name());
     
     // 遍历并打印map内容
-    LOGD("[zUtil] cmap_to_jmap: map contents:");
+    LOGD("cmap_to_jmap: map contents:");
     for (const auto &entry : cmap) {
-        LOGD("[zUtil] cmap_to_jmap: key='%s', value='%s'", entry.first.c_str(), entry.second.c_str());
+        LOGD("cmap_to_jmap: key='%s', value='%s'", entry.first.c_str(), entry.second.c_str());
     }
     
     // 查找类和方法ID（只查找一次）
     jclass hashMapClass = env->FindClass("java/util/HashMap");
     if (!hashMapClass) {
-        LOGD("[zUtil] cmap_to_jmap: Failed to find HashMap class");
+        LOGD("cmap_to_jmap: Failed to find HashMap class");
         return nullptr;
     }
     
     jmethodID hashMapConstructor = env->GetMethodID(hashMapClass, "<init>", "()V");
     if (!hashMapConstructor) {
-        LOGD("[zUtil] cmap_to_jmap: Failed to find HashMap constructor");
+        LOGD("cmap_to_jmap: Failed to find HashMap constructor");
         return nullptr;
     }
     
     jmethodID putMethod = env->GetMethodID(hashMapClass, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
     if (!putMethod) {
-        LOGD("[zUtil] cmap_to_jmap: Failed to find HashMap put method");
+        LOGD("cmap_to_jmap: Failed to find HashMap put method");
         return nullptr;
     }
     
     // 创建HashMap对象
     jobject jobjectMap = env->NewObject(hashMapClass, hashMapConstructor);
     if (!jobjectMap) {
-        LOGD("[zUtil] cmap_to_jmap: Failed to create HashMap object");
+        LOGD("cmap_to_jmap: Failed to create HashMap object");
         return nullptr;
     }
     
     // 检查是否抛出异常
     if (env->ExceptionCheck()) {
-        LOGD("[zUtil] cmap_to_jmap: Exception occurred during HashMap creation");
+        LOGD("cmap_to_jmap: Exception occurred during HashMap creation");
         env->ExceptionDescribe();
         env->ExceptionClear();
         return nullptr;
@@ -177,14 +177,14 @@ jobject cmap_to_jmap(JNIEnv *env, const map<string, string>& cmap){
     
     // 填充数据
     for (const auto &entry : cmap) {
-        LOGD("[zUtil] cmap_to_jmap: processing entry: key='%s', value='%s'", 
+        LOGD("cmap_to_jmap: processing entry: key='%s', value='%s'", 
              entry.first.c_str(), entry.second.c_str());
         
         jstring jkey = env->NewStringUTF(entry.first.c_str());
         jstring jvalue = env->NewStringUTF(entry.second.c_str());
         
         if (!jkey || !jvalue) {
-            LOGD("[zUtil] cmap_to_jmap: Failed to create string objects");
+            LOGD("cmap_to_jmap: Failed to create string objects");
             if (jkey) env->DeleteLocalRef(jkey);
             if (jvalue) env->DeleteLocalRef(jvalue);
             continue;
@@ -194,7 +194,7 @@ jobject cmap_to_jmap(JNIEnv *env, const map<string, string>& cmap){
         
         // 检查是否抛出异常
         if (env->ExceptionCheck()) {
-            LOGD("[zUtil] cmap_to_jmap: Exception occurred during put operation");
+            LOGD("cmap_to_jmap: Exception occurred during put operation");
             env->ExceptionDescribe();
             env->ExceptionClear();
             env->DeleteLocalRef(jkey);
@@ -207,54 +207,54 @@ jobject cmap_to_jmap(JNIEnv *env, const map<string, string>& cmap){
         env->DeleteLocalRef(jvalue);
     }
     
-    LOGI("[zUtil] cmap_to_jmap: conversion completed successfully");
+    LOGI("cmap_to_jmap: conversion completed successfully");
     return jobjectMap;
 }
 
 // 将 map<string, map<string, string>> 转换为 Java Map<String, Map<String, String>>
 jobject cmap_to_jmap_nested(JNIEnv* env, const map<string, map<string, string>>& cmap) {
-    LOGD("[zUtil] cmap_to_jmap_nested called, map size: %zu", cmap.size());
-    LOGI("[zUtil] cmap_to_jmap_nested: starting conversion, map size=%zu", cmap.size());
-    LOGD("[zUtil] cmap_to_jmap_nested: map type info - is nonstd::map: %s", typeid(cmap).name());
+    LOGD("cmap_to_jmap_nested called, map size: %zu", cmap.size());
+    LOGI("cmap_to_jmap_nested: starting conversion, map size=%zu", cmap.size());
+    LOGD("cmap_to_jmap_nested: map type info - is nonstd::map: %s", typeid(cmap).name());
     
     // 遍历并打印map内容
-    LOGD("[zUtil] cmap_to_jmap_nested: map contents:");
+    LOGD("cmap_to_jmap_nested: map contents:");
     for (const auto &entry : cmap) {
-        LOGD("[zUtil] cmap_to_jmap_nested: key='%s', inner map size=%zu", entry.first.c_str(), entry.second.size());
+        LOGD("cmap_to_jmap_nested: key='%s', inner map size=%zu", entry.first.c_str(), entry.second.size());
         for (const auto &inner_entry : entry.second) {
-            LOGD("[zUtil] cmap_to_jmap_nested: inner key='%s', value='%s'", inner_entry.first.c_str(), inner_entry.second.c_str());
+            LOGD("cmap_to_jmap_nested: inner key='%s', value='%s'", inner_entry.first.c_str(), inner_entry.second.c_str());
         }
     }
     
     // 查找类和方法ID（只查找一次）
     jclass hashMapClass = env->FindClass("java/util/HashMap");
     if (!hashMapClass) {
-        LOGE("[zUtil] cmap_to_jmap_nested: Failed to find HashMap class");
+        LOGE("cmap_to_jmap_nested: Failed to find HashMap class");
         return nullptr;
     }
     
     jmethodID hashMapConstructor = env->GetMethodID(hashMapClass, "<init>", "()V");
     if (!hashMapConstructor) {
-        LOGE("[zUtil] cmap_to_jmap_nested: Failed to find HashMap constructor");
+        LOGE("cmap_to_jmap_nested: Failed to find HashMap constructor");
         return nullptr;
     }
     
     jmethodID putMethod = env->GetMethodID(hashMapClass, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
     if (!putMethod) {
-        LOGE("[zUtil] cmap_to_jmap_nested: Failed to find HashMap put method");
+        LOGE("cmap_to_jmap_nested: Failed to find HashMap put method");
         return nullptr;
     }
     
     // 创建HashMap对象
     jobject jmap = env->NewObject(hashMapClass, hashMapConstructor);
     if (!jmap) {
-        LOGE("[zUtil] cmap_to_jmap_nested: Failed to create HashMap object");
+        LOGE("cmap_to_jmap_nested: Failed to create HashMap object");
         return nullptr;
     }
     
     // 检查是否抛出异常
     if (env->ExceptionCheck()) {
-        LOGE("[zUtil] cmap_to_jmap_nested: Exception occurred during HashMap creation");
+        LOGE("cmap_to_jmap_nested: Exception occurred during HashMap creation");
         env->ExceptionDescribe();
         env->ExceptionClear();
         return nullptr;
@@ -262,18 +262,18 @@ jobject cmap_to_jmap_nested(JNIEnv* env, const map<string, map<string, string>>&
     
     // 填充数据
     for (const auto& entry : cmap) {
-        LOGD("[zUtil] cmap_to_jmap_nested: processing entry: key='%s', inner map size=%zu", 
+        LOGD("cmap_to_jmap_nested: processing entry: key='%s', inner map size=%zu", 
              entry.first.c_str(), entry.second.size());
         
         jstring jkey = env->NewStringUTF(entry.first.c_str());
         if (!jkey) {
-            LOGE("[zUtil] cmap_to_jmap_nested: Failed to create key string");
+            LOGE("cmap_to_jmap_nested: Failed to create key string");
             continue;
         }
         
         jobject jvalue = cmap_to_jmap(env, entry.second); // 调用之前定义的 cmap_to_jmap 方法
         if (!jvalue) {
-            LOGE("[zUtil] cmap_to_jmap_nested: Failed to convert inner map");
+            LOGE("cmap_to_jmap_nested: Failed to convert inner map");
             env->DeleteLocalRef(jkey);
             continue;
         }
@@ -282,7 +282,7 @@ jobject cmap_to_jmap_nested(JNIEnv* env, const map<string, map<string, string>>&
         
         // 检查是否抛出异常
         if (env->ExceptionCheck()) {
-            LOGE("[zUtil] cmap_to_jmap_nested: Exception occurred during put operation");
+            LOGE("cmap_to_jmap_nested: Exception occurred during put operation");
             env->ExceptionDescribe();
             env->ExceptionClear();
             env->DeleteLocalRef(jkey);
@@ -295,24 +295,24 @@ jobject cmap_to_jmap_nested(JNIEnv* env, const map<string, map<string, string>>&
         env->DeleteLocalRef(jvalue);
     }
     
-    LOGI("[zUtil] cmap_to_jmap_nested: conversion completed successfully");
+    LOGI("cmap_to_jmap_nested: conversion completed successfully");
     return jmap;
 }
 
 // 主函数：将 map<string, map<string, map<string, string>>> 转换为 Java Map<String, Map<String, Map<String, String>>>
 jobject cmap_to_jmap_nested_3(JNIEnv* env, const map<string, map<string, map<string, string>>>& cmap) {
-    LOGD("[zUtil] cmap_to_jmap_nested_3 called, map size: %zu", cmap.size());
-    LOGI("[zUtil] cmap_to_jmap_nested_3: starting conversion, map size=%zu", cmap.size());
-    LOGD("[zUtil] cmap_to_jmap_nested_3: map type info - is nonstd::map: %s", typeid(cmap).name());
+    LOGD("cmap_to_jmap_nested_3 called, map size: %zu", cmap.size());
+    LOGI("cmap_to_jmap_nested_3: starting conversion, map size=%zu", cmap.size());
+    LOGD("cmap_to_jmap_nested_3: map type info - is nonstd::map: %s", typeid(cmap).name());
     
     // 遍历并打印map内容
-    LOGD("[zUtil] cmap_to_jmap_nested_3: map contents:");
+    LOGD("cmap_to_jmap_nested_3: map contents:");
     for (const auto &entry : cmap) {
-        LOGD("[zUtil] cmap_to_jmap_nested_3: key='%s', inner map size=%zu", entry.first.c_str(), entry.second.size());
+        LOGD("cmap_to_jmap_nested_3: key='%s', inner map size=%zu", entry.first.c_str(), entry.second.size());
         for (const auto &inner_entry : entry.second) {
-            LOGD("[zUtil] cmap_to_jmap_nested_3: inner key='%s', inner inner map size=%zu", inner_entry.first.c_str(), inner_entry.second.size());
+            LOGD("cmap_to_jmap_nested_3: inner key='%s', inner inner map size=%zu", inner_entry.first.c_str(), inner_entry.second.size());
             for (const auto &inner_inner_entry : inner_entry.second) {
-                LOGD("[zUtil] cmap_to_jmap_nested_3: inner inner key='%s', value='%s'", inner_inner_entry.first.c_str(), inner_inner_entry.second.c_str());
+                LOGD("cmap_to_jmap_nested_3: inner inner key='%s', value='%s'", inner_inner_entry.first.c_str(), inner_inner_entry.second.c_str());
             }
         }
     }
@@ -320,32 +320,32 @@ jobject cmap_to_jmap_nested_3(JNIEnv* env, const map<string, map<string, map<str
     // 查找类和方法ID（只查找一次）
     jclass hashMapClass = env->FindClass("java/util/HashMap");
     if (!hashMapClass) {
-        LOGE("[zUtil] cmap_to_jmap_nested_3: Failed to find HashMap class");
+        LOGE("cmap_to_jmap_nested_3: Failed to find HashMap class");
         return nullptr;
     }
     
     jmethodID hashMapConstructor = env->GetMethodID(hashMapClass, "<init>", "()V");
     if (!hashMapConstructor) {
-        LOGE("[zUtil] cmap_to_jmap_nested_3: Failed to find HashMap constructor");
+        LOGE("cmap_to_jmap_nested_3: Failed to find HashMap constructor");
         return nullptr;
     }
     
     jmethodID putMethod = env->GetMethodID(hashMapClass, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
     if (!putMethod) {
-        LOGE("[zUtil] cmap_to_jmap_nested_3: Failed to find HashMap put method");
+        LOGE("cmap_to_jmap_nested_3: Failed to find HashMap put method");
         return nullptr;
     }
     
     // 创建HashMap对象
     jobject jmap = env->NewObject(hashMapClass, hashMapConstructor);
     if (!jmap) {
-        LOGE("[zUtil] cmap_to_jmap_nested_3: Failed to create HashMap object");
+        LOGE("cmap_to_jmap_nested_3: Failed to create HashMap object");
         return nullptr;
     }
     
     // 检查是否抛出异常
     if (env->ExceptionCheck()) {
-        LOGE("[zUtil] cmap_to_jmap_nested_3: Exception occurred during HashMap creation");
+        LOGE("cmap_to_jmap_nested_3: Exception occurred during HashMap creation");
         env->ExceptionDescribe();
         env->ExceptionClear();
         return nullptr;
@@ -353,18 +353,18 @@ jobject cmap_to_jmap_nested_3(JNIEnv* env, const map<string, map<string, map<str
     
     // 填充数据
     for (const auto& entry : cmap) {
-        LOGD("[zUtil] cmap_to_jmap_nested_3: processing entry: key='%s', inner map size=%zu", 
+        LOGD("cmap_to_jmap_nested_3: processing entry: key='%s', inner map size=%zu", 
              entry.first.c_str(), entry.second.size());
         
         jstring jkey = env->NewStringUTF(entry.first.c_str());
         if (!jkey) {
-            LOGE("[zUtil] cmap_to_jmap_nested_3: Failed to create key string");
+            LOGE("cmap_to_jmap_nested_3: Failed to create key string");
             continue;
         }
         
         jobject jvalue = cmap_to_jmap_nested(env, entry.second);
         if (!jvalue) {
-            LOGE("[zUtil] cmap_to_jmap_nested_3: Failed to convert inner map");
+            LOGE("cmap_to_jmap_nested_3: Failed to convert inner map");
             env->DeleteLocalRef(jkey);
             continue;
         }
@@ -373,7 +373,7 @@ jobject cmap_to_jmap_nested_3(JNIEnv* env, const map<string, map<string, map<str
         
         // 检查是否抛出异常
         if (env->ExceptionCheck()) {
-            LOGE("[zUtil] cmap_to_jmap_nested_3: Exception occurred during put operation");
+            LOGE("cmap_to_jmap_nested_3: Exception occurred during put operation");
             env->ExceptionDescribe();
             env->ExceptionClear();
             env->DeleteLocalRef(jkey);
@@ -386,27 +386,27 @@ jobject cmap_to_jmap_nested_3(JNIEnv* env, const map<string, map<string, map<str
         env->DeleteLocalRef(jvalue);
     }
     
-    LOGI("[zUtil] cmap_to_jmap_nested_3: conversion completed successfully");
+    LOGI("cmap_to_jmap_nested_3: conversion completed successfully");
     return jmap;
 }
 
 
 string format_timestamp(long timestamp) {
-    LOGD("[zUtil] format_timestamp called with timestamp: %ld", timestamp);
-    LOGI("[zUtil] format_timestamp: called with timestamp=%ld", timestamp);
+    LOGD("format_timestamp called with timestamp: %ld", timestamp);
+    LOGI("format_timestamp: called with timestamp=%ld", timestamp);
 
     if (timestamp <= 0) {
-        LOGE("[zUtil] format_timestamp: invalid timestamp (<=0): %ld", timestamp);
+        LOGE("format_timestamp: invalid timestamp (<=0): %ld", timestamp);
         return "Invalid timestamp";
     }
 
     // 转换为本地时间
     time_t time = (time_t)timestamp;
-    LOGD("[zUtil] format_timestamp: converted to time_t: %ld", time);
+    LOGD("format_timestamp: converted to time_t: %ld", time);
 
     struct tm* timeinfo = localtime(&time);
     if (timeinfo == nullptr) {
-        LOGE("[zUtil] format_timestamp: localtime failed for timestamp=%ld", timestamp);
+        LOGE("format_timestamp: localtime failed for timestamp=%ld", timestamp);
         return "Failed to convert time";
     }
 
@@ -415,11 +415,11 @@ string format_timestamp(long timestamp) {
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
 
     // 输出调试信息
-    LOGD("[zUtil] format_timestamp: input=%ld, year=%d, month=%d, day=%d, hour=%d, min=%d, sec=%d",
+    LOGD("format_timestamp: input=%ld, year=%d, month=%d, day=%d, hour=%d, min=%d, sec=%d",
          timestamp, timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
          timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 
-    LOGI("[zUtil] format_timestamp: returning formatted string: %s", buffer);
+    LOGI("format_timestamp: returning formatted string: %s", buffer);
     return string(buffer);
 }
 

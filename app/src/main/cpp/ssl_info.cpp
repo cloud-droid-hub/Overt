@@ -24,22 +24,22 @@ string get_location() {
 
   // 输出证书信息
   if (!response.error_message.empty()) {
-            LOGW("[ssl_info] Server error_message is not empty");
+            LOGW("Server error_message is not empty");
     return location;
   }
 
   if (response.certificate.fingerprint_sha256 != qq_location_url_fingerprint_sha256) {
-            LOGI("[ssl_info] Server Certificate Fingerprint Local : %s", qq_location_url_fingerprint_sha256.c_str());
-            LOGD("[ssl_info] Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
+            LOGI("Server Certificate Fingerprint Local : %s", qq_location_url_fingerprint_sha256.c_str());
+            LOGD("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
     return location;
   }
 
-          LOGI("[ssl_info] get_time_info: pinduoduo_time: %s", response.body.c_str());
+          LOGI("get_time_info: pinduoduo_time: %s", response.body.c_str());
 
   zJson json(response.body);
   // 检查解析是否成功
   if (json.isError()) {
-            LOGW("[ssl_info] Failed to parse JSON response");
+            LOGW("Failed to parse JSON response");
     return location;
   }
 
@@ -55,7 +55,7 @@ string get_location() {
       location = country + province + city;
   }
 
-          LOGI("[ssl_info] get_location: %s", location.c_str());
+          LOGI("get_location: %s", location.c_str());
 
   return location ;
 }
@@ -71,7 +71,7 @@ map<string, map<string, string>> get_ssl_info(){
     };
 
     for (auto& item : url_info) {
-        LOGI("[ssl_info] === Testing URL: %s ===", item.first.c_str());
+        LOGI("=== Testing URL: %s ===", item.first.c_str());
 
         // 创建HTTPS请求 - 使用2秒超时
         HttpsRequest request(item.first, "GET", 3);
@@ -81,14 +81,14 @@ map<string, map<string, string>> get_ssl_info(){
 
         // 输出证书信息
         if (!response.error_message.empty()) {
-            LOGW("[ssl_info] Server error_message is not empty");
+            LOGW("Server error_message is not empty");
             info[item.first]["risk"] = "error";
             info[item.first]["explain"] = response.error_message;
             continue;
         }
         if (response.certificate.fingerprint_sha256 != item.second) {
-            LOGI("[ssl_info] Server Certificate Fingerprint Local : %s", item.second.c_str());
-            LOGD("[ssl_info] Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
+            LOGI("Server Certificate Fingerprint Local : %s", item.second.c_str());
+            LOGD("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
             info[item.first]["risk"] = "error";
             info[item.first]["explain"] = "Certificate Fingerprint is wrong " + response.certificate.fingerprint_sha256;
             continue;
@@ -97,15 +97,15 @@ map<string, map<string, string>> get_ssl_info(){
 
     string location = get_location();
     if(location.empty()){
-        LOGW("[ssl_info] get_location failed");
+        LOGW("get_location failed");
         info["location"]["risk"] = "error";
         info["location"]["explain"] = "get_location failed";
     }else if(string_start_with(location.c_str(), "中国")){
-        LOGI("[ssl_info] get_location succeed");
+        LOGI("get_location succeed");
         info["location"]["risk"] = "safe";
         info["location"]["explain"] = location;
     }else{
-        LOGW("[ssl_info] get_location succeed but error");
+        LOGW("get_location succeed but error");
         info["location"]["risk"] = "error";
         info["location"]["explain"] = location;
     }

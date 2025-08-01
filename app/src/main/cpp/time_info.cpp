@@ -37,14 +37,14 @@
 zFile get_earliest_file() {
     // 将 /proc/self/maps 作为默认值
     zFile earliest_file("/proc/self/maps");
-    LOGI("[time_info] 初始最早时间: %s -> %s", earliest_file.getPath().c_str(), earliest_file.getEarliestTimeFormatted().c_str());
+    LOGI("初始最早时间: %s -> %s", earliest_file.getPath().c_str(), earliest_file.getEarliestTimeFormatted().c_str());
 
     // 遍历 /proc/mounts
     for(string line : zFile("/proc/mounts").readAllLines()){
 
         vector<string> tokens = split_str(line, ' ');
         if (tokens.size() < 4) {
-            LOGD("[time_info] mounts format is wrong: %s", line.c_str());
+            LOGD("mounts format is wrong: %s", line.c_str());
             continue;
         }
 
@@ -55,7 +55,7 @@ zFile get_earliest_file() {
 
         // 只处理真实路径挂载点，排除某些虚拟fs如 proc, sysfs, tmpfs
         if (fstype == "proc" || fstype == "sysfs" || fstype == "tmpfs" || fstype == "devtmpfs" || fstype == "devpts" || fstype == "cgroup") {
-            LOGD("[time_info] 跳过虚拟文件系统: %s", fstype.c_str());
+            LOGD("跳过虚拟文件系统: %s", fstype.c_str());
             continue;
         }
 
@@ -94,7 +94,7 @@ zFile get_earliest_file() {
             continue;
         }
 
-        LOGD("[time_info] mountpoint_file %s %d %s", mountpoint_file.getPath().c_str(), mountpoint_file.getEarliestTime(), mountpoint_file.getEarliestTimeFormatted().c_str());
+        LOGD("mountpoint_file %s %d %s", mountpoint_file.getPath().c_str(), mountpoint_file.getEarliestTime(), mountpoint_file.getEarliestTimeFormatted().c_str());
         sleep(0);
 
         if(mountpoint_file.getEarliestTime() < earliest_file.getEarliestTime()){
@@ -103,29 +103,29 @@ zFile get_earliest_file() {
 
     }
 
-    LOGI("[time_info] 最终最早文件: %s -> %ld %s", earliest_file.getPath().c_str(), earliest_file.getEarliestTime(), earliest_file.getEarliestTimeFormatted().c_str());
+    LOGI("最终最早文件: %s -> %ld %s", earliest_file.getPath().c_str(), earliest_file.getEarliestTime(), earliest_file.getEarliestTimeFormatted().c_str());
     return earliest_file;
 }
 
 string get_time_diff(long timestamp) {
-  LOGD("[time_info] get_time_diff: called with timestamp=%ld", timestamp);
+  LOGD("get_time_diff: called with timestamp=%ld", timestamp);
 
   if (timestamp <= 0) {
-            LOGW("[time_info] get_time_diff: invalid timestamp (<=0): %ld", timestamp);
+            LOGW("get_time_diff: invalid timestamp (<=0): %ld", timestamp);
     return "Invalid timestamp";
   }
 
   // 获取当前时间
-  LOGD("[time_info] get_time_diff: calling time...");
+  LOGD("get_time_diff: calling time...");
   time_t current_time = time(nullptr);
-  LOGD("[time_info] get_time_diff: current_time=%ld", current_time);
+  LOGD("get_time_diff: current_time=%ld", current_time);
 
   // 计算时间差（秒）
   long time_diff = current_time - timestamp;
-  LOGD("[time_info] get_time_diff: time_diff calculation: %ld - %ld = %ld", current_time, timestamp, time_diff);
+  LOGD("get_time_diff: time_diff calculation: %ld - %ld = %ld", current_time, timestamp, time_diff);
 
   if (time_diff < 0) {
-            LOGW("[time_info] get_time_diff: negative time difference: %ld", time_diff);
+            LOGW("get_time_diff: negative time difference: %ld", time_diff);
     return "Invalid time difference";
   }
 
@@ -140,33 +140,33 @@ string get_time_diff(long timestamp) {
   snprintf(time_str, sizeof(time_str),"时间间隔: %ld天%ld小时%ld分钟%ld秒", days, hours, minutes, seconds);
 
   // 输出调试信息
-  LOGD("[time_info] Time difference calculation: current=%ld, input=%ld, diff=%ld, days=%ld, hours=%ld, minutes=%ld, seconds=%ld", current_time, timestamp, time_diff, days, hours, minutes, seconds);
+  LOGD("Time difference calculation: current=%ld, input=%ld, diff=%ld, days=%ld, hours=%ld, minutes=%ld, seconds=%ld", current_time, timestamp, time_diff, days, hours, minutes, seconds);
 
   return string(time_str);
 }
 
 long get_boot_time_by_syscall() {
     struct sysinfo info;
-    LOGD("[time_info] get_boot_time_by_syscall: starting...");
+    LOGD("get_boot_time_by_syscall: starting...");
 
     // 使用 syscall(63, ...) 也就是 SYS_sysinfo
     int result = __syscall1(__NR_sysinfo, (long)&info);
-    LOGD("[time_info] get_boot_time_by_syscall: sysinfo syscall result=%d, uptime=%ld, loads[0]=%ld, loads[1]=%ld, loads[2]=%ld", 
+    LOGD("get_boot_time_by_syscall: sysinfo syscall result=%d, uptime=%ld, loads[0]=%ld, loads[1]=%ld, loads[2]=%ld", 
          result, info.uptime, info.loads[0], info.loads[1], info.loads[2]);
     
     if (result != 0) {
-        LOGE("[time_info] get_boot_time_by_syscall: syscall SYS_sysinfo failed: %d", result);
+        LOGE("get_boot_time_by_syscall: syscall SYS_sysinfo failed: %d", result);
         return -1;
     }
 
-    LOGD("[time_info] get_boot_time_by_syscall: calling time...");
+    LOGD("get_boot_time_by_syscall: calling time...");
     time_t now = time(nullptr);
-    LOGD("[time_info] get_boot_time_by_syscall: time returned: %ld", now);
+    LOGD("get_boot_time_by_syscall: time returned: %ld", now);
     
     time_t boot_time = now - info.uptime;
-    LOGD("[time_info] get_boot_time_by_syscall: calculation: %ld - %ld = %ld", now, info.uptime, boot_time);
+    LOGD("get_boot_time_by_syscall: calculation: %ld - %ld = %ld", now, info.uptime, boot_time);
 
-    LOGI("[time_info] get_boot_time_by_syscall: final boot_time: %ld", (long)boot_time);
+    LOGI("get_boot_time_by_syscall: final boot_time: %ld", (long)boot_time);
     return boot_time;
 }
 
@@ -186,69 +186,69 @@ long get_remote_current_time(){
 
   // 输出证书信息
   if (!response.error_message.empty()) {
-            LOGW("[time_info] Server error_message is not empty");
+            LOGW("Server error_message is not empty");
     return -1;
   }
 
   if (response.certificate.fingerprint_sha256 != pinduoduo_time_fingerprint_sha256) {
-    LOGI("[time_info] Server Certificate Fingerprint Local : %s", pinduoduo_time_fingerprint_sha256.c_str());
-    LOGD("[time_info] Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
+    LOGI("Server Certificate Fingerprint Local : %s", pinduoduo_time_fingerprint_sha256.c_str());
+    LOGD("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
     return -1;
   }
 
-  LOGD("[time_info] get_time_info: pinduoduo_time: %s", response.body.c_str());
+  LOGD("get_time_info: pinduoduo_time: %s", response.body.c_str());
 
   zJson json(response.body);
   // 检查解析是否成功
   if (json.isError()) {
-            LOGW("[time_info] Failed to parse JSON response");
+            LOGW("Failed to parse JSON response");
     return -1;
   }
 
   long pinduoduo_time = json.getLong("server_time", -1);
-  LOGI("[time_info] get_time_info: pinduoduo_time: %ld", pinduoduo_time/1000);
+  LOGI("get_time_info: pinduoduo_time: %ld", pinduoduo_time/1000);
   return pinduoduo_time/1000;
 }
 
 
 map<string, map<string, string>> get_time_info(){
-    LOGI("[time_info] get_time_info: starting...");
+    LOGI("get_time_info: starting...");
 
     map<string, map<string, string>> info;
 
     time_t local_current_time = get_local_current_time();
-    LOGI("[time_info] get_time_info: current_time=%ld", local_current_time);
+    LOGI("get_time_info: current_time=%ld", local_current_time);
     string local_current_time_str = format_timestamp(local_current_time);
-    LOGD("[time_info] get_time_info: format_timestamp result: %s", local_current_time_str.c_str());
+    LOGD("get_time_info: format_timestamp result: %s", local_current_time_str.c_str());
 
     long boot_time = get_boot_time_by_syscall();
-    LOGI("[time_info] get_time_info: get_boot_time_by_syscall returned: %ld", boot_time);
+    LOGI("get_time_info: get_boot_time_by_syscall returned: %ld", boot_time);
     string boot_time_str = format_timestamp(boot_time);
-    LOGD("[time_info] get_time_info: format_timestamp result: %s", boot_time_str.c_str());
+    LOGD("get_time_info: format_timestamp result: %s", boot_time_str.c_str());
 
     long remote_current_time = get_remote_current_time();
-    LOGI("[time_info] remote_current_time=%ld", remote_current_time);
+    LOGI("remote_current_time=%ld", remote_current_time);
     string remote_current_time_str = format_timestamp(remote_current_time);
-    LOGD("[time_info] remote_current_time_str: format_timestamp result: %s", remote_current_time_str.c_str());
+    LOGD("remote_current_time_str: format_timestamp result: %s", remote_current_time_str.c_str());
 
 
     // 开机时间过短，可能刚重启
     long time_diff_seconds = local_current_time - boot_time;
     long one_day_seconds = 1 * 24 * 60 * 60;
-    LOGD("[time_info] get_time_info: time_diff_seconds=%ld, one_day_seconds=%ld", time_diff_seconds, one_day_seconds);
-    LOGD("[time_info] get_time_info: condition check: %ld < %ld = %s", time_diff_seconds, one_day_seconds, (time_diff_seconds < one_day_seconds) ? "true" : "false");
+    LOGD("get_time_info: time_diff_seconds=%ld, one_day_seconds=%ld", time_diff_seconds, one_day_seconds);
+    LOGD("get_time_info: condition check: %ld < %ld = %s", time_diff_seconds, one_day_seconds, (time_diff_seconds < one_day_seconds) ? "true" : "false");
     
     if(time_diff_seconds < one_day_seconds){
-        LOGI("[time_info] get_time_info: adding boot_time info to map");
+        LOGI("get_time_info: adding boot_time info to map");
         info["boot_time"]["risk"] = "warn";
         info["boot_time"]["explain"] = "boot_time is too short " + boot_time_str;
     } else {
-        LOGI("[time_info] get_time_info: boot time is not too short");
+        LOGI("get_time_info: boot time is not too short");
         info["boot_time"]["risk"] = "safe";
         info["boot_time"]["explain"] = "boot_time is " + boot_time_str;
     }
 
-    LOGD("[time_info] remote_current_time diff: %ld", abs(remote_current_time - local_current_time));
+    LOGD("remote_current_time diff: %ld", abs(remote_current_time - local_current_time));
     if(abs(remote_current_time - local_current_time) > 60){
         info["local_current_time"]["risk"] = "warn";
         info["local_current_time"]["explain"] = "local_current_time is " + local_current_time_str;
@@ -272,11 +272,11 @@ map<string, map<string, string>> get_time_info(){
 //        info["earliest_time:"+earliest_file.getEarliestTimeFormatted()]["explain"] = "earliest_time is too short";
 //    }
 
-    LOGI("[time_info] get_time_info: final info map size: %zu", info.size());
+    LOGI("get_time_info: final info map size: %zu", info.size());
     for (const auto& entry : info) {
-        LOGD("[time_info] get_time_info: map entry - key: '%s', inner map size: %zu", entry.first.c_str(), entry.second.size());
+        LOGD("get_time_info: map entry - key: '%s', inner map size: %zu", entry.first.c_str(), entry.second.size());
         for (const auto& inner_entry : entry.second) {
-            LOGD("[time_info] get_time_info: inner map entry - key: '%s', value: '%s'", inner_entry.first.c_str(), inner_entry.second.c_str());
+            LOGD("get_time_info: inner map entry - key: '%s', value: '%s'", inner_entry.first.c_str(), inner_entry.second.c_str());
         }
     }
     return info;

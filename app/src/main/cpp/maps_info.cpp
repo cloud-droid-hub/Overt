@@ -22,38 +22,38 @@ struct maps_line_t {
 
 
 map<string, map<string, string>> get_maps_info(){
-    LOGD("[maps_info] get_maps_info called");
+    LOGD("get_maps_info called");
     map<string, map<string, string>> info;
 
     map<string, vector<maps_line_t>> maps_table;
     zFile file("/proc/self/maps");
-    LOGD("[maps_info] Created zFile for /proc/self/maps");
+    LOGD("Created zFile for /proc/self/maps");
 
     // 检查文件是否成功打开
     if (file.isOpen()) {
-        LOGI("[maps_info] File opened successfully: %s", file.getPath().c_str());
+        LOGI("File opened successfully: %s", file.getPath().c_str());
     } else {
-        LOGE("[maps_info] File open failed: %s", file.getPath().c_str());
+        LOGE("File open failed: %s", file.getPath().c_str());
         return info;
     }
 
     // 按行读取
     vector<string> lines = file.readAllLines();
-    LOGI("[maps_info] Read %zu lines from file", lines.size());
+    LOGI("Read %zu lines from file", lines.size());
 
     // 显示前几行
     for (size_t i = 0; i < lines.size(); i++) {
-        LOGD("[maps_info] Processing line %zu", i + 1);
+        LOGD("Processing line %zu", i + 1);
         if(string_end_with(lines[i].c_str(), ".so")){
-            LOGD("[maps_info] Found .so in line %zu", i + 1);
-            LOGD("[maps_info] Line %zu: %s", i + 1, lines[i].c_str());
+            LOGD("Found .so in line %zu", i + 1);
+            LOGD("Line %zu: %s", i + 1, lines[i].c_str());
 
             maps_line_t maps_line;
 
             vector<string> parts = split_str(lines[i], ' ');
 
             if (parts.size() != 6){
-                LOGE("[maps_info] Line %zu: insufficient parts %s", i + 1, lines[i].c_str());
+                LOGE("Line %zu: insufficient parts %s", i + 1, lines[i].c_str());
                 continue;
             }
 
@@ -71,7 +71,7 @@ map<string, map<string, string>> get_maps_info(){
             maps_line.inode = parts[4];
             maps_line.file_path = parts[5];
 
-            LOGD("[maps_info] Address range: %p - %p permissions: %s file path: %s", maps_line.address_range_start, maps_line.address_range_end, maps_line.permissions.c_str(), maps_line.file_path.c_str());
+            LOGD("Address range: %p - %p permissions: %s file path: %s", maps_line.address_range_start, maps_line.address_range_end, maps_line.permissions.c_str(), maps_line.file_path.c_str());
 
             maps_table[maps_line.file_path].push_back(maps_line);
             sleep(0);
@@ -87,11 +87,11 @@ map<string, map<string, string>> get_maps_info(){
         for(string lib_name : check_lib_list){
             if(string_end_with(it->first.c_str(), lib_name.c_str())){
                 if(it->second.size() != 4){
-                    LOGE("[maps_info] File path: %s, mapping count doesn't match expected: %zu", it->first.c_str(), it->second.size());
+                    LOGE("File path: %s, mapping count doesn't match expected: %zu", it->first.c_str(), it->second.size());
                     info[lib_name]["risk"] = "error";
                     info[lib_name]["explain"] = "reference count error";
                 }else if(it->second.size() == 4 && (it->second[0].permissions!= "r--p" || it->second[1].permissions!= "r-xp" || it->second[2].permissions!= "r--p" || it->second[3].permissions!="rw-p")){
-                    LOGE("[maps_info] File path: %s, mapping permissions don't match expected", it->first.c_str());
+                    LOGE("File path: %s, mapping permissions don't match expected", it->first.c_str());
                     info[lib_name]["risk"] = "error";
                     info[lib_name]["explain"] = "permissions error";
                 }

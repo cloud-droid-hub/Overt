@@ -9,10 +9,10 @@ zHttps* zHttps::instance = nullptr;
 
 // HttpsRequest方法实现
 void HttpsRequest::parseUrl() {
-    LOGD("[zHttps] parseUrl called for URL: %s", url.c_str());
+    LOGD("parseUrl called for URL: %s", url.c_str());
     // 强制只支持HTTPS的URL解析
     if (url.substr(0, 8) != "https://") {
-        LOGD("[zHttps] parseUrl: URL is not HTTPS, skipping");
+        LOGD("parseUrl: URL is not HTTPS, skipping");
         return;
     }
 
@@ -37,18 +37,18 @@ void HttpsRequest::parseUrl() {
             port = atoi(port_str.c_str());
             host = host.substr(0, port_start);
         } catch (const std::exception& e) {
-            LOGW("[zHttps] Invalid port number: %s", port_str.c_str());
+            LOGW("Invalid port number: %s", port_str.c_str());
             port = 443; // 默认HTTPS端口
         }
     } else {
         port = 443; // 默认HTTPS端口
     }
     
-    LOGI("[zHttps] parseUrl: parsed host=%s, port=%d, path=%s", host.c_str(), port, path.c_str());
+    LOGI("parseUrl: parsed host=%s, port=%d, path=%s", host.c_str(), port, path.c_str());
 }
 
 string HttpsRequest::buildRequest() const {
-    LOGD("[zHttps] buildRequest called");
+    LOGD("buildRequest called");
     string request = method + " " + path + " HTTP/1.1\r\n";
     request += "Host: ";
     request += host;
@@ -67,19 +67,19 @@ string HttpsRequest::buildRequest() const {
     if (!body.empty()) {
         request += body;
     }
-    LOGI("[zHttps] buildRequest: request length=%zu", request.length());
+    LOGI("buildRequest: request length=%zu", request.length());
     return request;
 }
 
 // zHttps方法实现
 zHttps::zHttps() : initialized(false), default_timeout_seconds(10) {
-    LOGD("[zHttps] Constructor called");
+    LOGD("Constructor called");
     // 不在构造函数中初始化mbedtls资源，而是在需要时初始化
     // 这样可以避免资源泄漏和状态污染
 }
 
 zHttps* zHttps::getInstance() {
-    LOGD("[zHttps] getInstance called");
+    LOGD("getInstance called");
     if (!instance) {
         instance = new zHttps();
     }
@@ -87,25 +87,25 @@ zHttps* zHttps::getInstance() {
 }
 
 void zHttps::setTimeout(int timeout_seconds) {
-    LOGD("[zHttps] setTimeout called with %d", timeout_seconds);
+    LOGD("setTimeout called with %d", timeout_seconds);
     default_timeout_seconds = timeout_seconds;
-    LOGI("[zHttps] Default timeout set to %d seconds", timeout_seconds);
+    LOGI("Default timeout set to %d seconds", timeout_seconds);
 }
 
 int zHttps::getTimeout() const {
-    LOGD("[zHttps] getTimeout called");
+    LOGD("getTimeout called");
     return default_timeout_seconds;
 }
 
 zHttps::~zHttps() {
-    LOGD("[zHttps] Destructor called");
+    LOGD("Destructor called");
     cleanup();
 }
 
 bool zHttps::initialize() {
-    LOGD("[zHttps] initialize called");
+    LOGD("initialize called");
     if (initialized) {
-        LOGD("[zHttps] initialize: already initialized");
+        LOGD("initialize: already initialized");
         return true;
     }
 
@@ -121,7 +121,7 @@ bool zHttps::initialize() {
     int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
                                     (const unsigned char*)pers, strlen(pers));
     if (ret != 0) {
-        LOGW("[zHttps] Failed to seed random number generator: %d", ret);
+        LOGW("Failed to seed random number generator: %d", ret);
         cleanup();
         return false;
     }
@@ -131,12 +131,12 @@ bool zHttps::initialize() {
     if (ret < 0) {
         ret = mbedtls_x509_crt_parse_path(&cacert, "/system/etc/ssl/certs");
         if (ret < 0) {
-            LOGW("[zHttps] Warning: No CA certificates loaded, continuing without verification");
+            LOGW("Warning: No CA certificates loaded, continuing without verification");
         }
     }
 
     initialized = true;
-    LOGI("[zHttps] initialize: mbedtls initialized successfully");
+    LOGI("initialize: mbedtls initialized successfully");
     return true;
 }
 
@@ -144,7 +144,7 @@ void zHttps::addPinnedCertificate(const string& hostname,
                                  const string& expected_serial,
                                  const string& expected_fingerprint,
                                  const string& expected_subject) {
-    LOGD("[zHttps] addPinnedCertificate called for hostname: %s", hostname.c_str());
+    LOGD("addPinnedCertificate called for hostname: %s", hostname.c_str());
     CertificateInfo cert_info;
     cert_info.serial_number = expected_serial;
     cert_info.fingerprint_sha256 = expected_fingerprint;
@@ -156,15 +156,15 @@ void zHttps::addPinnedCertificate(const string& hostname,
     cert_info.public_key_size = 0;
     
     pinned_certificates[hostname] = cert_info;
-    LOGI("[zHttps] Added pinned certificate for %s", hostname.c_str());
+    LOGI("Added pinned certificate for %s", hostname.c_str());
 }
 
 CertificateInfo zHttps::extractCertificateInfo(const mbedtls_x509_crt* cert) {
-    LOGD("[zHttps] extractCertificateInfo called");
+    LOGD("extractCertificateInfo called");
     CertificateInfo info;
 
     if (!cert) {
-        LOGD("[zHttps] extractCertificateInfo: cert is null");
+        LOGD("extractCertificateInfo: cert is null");
         return info;
     }
 
@@ -214,15 +214,15 @@ CertificateInfo zHttps::extractCertificateInfo(const mbedtls_x509_crt* cert) {
     info.is_future = mbedtls_x509_time_is_future(&cert->valid_from);
     info.is_valid = !info.is_expired && !info.is_future;
 
-    LOGI("[zHttps] extractCertificateInfo: extracted certificate info for subject: %s", info.subject.c_str());
+    LOGI("extractCertificateInfo: extracted certificate info for subject: %s", info.subject.c_str());
     return info;
 }
 
 bool zHttps::verifyCertificatePinning(const mbedtls_x509_crt* cert, const string& hostname) {
-    LOGD("[zHttps] verifyCertificatePinning called for hostname: %s", hostname.c_str());
+    LOGD("verifyCertificatePinning called for hostname: %s", hostname.c_str());
     auto it = pinned_certificates.find(hostname);
     if (it == pinned_certificates.end()) {
-        LOGI("[zHttps] No pinned certificate for hostname: %s, skipping pinning check.", hostname.c_str());
+        LOGI("No pinned certificate for hostname: %s, skipping pinning check.", hostname.c_str());
         return true; // 没有固定证书时跳过验证
     }
 
@@ -237,29 +237,29 @@ bool zHttps::verifyCertificatePinning(const mbedtls_x509_crt* cert, const string
     }
 
     if (!serial_match || !fingerprint_match || !subject_match) {
-        LOGW("[zHttps] Certificate pinning verification failed for %s", hostname.c_str());
-        LOGD("[zHttps] serial_match %d fingerprint_match %d subject_match %d ", serial_match, fingerprint_match, subject_match);
+        LOGW("Certificate pinning verification failed for %s", hostname.c_str());
+        LOGD("serial_match %d fingerprint_match %d subject_match %d ", serial_match, fingerprint_match, subject_match);
         
         // 输出详细信息用于调试
         if (!serial_match) {
-            LOGD("[zHttps] Expected serial: %s, Got: %s", 
+            LOGD("Expected serial: %s, Got: %s", 
                  pinned.serial_number.c_str(), 
                  extractCertificateInfo(cert).serial_number.c_str());
         }
         if (!fingerprint_match) {
-            LOGD("[zHttps] Expected fingerprint: %s, Got: %s", 
+            LOGD("Expected fingerprint: %s, Got: %s", 
                  pinned.fingerprint_sha256.c_str(), 
                  extractCertificateInfo(cert).fingerprint_sha256.c_str());
         }
         if (!subject_match && !pinned.subject.empty()) {
-            LOGD("[zHttps] Expected subject: %s, Got: %s", 
+            LOGD("Expected subject: %s, Got: %s", 
                  pinned.subject.c_str(), 
                  extractCertificateInfo(cert).subject.c_str());
         }
         
         return false;
     }
-    LOGI("[zHttps] Certificate pinning verification passed for %s", hostname.c_str());
+    LOGI("Certificate pinning verification passed for %s", hostname.c_str());
     return true;
 }
 
@@ -272,12 +272,12 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     // 为本次请求创建独立的计时器和资源
     RequestTimer timer(timeout_seconds);
     RequestResources resources;
-            LOGI("[zHttps] Starting HTTPS request with timeout: %d seconds", timer.timeout_seconds);
+            LOGI("Starting HTTPS request with timeout: %d seconds", timer.timeout_seconds);
     
     // 安全检查：确保只使用HTTPS协议，但允许任意端口
     if (request.url.substr(0, 8) != "https://") {
         response.error_message = "Only HTTPS URLs are supported";
-        LOGE("[zHttps] Security Error: Only HTTPS protocol is allowed");
+        LOGE("Security Error: Only HTTPS protocol is allowed");
         return response;
     }
 
@@ -285,14 +285,14 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     if (!initialized) {
         if (!initialize()) {
             response.error_message = "Failed to initialize mbedtls";
-            LOGE("[zHttps] Failed to initialize mbedtls");
+            LOGE("Failed to initialize mbedtls");
             return response;
         }
     }
     
     // 确保每次请求都使用干净的状态
     // 这可以防止前一次请求的失败状态影响当前请求
-            LOGI("[zHttps] Starting new HTTPS request to %s", request.host.c_str());
+            LOGI("Starting new HTTPS request to %s", request.host.c_str());
     
     // 重置全局SSL状态，确保每次请求都是独立的
     // 这可以防止前一次请求的失败状态影响当前请求
@@ -301,7 +301,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
         cleanup();
         if (!initialize()) {
             response.error_message = "Failed to reinitialize mbedtls";
-            LOGE("[zHttps] Failed to reinitialize mbedtls");
+            LOGE("Failed to reinitialize mbedtls");
             return response;
         }
     }
@@ -316,18 +316,18 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     int ret;
 
     // 使用自定义socket连接
-    LOGI("[zHttps] Connecting to %s:%d with custom socket...", request.host.c_str(), request.port);
+    LOGI("Connecting to %s:%d with custom socket...", request.host.c_str(), request.port);
     
     // 检查超时
     if (timer.isTimeout()) {
         response.error_message = "Connection timeout before establishing connection";
-        LOGE("[zHttps] Connection timeout before establishing connection");
+        LOGE("Connection timeout before establishing connection");
         return response;
     }
     
     // 记录连接开始时间
     time_t connect_start = time(nullptr);
-    LOGI("[zHttps] Connection attempt started at: %ld", connect_start);
+    LOGI("Connection attempt started at: %ld", connect_start);
     
     // 使用自定义socket连接，带超时控制
     resources.sockfd = connectWithTimeout(request.host, request.port, timeout_seconds);
@@ -335,11 +335,11 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     // 记录连接结束时间
     time_t connect_end = time(nullptr);
     int connect_duration = connect_end - connect_start;
-    LOGI("[zHttps] Connection attempt completed in %d seconds", connect_duration);
+    LOGI("Connection attempt completed in %d seconds", connect_duration);
     
     if (resources.sockfd < 0) {
         response.error_message = "Connection failed with custom socket";
-        LOGE("[zHttps] Connection failed after %d seconds with custom socket", connect_duration);
+        LOGE("Connection failed after %d seconds with custom socket", connect_duration);
         return response;
     }
     
@@ -348,14 +348,14 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     
     // 标记连接建立完成
     timer.markConnection();
-    LOGI("[zHttps] Connection established successfully in %d seconds", timer.getConnectionDuration());
+    LOGI("Connection established successfully in %d seconds", timer.getConnectionDuration());
 
     // 设置socket为非阻塞模式
     ret = mbedtls_net_set_nonblock(&resources.server_fd);
     if (ret != 0) {
-        LOGI("[zHttps] Warning: Failed to set socket to non-blocking mode");
+        LOGI("Warning: Failed to set socket to non-blocking mode");
     } else {
-        LOGI("[zHttps] Socket set to non-blocking mode");
+        LOGI("Socket set to non-blocking mode");
     }
 
     // 配置SSL - 强制使用安全的SSL配置
@@ -364,7 +364,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     if (ret != 0) {
         mbedtls_strerror(ret, error_buf, sizeof(error_buf));
         response.error_message = "SSL config failed: " + string(error_buf);
-        LOGE("[zHttps] SSL config failed: %s", error_buf);
+        LOGE("SSL config failed: %s", error_buf);
         // RequestResources会在析构时自动清理
         return response;
     }
@@ -372,12 +372,12 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     // 设置SSL读取超时（毫秒）
     uint32_t ssl_timeout_ms = timeout_seconds * 1000;
     mbedtls_ssl_conf_read_timeout(&resources.conf, ssl_timeout_ms);
-    LOGI("[zHttps] SSL read timeout set to %u ms", ssl_timeout_ms);
+    LOGI("SSL read timeout set to %u ms", ssl_timeout_ms);
 
     // 设置握手超时（DTLS，但对TLS也有影响）
     uint32_t handshake_timeout_ms = timeout_seconds * 1000;
     mbedtls_ssl_conf_handshake_timeout(&resources.conf, handshake_timeout_ms, handshake_timeout_ms * 2);
-    LOGI("[zHttps] SSL handshake timeout set to %u-%u ms", handshake_timeout_ms, handshake_timeout_ms * 2);
+    LOGI("SSL handshake timeout set to %u-%u ms", handshake_timeout_ms, handshake_timeout_ms * 2);
 
     // 强制证书验证 - 不允许跳过验证
     mbedtls_ssl_conf_authmode(&resources.conf, MBEDTLS_SSL_VERIFY_REQUIRED);
@@ -394,7 +394,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     if (ret != 0) {
         mbedtls_strerror(ret, error_buf, sizeof(error_buf));
         response.error_message = "SSL setup failed: " + string(error_buf);
-        LOGE("[zHttps] SSL setup failed: %s", error_buf);
+        LOGE("SSL setup failed: %s", error_buf);
         // RequestResources会在析构时自动清理
         return response;
     }
@@ -405,12 +405,12 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     mbedtls_ssl_set_bio(&resources.ssl, &resources.server_fd, mbedtls_net_send, nullptr, mbedtls_net_recv_timeout);
 
     // TLS握手
-    LOGI("[zHttps] Performing TLS handshake...");
+    LOGI("Performing TLS handshake...");
     
             // 检查超时
         if (timer.isTimeout()) {
             response.error_message = "TLS handshake timeout before starting";
-            LOGE("[zHttps] TLS handshake timeout before starting");
+            LOGE("TLS handshake timeout before starting");
             return response;
         }
     
@@ -421,7 +421,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
         // 检查超时
         if (timer.isTimeout()) {
             response.error_message = "TLS handshake timeout during negotiation";
-            LOGE("[zHttps] TLS handshake timeout during negotiation");
+            LOGE("TLS handshake timeout during negotiation");
             return response;
         }
         
@@ -432,7 +432,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
                                   (ret == MBEDTLS_ERR_SSL_WANT_READ) ? MBEDTLS_NET_POLL_READ : MBEDTLS_NET_POLL_WRITE,
                                   poll_timeout);
             if (ret < 0) {
-                LOGI("[zHttps] Poll failed, continuing handshake...");
+                LOGI("Poll failed, continuing handshake...");
             }
             continue;
         }
@@ -441,24 +441,24 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     if (ret != 0) {
         mbedtls_strerror(ret, error_buf, sizeof(error_buf));
         response.error_message = "TLS handshake failed: " + string(error_buf);
-        LOGE("[zHttps] TLS handshake failed: %s", error_buf);
+        LOGE("TLS handshake failed: %s", error_buf);
         // RequestResources会在析构时自动清理
         return response;
     }
 
     // 标记TLS握手完成
     timer.markHandshake();
-    LOGI("[zHttps] TLS handshake completed in %d seconds", timer.getHandshakeDuration());
+    LOGI("TLS handshake completed in %d seconds", timer.getHandshakeDuration());
 
     // 验证证书
     uint32_t flags = mbedtls_ssl_get_verify_result(&resources.ssl);
     if (flags != 0) {
         response.error_message = "Certificate verification failed";
-        LOGE("[zHttps] Certificate verification failed");
+        LOGE("Certificate verification failed");
         response.ssl_verification_passed = false;
     } else {
         response.ssl_verification_passed = true;
-        LOGI("[zHttps] Certificate verification passed");
+        LOGI("Certificate verification passed");
     }
 
     // 获取服务器证书
@@ -472,12 +472,12 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
 
     // 发送HTTPS请求
     string https_request = request.buildRequest();
-    LOGI("[zHttps] Sending HTTPS request...");
+    LOGI("Sending HTTPS request...");
     
     // 检查超时
     if (timer.isTimeout()) {
         response.error_message = "Request timeout before sending";
-        LOGE("[zHttps] Request timeout before sending");
+        LOGE("Request timeout before sending");
         return response;
     }
     
@@ -485,16 +485,16 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     if (ret < 0) {
         mbedtls_strerror(ret, error_buf, sizeof(error_buf));
         response.error_message = "Write failed: " + string(error_buf);
-        LOGE("[zHttps] Write error: %s", error_buf);
+        LOGE("Write error: %s", error_buf);
         return response;
     }
     
     // 标记发送完成
     timer.markSend();
-    LOGI("[zHttps] Request sent successfully in %d seconds", timer.getSendDuration());
+    LOGI("Request sent successfully in %d seconds", timer.getSendDuration());
 
     // 读取响应
-    LOGI("[zHttps] Reading HTTPS response...");
+    LOGI("Reading HTTPS response...");
     char response_buf[4096];
     string full_response;
     int read_count = 0;
@@ -507,7 +507,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
         // 检查超时
         if (timer.isTimeout()) {
             response.error_message = "Response read timeout";
-            LOGE("[zHttps] Response read timeout after %d seconds", timer.timeout_seconds);
+            LOGE("Response read timeout after %d seconds", timer.timeout_seconds);
             break;
         }
         
@@ -517,14 +517,14 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
         if (ret > 0) {
             response_buf[ret] = '\0';
             full_response += response_buf;
-            LOGI("[zHttps] Read %d bytes, total: %zu bytes", ret, full_response.length());
+            LOGI("Read %d bytes, total: %zu bytes", ret, full_response.length());
             
             // 检查是否找到HTTPS头
             if (!found_headers && 
                 (full_response.find("\r\n\r\n") != string::npos || 
                  full_response.find("\n\n") != string::npos)) {
                 found_headers = true;
-                LOGI("[zHttps] Found HTTPS headers, continuing to read body...");
+                LOGI("Found HTTPS headers, continuing to read body...");
             }
             
             // 检查响应是否完整
@@ -551,7 +551,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
                                 int expected_length = atoi(length_str.c_str());
                                 size_t body_length = full_response.length() - header_end - 4;
                                 if (body_length >= static_cast<size_t>(expected_length)) {
-                                    LOGI("[zHttps] Response body complete (Content-Length: %d, actual: %zu)", 
+                                    LOGI("Response body complete (Content-Length: %d, actual: %zu)", 
                                          expected_length, body_length);
                                     response_complete = true;
                                 }
@@ -564,7 +564,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
                     // 检查是否有Transfer-Encoding: chunked
                     if (headers.find("Transfer-Encoding: chunked") != string::npos) {
                         if (full_response.find("\r\n0\r\n\r\n") != string::npos) {
-                            LOGI("[zHttps] Chunked response complete");
+                            LOGI("Chunked response complete");
                             response_complete = true;
                         }
                     }
@@ -572,7 +572,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
                     // 检查Connection: close
                     if (headers.find("Connection: close") != string::npos && 
                         static_cast<size_t>(ret) < sizeof(response_buf) - 1) {
-                        LOGI("[zHttps] Connection: close detected, response likely complete");
+                        LOGI("Connection: close detected, response likely complete");
                         response_complete = true;
                     }
                 }
@@ -580,70 +580,70 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
             
             // 检查是否超过最大响应大小
             if (full_response.length() > max_total_bytes) {
-                LOGI("[zHttps] Response too large, stopping at %zu bytes", full_response.length());
+                LOGI("Response too large, stopping at %zu bytes", full_response.length());
                 break;
             }
         } else if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
-            LOGI("[zHttps] SSL wants read/write, stopping (no retry)");
+            LOGI("SSL wants read/write, stopping (no retry)");
             break;
         } else if (ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
-            LOGI("[zHttps] Peer closed connection");
+            LOGI("Peer closed connection");
             response_complete = true;
             break;
         } else if (ret == 0) {
-            LOGI("[zHttps] Connection closed by peer (EOF)");
+            LOGI("Connection closed by peer (EOF)");
             break;
         } else {
             mbedtls_strerror(ret, error_buf, sizeof(error_buf));
             response.error_message = "Read failed: " + string(error_buf);
-            LOGE("[zHttps] Read error: %s", error_buf);
+            LOGE("Read error: %s", error_buf);
             break;
         }
         
         // 防止无限循环
         if (read_count > max_reads) {
-            LOGI("[zHttps] Reached max read count (%d), stopping", max_reads);
+            LOGI("Reached max read count (%d), stopping", max_reads);
             break;
         }
         
         // 如果响应已完成，停止读取
         if (response_complete) {
-            LOGI("[zHttps] Response marked as complete, stopping");
+            LOGI("Response marked as complete, stopping");
             break;
         }
         
         // 如果已经找到头，且读取了足够的数据，就停止
         if (found_headers && read_count > 1) {
-            LOGI("[zHttps] Found headers and read enough data, stopping");
+            LOGI("Found headers and read enough data, stopping");
             break;
         }
     } while (ret > 0);
 
     // 标记接收完成
     timer.markReceive();
-    LOGI("[zHttps] Response reading completed in %d seconds", timer.getReceiveDuration());
+    LOGI("Response reading completed in %d seconds", timer.getReceiveDuration());
 
-    LOGI("[zHttps] Finished reading response, total bytes: %zu, read attempts: %d, found headers: %s, complete: %s", 
+    LOGI("Finished reading response, total bytes: %zu, read attempts: %d, found headers: %s, complete: %s", 
          full_response.length(), read_count, found_headers ? "yes" : "no", response_complete ? "yes" : "no");
 
     // 检查响应是否有效（即使没有标记为完整，只要有内容就继续）
     if (full_response.empty()) {
         response.error_message = "No response received";
-        LOGE("[zHttps] No response received");
+        LOGE("No response received");
         return response;
     }
     
     // 检查是否至少找到了HTTP头
     if (!found_headers) {
         response.error_message = "No valid HTTP headers found";
-        LOGE("[zHttps] No valid HTTP headers found");
+        LOGE("No valid HTTP headers found");
         return response;
     }
 
     // 检查是否有响应内容
     if (full_response.empty()) {
         response.error_message = "No response received";
-        LOGE("[zHttps] No response received");
+        LOGE("No response received");
         return response;
     }
 
@@ -652,15 +652,15 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
 
     // 标记请求完成
     timer.finish();
-    LOGI("[zHttps] === Request Timing Summary ===");
-    LOGI("[zHttps] Connection: %d seconds", timer.getConnectionDuration());
-    LOGI("[zHttps] TLS Handshake: %d seconds", timer.getHandshakeDuration());
-    LOGI("[zHttps] Send Request: %d seconds", timer.getSendDuration());
-    LOGI("[zHttps] Receive Response: %d seconds", timer.getReceiveDuration());
-    LOGI("[zHttps] Total Duration: %d seconds", timer.getTotalDuration());
+    LOGI("=== Request Timing Summary ===");
+    LOGI("Connection: %d seconds", timer.getConnectionDuration());
+    LOGI("TLS Handshake: %d seconds", timer.getHandshakeDuration());
+    LOGI("Send Request: %d seconds", timer.getSendDuration());
+    LOGI("Receive Response: %d seconds", timer.getReceiveDuration());
+    LOGI("Total Duration: %d seconds", timer.getTotalDuration());
 
     // 资源会在RequestResources析构函数中自动清理
-    LOGI("[zHttps] Request completed successfully, resources will be cleaned up automatically");
+    LOGI("Request completed successfully, resources will be cleaned up automatically");
 
     return response;
 }
@@ -682,11 +682,11 @@ int zHttps::getCertificateFingerprintSha256(const mbedtls_x509_crt* cert, unsign
 }
 
 void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& response) {
-    LOGI("[zHttps] Parsing HTTPS response, length: %zu", raw_response.length());
+    LOGI("Parsing HTTPS response, length: %zu", raw_response.length());
     
     if (raw_response.empty()) {
         response.error_message = "Empty response received";
-        LOGE("[zHttps] Empty response");
+        LOGE("Empty response");
         return;
     }
 
@@ -698,7 +698,7 @@ void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& respo
     
     if (header_end == string::npos) {
         response.error_message = "Invalid HTTPS response format - no header separator found";
-        LOGE("[zHttps] Invalid HTTPS response format");
+        LOGE("Invalid HTTPS response format");
         return;
     }
     
@@ -706,21 +706,21 @@ void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& respo
     string headers = raw_response.substr(0, header_end);
     response.body = raw_response.substr(header_end + 4);
     
-    LOGI("[zHttps] Headers length: %zu, Body length: %zu", headers.length(), response.body.length());
+    LOGI("Headers length: %zu, Body length: %zu", headers.length(), response.body.length());
     
     // 打印响应体的预览
     if (!response.body.empty()) {
         size_t body_preview_length = response.body.length() < 1000 ? response.body.length() : 1000;
         string body_preview = response.body.substr(0, body_preview_length);
-        LOGI("[zHttps] Response body preview (first %zu chars):", body_preview_length);
-        LOGI("[zHttps] %s", body_preview.c_str());
+        LOGI("Response body preview (first %zu chars):", body_preview_length);
+        LOGI("%s", body_preview.c_str());
     }
 
     // 解析状态行
     size_t first_line_end = headers.find('\n');
     if (first_line_end != string::npos) {
         string status_line = headers.substr(0, first_line_end);
-        LOGI("[zHttps] Status line: %s", status_line.c_str());
+        LOGI("Status line: %s", status_line.c_str());
         
         // 去除回车符
         if (!status_line.empty() && status_line.back() == '\r') {
@@ -735,9 +735,9 @@ void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& respo
                 try {
                     string status_code_str = status_line.substr(space1 + 1, space2 - space1 - 1);
                     response.status_code = atoi(status_code_str.c_str());
-                    LOGI("[zHttps] Status code: %d", response.status_code);
+                    LOGI("Status code: %d", response.status_code);
                 } catch (const std::exception& e) {
-                    LOGE("[zHttps] Failed to parse status code: %s", e.what());
+                    LOGE("Failed to parse status code: %s", e.what());
                     response.status_code = 0;
                 }
             } else {
@@ -745,9 +745,9 @@ void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& respo
                 try {
                     string status_code_str = status_line.substr(space1 + 1);
                     response.status_code = atoi(status_code_str.c_str());
-                    LOGI("[zHttps] Status code: %d", response.status_code);
+                    LOGI("Status code: %d", response.status_code);
                 } catch (const std::exception& e) {
-                    LOGE("[zHttps] Failed to parse status code: %s", e.what());
+                    LOGE("Failed to parse status code: %s", e.what());
                     response.status_code = 0;
                 }
             }
@@ -818,21 +818,21 @@ void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& respo
         header_count++;
     }
     
-    LOGI("[zHttps] Parsed %d headers", header_count);
+    LOGI("Parsed %d headers", header_count);
     
     // 检查是否需要处理分块传输编码
     auto transfer_encoding_it = response.headers.find("Transfer-Encoding");
     if (transfer_encoding_it != response.headers.end() && 
         transfer_encoding_it->second.find("chunked") != string::npos) {
-        LOGI("[zHttps] Detected chunked transfer encoding, processing...");
+        LOGI("Detected chunked transfer encoding, processing...");
         processChunkedBody(response.body);
     }
 }
 
 // 处理分块传输编码的辅助方法
 void zHttps::processChunkedBody(string& body) {
-    LOGI("[zHttps] Processing chunked body, original length: %zu", body.length());
-    LOGI("[zHttps] Original body: '%s'", body.c_str());
+    LOGI("Processing chunked body, original length: %zu", body.length());
+    LOGI("Original body: '%s'", body.c_str());
     
     string processed_body;
     size_t pos = 0;
@@ -842,7 +842,7 @@ void zHttps::processChunkedBody(string& body) {
         // 找到块大小行的结束位置
         size_t size_line_end = body.find('\n', pos);
         if (size_line_end == string::npos) {
-            LOGE("[zHttps] No newline found for chunk size at position %zu", pos);
+            LOGE("No newline found for chunk size at position %zu", pos);
             break;
         }
         
@@ -852,7 +852,7 @@ void zHttps::processChunkedBody(string& body) {
             size_line.pop_back();
         }
         
-        LOGI("[zHttps] Chunk %d size line: '%s'", chunk_count + 1, size_line.c_str());
+        LOGI("Chunk %d size line: '%s'", chunk_count + 1, size_line.c_str());
         
         // 解析块大小（十六进制），处理可能的扩展信息
         size_t semicolon_pos = size_line.find(';');
@@ -862,14 +862,14 @@ void zHttps::processChunkedBody(string& body) {
         size_t chunk_size = 0;
         try {
             chunk_size = std::stoul(size_str.c_str(), nullptr, 16);
-            LOGI("[zHttps] Chunk %d size: %zu", chunk_count + 1, chunk_size);
+            LOGI("Chunk %d size: %zu", chunk_count + 1, chunk_size);
         } catch (const std::exception& e) {
-            LOGE("[zHttps] Failed to parse chunk size '%s': %s", size_str.c_str(), e.what());
+            LOGE("Failed to parse chunk size '%s': %s", size_str.c_str(), e.what());
             break;
         }
         
         if (chunk_size == 0) {
-            LOGI("[zHttps] Found end chunk (size 0), processing complete");
+            LOGI("Found end chunk (size 0), processing complete");
             break;
         }
         
@@ -878,14 +878,14 @@ void zHttps::processChunkedBody(string& body) {
         
         // 检查是否有足够的数据
         if (pos + chunk_size > body.length()) {
-            LOGW("[zHttps] Chunk data incomplete: need %zu bytes, have %zu bytes", 
+            LOGW("Chunk data incomplete: need %zu bytes, have %zu bytes", 
                  chunk_size, body.length() - pos);
             break;
         }
         
         // 提取块数据
         string chunk_data = body.substr(pos, chunk_size);
-        LOGI("[zHttps] Chunk %d data: '%s'", chunk_count + 1, chunk_data.c_str());
+        LOGI("Chunk %d data: '%s'", chunk_count + 1, chunk_data.c_str());
         
         // 添加块数据到处理后的主体
         processed_body += chunk_data;
@@ -897,12 +897,12 @@ void zHttps::processChunkedBody(string& body) {
     }
     
     body = processed_body;
-    LOGI("[zHttps] Processed chunked body: %d chunks, new length: %zu", chunk_count, body.length());
-    LOGI("[zHttps] Final body: '%s'", body.c_str());
+    LOGI("Processed chunked body: %d chunks, new length: %zu", chunk_count, body.length());
+    LOGI("Final body: '%s'", body.c_str());
 }
 
 void zHttps::cleanup() {
-    LOGD("[zHttps] cleanup called");
+    LOGD("cleanup called");
     if (initialized) {
         // 清理所有mbedtls资源
         mbedtls_net_free(&server_fd);
@@ -912,26 +912,26 @@ void zHttps::cleanup() {
         mbedtls_ctr_drbg_free(&ctr_drbg);
         mbedtls_entropy_free(&entropy);
         initialized = false;
-        LOGI("[zHttps] zHttps resources cleaned up");
+        LOGI("zHttps resources cleaned up");
     }
 }
 
 bool zHttps::isTimeoutReached(time_t start_time, int timeout_seconds) {
-    LOGD("[zHttps] isTimeoutReached called with start_time: %ld, timeout_seconds: %d", start_time, timeout_seconds);
+    LOGD("isTimeoutReached called with start_time: %ld, timeout_seconds: %d", start_time, timeout_seconds);
     time_t current_time = time(nullptr);
     bool result = (current_time - start_time) >= timeout_seconds;
-    LOGD("[zHttps] isTimeoutReached returning %d", result);
+    LOGD("isTimeoutReached returning %d", result);
     return result;
 } 
 
 // Socket连接相关方法实现
 int zHttps::connectWithTimeout(const string& host, int port, int timeout_seconds) {
-    LOGD("[zHttps] connectWithTimeout called with host: %s, port: %d, timeout_seconds: %d", host.c_str(), port, timeout_seconds);
+    LOGD("connectWithTimeout called with host: %s, port: %d, timeout_seconds: %d", host.c_str(), port, timeout_seconds);
 
     // Linux/Android实现
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
-        LOGE("[zHttps] Socket creation failed");
+        LOGE("Socket creation failed");
         return -1;
     }
     
@@ -942,7 +942,7 @@ int zHttps::connectWithTimeout(const string& host, int port, int timeout_seconds
     // 解析主机名
     struct hostent *server = gethostbyname(host.c_str());
     if (server == nullptr) {
-        LOGE("[zHttps] Failed to resolve hostname: %s", host.c_str());
+        LOGE("Failed to resolve hostname: %s", host.c_str());
         close(sockfd);
         return -1;
     }
@@ -969,20 +969,20 @@ int zHttps::connectWithTimeout(const string& host, int port, int timeout_seconds
         
         ret = select(sockfd + 1, nullptr, &writefds, &exceptfds, &timeout);
         if (ret == 0) {
-            LOGE("[zHttps] Connection timeout after %d seconds", timeout_seconds);
+            LOGE("Connection timeout after %d seconds", timeout_seconds);
             close(sockfd);
             return -1;
         } else if (ret < 0) {
-            LOGE("[zHttps] Select failed");
+            LOGE("Select failed");
             close(sockfd);
             return -1;
         } else if (FD_ISSET(sockfd, &exceptfds)) {
-            LOGE("[zHttps] Connection failed with exception");
+            LOGE("Connection failed with exception");
             close(sockfd);
             return -1;
         }
     } else if (ret < 0) {
-        LOGE("[zHttps] Connection failed");
+        LOGE("Connection failed");
         close(sockfd);
         return -1;
     }
@@ -990,11 +990,11 @@ int zHttps::connectWithTimeout(const string& host, int port, int timeout_seconds
     // 设置阻塞模式
     fcntl(sockfd, F_SETFL, flags);
     
-    LOGI("[zHttps] Connection established successfully with sockfd: %d", sockfd);
+    LOGI("Connection established successfully with sockfd: %d", sockfd);
     return sockfd;
 }
 
 void zHttps::closeSocket(int sockfd) {
-    LOGD("[zHttps] closeSocket called with sockfd: %d", sockfd);
+    LOGD("closeSocket called with sockfd: %d", sockfd);
     close(sockfd);
 } 

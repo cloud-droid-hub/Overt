@@ -9,16 +9,16 @@
 #include "class_loader_info.h"
 
 map<string, map<string, string>> get_class_loader_info(){
-    LOGD("[class_loader_info] get_class_loader_info called");
+    LOGD("get_class_loader_info called");
     map<string, map<string, string>> info;
 
     // 处理类加载器列表
     for(const string& str : zClassLoader::getInstance()->classLoaderStringList) {
-        LOGD("[class_loader_info] Checking classloader string: %s", str.c_str());
+        LOGD("Checking classloader string: %s", str.c_str());
         if (str.empty()) {
             continue;
         }
-        LOGI("[class_loader_info] classloader：%s", str.c_str());
+        LOGI("classloader：%s", str.c_str());
         if(strstr(str.c_str(), "LspModuleClassLoader")) {
             info[str]["risk"] = "error";
             info[str]["explain"] = "black classloader";
@@ -31,7 +31,7 @@ map<string, map<string, string>> get_class_loader_info(){
 }
 
 map<string, map<string, string>> get_class_info(){
-    LOGD("[class_loader_info] get_class_info called");
+    LOGD("get_class_info called");
     map<string, map<string, string>> info;
 
     vector<string> black_name_list = {
@@ -39,14 +39,14 @@ map<string, map<string, string>> get_class_info(){
     };
 
     for(string black_name: black_name_list){
-        LOGD("[class_loader_info] Checking black_name: %s", black_name.c_str());
+        LOGD("Checking black_name: %s", black_name.c_str());
         for(string className : zClassLoader::getInstance()->classNameList){
-            LOGD("[class_loader_info] Checking className: %s", className.c_str());
+            LOGD("Checking className: %s", className.c_str());
             if (className.empty()) {
                 continue;
             }
             if(strstr(className.c_str(), black_name.c_str())){
-                LOGE("[class_loader_info] get_class_info className %s is find", className.c_str());
+                LOGE("get_class_info className %s is find", className.c_str());
                 info[className]["risk"] = "error";
                 info[className]["explain"] = "Risk: black class";
                 break;

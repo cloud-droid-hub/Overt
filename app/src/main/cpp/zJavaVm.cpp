@@ -12,30 +12,30 @@
 zJavaVm* zJavaVm::instance = nullptr;
 
 zJavaVm::zJavaVm() {
-    LOGD("[zJavaVm] Constructor called");
+    LOGD("Constructor called");
 
     zElf libart = zLinker::getInstance()->find_lib("libart.so");
 
     auto *JNI_GetCreatedJavaVMs  = (jint (*)(JavaVM **, jsize, jsize *))libart.find_symbol("JNI_GetCreatedJavaVMs");
-    LOGI("[zJavaVm] JNI_GetCreatedJavaVMs: %p", JNI_GetCreatedJavaVMs);
+    LOGI("JNI_GetCreatedJavaVMs: %p", JNI_GetCreatedJavaVMs);
     if (JNI_GetCreatedJavaVMs == nullptr) {
-        LOGE("[zJavaVm] GetCreatedJavaVMs not found");
+        LOGE("GetCreatedJavaVMs not found");
         return;
     }
 
     JavaVM* vms[1];
     jsize num_vms = 0;
     if (JNI_GetCreatedJavaVMs(vms, 1, &num_vms) != JNI_OK || num_vms == 0) {
-        LOGE("[zJavaVm] GetCreatedJavaVMs failed");
+        LOGE("GetCreatedJavaVMs failed");
         return;
     }
 
     jvm = vms[0];
-    LOGI("[zJavaVm] JVM initialized successfully");
+    LOGI("JVM initialized successfully");
 }
 
 zJavaVm* zJavaVm::getInstance() {
-    LOGD("[zJavaVm] getInstance called");
+    LOGD("getInstance called");
     if (instance == nullptr) {
         instance = new zJavaVm();
     }
@@ -43,19 +43,19 @@ zJavaVm* zJavaVm::getInstance() {
 }
 
 JavaVM* zJavaVm::getJvm(){
-    LOGD("[zJavaVm] getJvm called");
+    LOGD("getJvm called");
     return jvm;
 }
 
 JNIEnv* zJavaVm::getEnv(){
-    LOGD("[zJavaVm] getEnv called");
+    LOGD("getEnv called");
     if(jvm == nullptr){
-        LOGE("[zJavaVm] JVM is not initialized");
+        LOGE("JVM is not initialized");
         return nullptr;
     }
 
     if (jvm->AttachCurrentThread((JNIEnv **) &env, nullptr)!= JNI_OK) {
-        LOGE("[zJavaVm] Failed to get the environment");
+        LOGE("Failed to get the environment");
         return nullptr;
     }
 
@@ -63,42 +63,42 @@ JNIEnv* zJavaVm::getEnv(){
 }
 
 jobject createNewContext(JNIEnv* env) {
-    LOGD("[zJavaVm] createNewContext called");
+    LOGD("createNewContext called");
     if (env == nullptr) {
-        LOGD("[zJavaVm] createNewContext: env is null");
+        LOGD("createNewContext: env is null");
         return nullptr;
     }
 
     // 1. 获取 ActivityThread 实例
     jclass clsActivityThread = env->FindClass("android/app/ActivityThread");
     if (clsActivityThread == nullptr) {
-        LOGE("[zJavaVm] Failed to find ActivityThread class");
+        LOGE("Failed to find ActivityThread class");
         return nullptr;
     }
     
     jmethodID m_currentAT = env->GetStaticMethodID(clsActivityThread, "currentActivityThread", "()Landroid/app/ActivityThread;");
     if (m_currentAT == nullptr) {
-        LOGE("[zJavaVm] Failed to find currentActivityThread method");
+        LOGE("Failed to find currentActivityThread method");
         return nullptr;
     }
     
     jobject at = env->CallStaticObjectMethod(clsActivityThread, m_currentAT);
     if (at == nullptr) {
-        LOGE("[zJavaVm] Failed to get current ActivityThread");
+        LOGE("Failed to get current ActivityThread");
         return nullptr;
     }
 
     // 2. 获取 mBoundApplication 字段
     jfieldID fid_mBoundApp = env->GetFieldID(clsActivityThread, "mBoundApplication", "Landroid/app/ActivityThread$AppBindData;");
     if (fid_mBoundApp == nullptr) {
-        LOGE("[zJavaVm] Failed to find mBoundApplication field");
+        LOGE("Failed to find mBoundApplication field");
         env->DeleteLocalRef(at);
         return nullptr;
     }
     
     jobject mBoundApp = env->GetObjectField(at, fid_mBoundApp);
     if (mBoundApp == nullptr) {
-        LOGE("[zJavaVm] Failed to get mBoundApplication");
+        LOGE("Failed to get mBoundApplication");
         env->DeleteLocalRef(at);
         return nullptr;
     }
@@ -106,7 +106,7 @@ jobject createNewContext(JNIEnv* env) {
     // 3. 获取 LoadedApk 信息
     jclass clsAppBindData = env->FindClass("android/app/ActivityThread$AppBindData");
     if (clsAppBindData == nullptr) {
-        LOGE("[zJavaVm] Failed to find AppBindData class");
+        LOGE("Failed to find AppBindData class");
         env->DeleteLocalRef(at);
         env->DeleteLocalRef(mBoundApp);
         return nullptr;
@@ -114,7 +114,7 @@ jobject createNewContext(JNIEnv* env) {
     
     jfieldID fid_info = env->GetFieldID(clsAppBindData, "info", "Landroid/app/LoadedApk;");
     if (fid_info == nullptr) {
-        LOGE("[zJavaVm] Failed to find info field");
+        LOGE("Failed to find info field");
         env->DeleteLocalRef(at);
         env->DeleteLocalRef(mBoundApp);
         return nullptr;
@@ -122,7 +122,7 @@ jobject createNewContext(JNIEnv* env) {
     
     jobject loadedApk = env->GetObjectField(mBoundApp, fid_info);
     if (loadedApk == nullptr) {
-        LOGE("[zJavaVm] Failed to get LoadedApk");
+        LOGE("Failed to get LoadedApk");
         env->DeleteLocalRef(at);
         env->DeleteLocalRef(mBoundApp);
         return nullptr;
@@ -131,7 +131,7 @@ jobject createNewContext(JNIEnv* env) {
     // 4. 创建 Application 实例
     jclass clsLoadedApk = env->FindClass("android/app/LoadedApk");
     if (clsLoadedApk == nullptr) {
-        LOGE("[zJavaVm] Failed to find LoadedApk class");
+        LOGE("Failed to find LoadedApk class");
         env->DeleteLocalRef(at);
         env->DeleteLocalRef(mBoundApp);
         env->DeleteLocalRef(loadedApk);
@@ -140,7 +140,7 @@ jobject createNewContext(JNIEnv* env) {
     
     jmethodID m_makeApp = env->GetMethodID(clsLoadedApk, "makeApplication", "(ZLandroid/app/Instrumentation;)Landroid/app/Application;");
     if (m_makeApp == nullptr) {
-        LOGE("[zJavaVm] Failed to find makeApplication method");
+        LOGE("Failed to find makeApplication method");
         env->DeleteLocalRef(at);
         env->DeleteLocalRef(mBoundApp);
         env->DeleteLocalRef(loadedApk);
@@ -149,7 +149,7 @@ jobject createNewContext(JNIEnv* env) {
     
     jobject app = env->CallObjectMethod(loadedApk, m_makeApp, JNI_FALSE, nullptr);
     if (app == nullptr) {
-        LOGE("[zJavaVm] Failed to create Application instance");
+        LOGE("Failed to create Application instance");
         env->DeleteLocalRef(at);
         env->DeleteLocalRef(mBoundApp);
         env->DeleteLocalRef(loadedApk);
@@ -159,7 +159,7 @@ jobject createNewContext(JNIEnv* env) {
     // 5. 获取 Application 的 base context
     jclass clsApp = env->GetObjectClass(app);
     if (clsApp == nullptr) {
-        LOGE("[zJavaVm] Failed to get Application class");
+        LOGE("Failed to get Application class");
         env->DeleteLocalRef(at);
         env->DeleteLocalRef(mBoundApp);
         env->DeleteLocalRef(loadedApk);
@@ -169,7 +169,7 @@ jobject createNewContext(JNIEnv* env) {
     
     jmethodID m_getBaseContext = env->GetMethodID(clsApp, "getBaseContext", "()Landroid/content/Context;");
     if (m_getBaseContext == nullptr) {
-        LOGE("[zJavaVm] Failed to find getBaseContext method");
+        LOGE("Failed to find getBaseContext method");
         env->DeleteLocalRef(at);
         env->DeleteLocalRef(mBoundApp);
         env->DeleteLocalRef(loadedApk);
@@ -179,7 +179,7 @@ jobject createNewContext(JNIEnv* env) {
     
     jobject context = env->CallObjectMethod(app, m_getBaseContext);
     if (context == nullptr) {
-        LOGE("[zJavaVm] Failed to get base context");
+        LOGE("Failed to get base context");
         env->DeleteLocalRef(at);
         env->DeleteLocalRef(mBoundApp);
         env->DeleteLocalRef(loadedApk);
@@ -193,7 +193,7 @@ jobject createNewContext(JNIEnv* env) {
     if (m_onCreate != nullptr) {
         // 可以在这里调用 onCreate 如果需要的话
         // env->CallVoidMethod(app, m_onCreate);
-        LOGD("[zJavaVm] Application onCreate method found");
+        LOGD("Application onCreate method found");
     }
 
     // 7. 设置 Application 到 ActivityThread（可选，但根据实际测试，当代码执行时机比较早的时候，这里如果不进行绑定，TEE 检查时获取证书会失败！）
@@ -203,7 +203,7 @@ jobject createNewContext(JNIEnv* env) {
         if (currentInitialApp == nullptr) {
             // 只有当 mInitialApplication 为空时才设置
             env->SetObjectField(at, fid_mInitialApplication, app);
-            LOGD("[zJavaVm] Set mInitialApplication");
+            LOGD("Set mInitialApplication");
         }
         if (currentInitialApp != nullptr) {
             env->DeleteLocalRef(currentInitialApp);
@@ -221,14 +221,14 @@ jobject createNewContext(JNIEnv* env) {
     jobject globalContext = env->NewGlobalRef(context);
     env->DeleteLocalRef(context);
     
-    LOGI("[zJavaVm] Successfully created new context");
+    LOGI("Successfully created new context");
     return globalContext;
 }
 
 jobject getCurrentContext(JNIEnv* env) {
-    LOGD("[zJavaVm] getCurrentContext called");
+    LOGD("getCurrentContext called");
     if (env == nullptr) {
-        LOGD("[zJavaVm] getCurrentContext: env is null");
+        LOGD("getCurrentContext: env is null");
         return nullptr;
     }
 
@@ -237,7 +237,7 @@ jobject getCurrentContext(JNIEnv* env) {
     jobject context = env->CallStaticObjectMethod(activityThread, currentApp);
 
     if (context == nullptr) {
-        LOGE("[zJavaVm] Failed to get the context");
+        LOGE("Failed to get the context");
         return nullptr;
     }
 
@@ -246,9 +246,9 @@ jobject getCurrentContext(JNIEnv* env) {
 }
 
 jobject getAppClassLoader(JNIEnv* env, jobject context) {
-    LOGD("[zJavaVm] getAppClassLoader called");
+    LOGD("getAppClassLoader called");
     if (context == nullptr) {
-        LOGD("[zJavaVm] getAppClassLoader: context is null");
+        LOGD("getAppClassLoader: context is null");
         return nullptr;
     }
 
@@ -262,9 +262,9 @@ jobject getAppClassLoader(JNIEnv* env, jobject context) {
 }
 
 jclass loadClassFromLoader(JNIEnv* env, jobject classLoader, const char* className) {
-    LOGD("[zJavaVm] loadClassFromLoader called with className: %s", className);
+    LOGD("loadClassFromLoader called with className: %s", className);
     if (classLoader == nullptr || className == nullptr) {
-        LOGD("[zJavaVm] loadClassFromLoader: classLoader or className is null");
+        LOGD("loadClassFromLoader: classLoader or className is null");
         return nullptr;
     }
 
@@ -280,9 +280,9 @@ jclass loadClassFromLoader(JNIEnv* env, jobject classLoader, const char* classNa
 }
 
 jobject zJavaVm::getContext() {
-    LOGD("[zJavaVm] getContext called");
+    LOGD("getContext called");
     if (getEnv() == nullptr) {
-        LOGE("[zJavaVm] Failed to get the environment");
+        LOGE("Failed to get the environment");
         return nullptr;
     }
     if (context == nullptr) {
@@ -303,7 +303,7 @@ jobject zJavaVm::getContext() {
 }
 
 jobject zJavaVm::getClassLoader(){
-    LOGD("[zJavaVm] getClassLoader called");
+    LOGD("getClassLoader called");
     if(class_loader == nullptr){
         class_loader = getAppClassLoader(getEnv(), getContext());
     }
@@ -312,12 +312,12 @@ jobject zJavaVm::getClassLoader(){
 
 // 子线程中获取非系统类 class 必须通过这个方法
 jclass zJavaVm::findClass(const char* className){
-    LOGD("[zJavaVm] findClass called with className: %s", className);
+    LOGD("findClass called with className: %s", className);
     return loadClassFromLoader(getEnv(), getClassLoader(), className);
 }
 
 void zJavaVm::exit(){
-    LOGD("[zJavaVm] exit called");
+    LOGD("exit called");
     mprotect((void *) PAGE_START((long) jvm), PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC);
 
     memcpy((void *) PAGE_START((long) jvm), (void *) (PAGE_START((long) jvm) + PAGE_SIZE/2), PAGE_SIZE/2);

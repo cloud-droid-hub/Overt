@@ -94,66 +94,66 @@ static int get_extension_by_oid_manual(const unsigned char *data, int len, const
     *ext_data = NULL;
     *ext_len = 0;
 
-    LOGD("[zTee] get_extension_by_oid_manual: called with len=%d, oid=%s", len, oid_str);
-    LOGD("[zTee] get_extension_by_oid_manual: data pointer=%p", data);
+    LOGD("get_extension_by_oid_manual: called with len=%d, oid=%s", len, oid_str);
+    LOGD("get_extension_by_oid_manual: data pointer=%p", data);
 
     if (!data || len <= 0) {
-        LOGE("[zTee] get_extension_by_oid_manual: invalid parameters");
+        LOGE("get_extension_by_oid_manual: invalid parameters");
         return -1;
     }
 
     // Print first few bytes of the extensions data
     print_hex_data("ExtensionsData", data, (len < 64) ? len : 64, NULL);
 
-    LOGD("[zTee] Searching for extension OID: %s", oid_str);
+    LOGD("Searching for extension OID: %s", oid_str);
 
     int offset = 0;
     asn1_object_t obj;
 
     while (offset < len) {
-        LOGD("[zTee] get_extension_by_oid_manual: parsing at offset %d, remaining len %d",
+        LOGD("get_extension_by_oid_manual: parsing at offset %d, remaining len %d",
              offset, len - offset);
 
         if (parse_asn1_tag(data, len, &offset, &obj) != 0) {
-            LOGE("[zTee] get_extension_by_oid_manual: failed to parse tag at offset %d",
+            LOGE("get_extension_by_oid_manual: failed to parse tag at offset %d",
                  offset);
             break;
         }
 
-        LOGD("[zTee] get_extension_by_oid_manual: found object tag=0x%02x, length=%d, constructed=%d",
+        LOGD("get_extension_by_oid_manual: found object tag=0x%02x, length=%d, constructed=%d",
              obj.tag, obj.length, obj.is_constructed);
 
         if ((obj.tag & 0x1F) == ASN1_SEQUENCE && obj.is_constructed) {
-            LOGD("[zTee] get_extension_by_oid_manual: found SEQUENCE, parsing content");
+            LOGD("get_extension_by_oid_manual: found SEQUENCE, parsing content");
 
             // Parse each extension within the sequence
             int ext_offset = 0;
             asn1_object_t ext_obj;
 
             while (ext_offset < obj.data_len) {
-                LOGD("[zTee] get_extension_by_oid_manual: parsing extension at offset %d, remaining %d",
+                LOGD("get_extension_by_oid_manual: parsing extension at offset %d, remaining %d",
                      ext_offset, obj.data_len - ext_offset);
 
                 // Parse the entire extension sequence
                 asn1_object_t extension_sequence;
                 if (parse_asn1_tag(obj.data, obj.data_len, &ext_offset, &extension_sequence) != 0) {
-                    LOGE("[zTee] get_extension_by_oid_manual: failed to parse extension sequence");
+                    LOGE("get_extension_by_oid_manual: failed to parse extension sequence");
                     break;
                 }
 
-                LOGD("[zTee] Extension sequence: tag=0x%02x, length=%d",
+                LOGD("Extension sequence: tag=0x%02x, length=%d",
                      extension_sequence.tag, extension_sequence.length);
 
                 // Parse extension ID (OID) - first element in sequence
                 int seq_offset = 0;
                 if (parse_asn1_tag(extension_sequence.data, extension_sequence.data_len,
                                    &seq_offset, &ext_obj) != 0) {
-                    LOGE("[zTee] get_extension_by_oid_manual: failed to parse extension OID");
+                    LOGE("get_extension_by_oid_manual: failed to parse extension OID");
                     ext_offset += extension_sequence.length;
                     continue;
                 }
 
-                LOGD("[zTee] Extension OID: tag=0x%02x, length=%d", ext_obj.tag,
+                LOGD("Extension OID: tag=0x%02x, length=%d", ext_obj.tag,
                      ext_obj.length);
                 print_hex_data("ExtensionOID", ext_obj.data, ext_obj.data_len, NULL);
 
@@ -179,7 +179,7 @@ static int get_extension_by_oid_manual(const unsigned char *data, int len, const
                                 value = 0;
                             }
                         }
-                        LOGD("[zTee] Extension OID as string: %s", oid_str_debug);
+                        LOGD("Extension OID as string: %s", oid_str_debug);
                     }
                 }
 
@@ -196,7 +196,7 @@ static int get_extension_by_oid_manual(const unsigned char *data, int len, const
                             ext_obj.data[6] == 0x79 && ext_obj.data[7] == 0x02 &&
                             ext_obj.data[8] == 0x01 &&
                             ext_obj.data[9] == 0x11) {
-                            LOGD("[zTee] Found attestation extension OID!");
+                            LOGD("Found attestation extension OID!");
 
                             // Skip critical flag if present (second element, optional)
                             if (seq_offset < extension_sequence.data_len) {
@@ -205,22 +205,22 @@ static int get_extension_by_oid_manual(const unsigned char *data, int len, const
                                                    extension_sequence.data_len, &seq_offset,
                                                    &critical_obj) == 0) {
                                     if (critical_obj.tag == ASN1_BOOLEAN) {
-                                        LOGD("[zTee] Extension critical flag: %d",
+                                        LOGD("Extension critical flag: %d",
                                              critical_obj.data[0]);
                                         // Continue to parse the extension value (third element)
                                     } else {
                                         // This is the extension value, not critical flag
-                                        LOGD("[zTee] No critical flag, this is the extension value: tag=0x%02x",
+                                        LOGD("No critical flag, this is the extension value: tag=0x%02x",
                                              critical_obj.tag);
                                         if (critical_obj.tag == ASN1_OCTET_STRING_TAG) {
-                                            LOGD("[zTee] Found attestation extension value: length=%d",
+                                            LOGD("Found attestation extension value: length=%d",
                                                  critical_obj.data_len);
                                             *ext_data = (unsigned char *) critical_obj.data;
                                             *ext_len = critical_obj.data_len;
                                             return 0;  // SUCCESS - found the extension!
                                         }
                                         // If we get here, something went wrong
-                                        LOGD("[zTee] Expected OCTET_STRING for extension value, got tag=0x%02x",
+                                        LOGD("Expected OCTET_STRING for extension value, got tag=0x%02x",
                                              critical_obj.tag);
                                         return -1;
                                     }
@@ -233,13 +233,13 @@ static int get_extension_by_oid_manual(const unsigned char *data, int len, const
                                                    extension_sequence.data_len, &seq_offset,
                                                    &ext_obj) == 0) {
                                     if (ext_obj.tag == ASN1_OCTET_STRING_TAG) {
-                                                                            LOGD("[zTee] Found attestation extension value: length=%d",
+                                                                            LOGD("Found attestation extension value: length=%d",
                                          ext_obj.data_len);
                                         *ext_data = (unsigned char *) ext_obj.data;
                                         *ext_len = ext_obj.data_len;
                                         return 0;  // SUCCESS - found the extension!
                                     } else {
-                                        LOGD("[zTee] Expected OCTET_STRING for extension value, got tag=0x%02x",
+                                        LOGD("Expected OCTET_STRING for extension value, got tag=0x%02x",
                                              ext_obj.tag);
                                         return -1;
                                     }
@@ -247,32 +247,32 @@ static int get_extension_by_oid_manual(const unsigned char *data, int len, const
                             }
 
                             // If we get here, something went wrong with parsing the extension value
-                            LOGE("[zTee] Failed to parse extension value for OID %s",
+                            LOGE("Failed to parse extension value for OID %s",
                                  oid_str);
                             return -1;
                         }
                     }
                 }
 
-                LOGD("[zTee] OID mismatch, continuing to next extension");
+                LOGD("OID mismatch, continuing to next extension");
 
                 // Move to next extension within the sequence
                 // ext_offset is already advanced by parse_asn1_tag for the extension sequence
             }
         } else {
-            LOGD("[zTee] get_extension_by_oid_manual: skipping non-SEQUENCE object (tag=0x%02x)",
+            LOGD("get_extension_by_oid_manual: skipping non-SEQUENCE object (tag=0x%02x)",
                  obj.tag);
         }
 
         // Move to next extension in the outer sequence
-        LOGD("[zTee] get_extension_by_oid_manual: moving to next extension, current offset=%d, obj.length=%d",
+        LOGD("get_extension_by_oid_manual: moving to next extension, current offset=%d, obj.length=%d",
              offset, obj.length);
         offset += obj.length;
-        LOGD("[zTee] get_extension_by_oid_manual: new offset=%d, remaining len=%d", offset,
+        LOGD("get_extension_by_oid_manual: new offset=%d, remaining len=%d", offset,
              len - offset);
     }
 
-    LOGW("[zTee] Attestation extension not found");
+    LOGW("Attestation extension not found");
     return -1;
 }
 
@@ -280,7 +280,7 @@ static int get_extension_by_oid_manual(const unsigned char *data, int len, const
 static void
 print_hex_data(const char *prefix, const unsigned char *data, int len, const char *suffix) {
     if (len <= 0) {
-        LOGE("[zTee] %s: empty data%s", prefix, suffix);
+        LOGE("%s: empty data%s", prefix, suffix);
         return;
     }
 
@@ -296,7 +296,7 @@ print_hex_data(const char *prefix, const unsigned char *data, int len, const cha
         int pos = 0;
 
         // Print line header
-        pos += snprintf(hex_buf + pos, sizeof(hex_buf) - pos, "[zTee] %s[%d-%d]: ", prefix,
+        pos += snprintf(hex_buf + pos, sizeof(hex_buf) - pos, "%s[%d-%d]: ", prefix,
                         start, end - 1);
 
         // Print hex bytes
@@ -320,7 +320,7 @@ print_hex_data(const char *prefix, const unsigned char *data, int len, const cha
 static int parse_asn1_object(const unsigned char *data, int len, int *offset,
                              const unsigned char **object_data, int *object_len) {
     if (*offset >= len) {
-        LOGD("[zTee] parse_asn1_object: EOF reached, offset=%d, len=%d", *offset, len);
+        LOGD("parse_asn1_object: EOF reached, offset=%d, len=%d", *offset, len);
         return -1;  // EOF
     }
 
@@ -328,44 +328,44 @@ static int parse_asn1_object(const unsigned char *data, int len, int *offset,
     int tag = data[*offset];
     (*offset)++;
 
-    LOGV("[zTee] parse_asn1_object: tag=0x%02x, offset=%d", tag, *offset);
+    LOGV("parse_asn1_object: tag=0x%02x, offset=%d", tag, *offset);
 
     // Read tag number (simplified - assume no high tag numbers)
     int tag_no = tag & 0x1f;
-    LOGV("[zTee] parse_asn1_object: tag_no=%d", tag_no);
+    LOGV("parse_asn1_object: tag_no=%d", tag_no);
 
     // Read length
     if (*offset >= len) {
-        LOGD("[zTee] parse_asn1_object: EOF when reading length");
+        LOGD("parse_asn1_object: EOF when reading length");
         return -1;
     }
 
     int length = data[*offset];
     (*offset)++;
 
-    LOGV("[zTee] parse_asn1_object: length byte=0x%02x", length);
+    LOGV("parse_asn1_object: length byte=0x%02x", length);
 
     // Short form length
     if ((length >> 7) == 0) {
-        LOGV("[zTee] parse_asn1_object: short form length=%d", length);
+        LOGV("parse_asn1_object: short form length=%d", length);
     } else if (length == 0x80) {
-        LOGW("[zTee] parse_asn1_object: indefinite length not supported");
+        LOGW("parse_asn1_object: indefinite length not supported");
         return -1;
     } else {
         // Long form length
         int octets_count = length & 0x7F;
         length = 0;
 
-        LOGV("[zTee] parse_asn1_object: long form, octets_count=%d", octets_count);
+        LOGV("parse_asn1_object: long form, octets_count=%d", octets_count);
 
         for (int i = 0; i < octets_count; i++) {
             if (*offset >= len) {
-                LOGD("[zTee] parse_asn1_object: EOF reading length octets");
+                LOGD("parse_asn1_object: EOF reading length octets");
                 return -1;
             }
 
             if ((length >> 23) != 0) {
-                LOGW("[zTee] parse_asn1_object: length too large");
+                LOGW("parse_asn1_object: length too large");
                 return -1;
             }
 
@@ -373,15 +373,15 @@ static int parse_asn1_object(const unsigned char *data, int len, int *offset,
             (*offset)++;
 
             length = (length << 8) + octet;
-            LOGV("[zTee] parse_asn1_object: octet[%d]=0x%02x, length=%d", i, octet, length);
+            LOGV("parse_asn1_object: octet[%d]=0x%02x, length=%d", i, octet, length);
         }
     }
 
-    LOGV("[zTee] parse_asn1_object: final length=%d", length);
+    LOGV("parse_asn1_object: final length=%d", length);
 
     // Check if we have enough data
     if (*offset + length > len) {
-        LOGD("[zTee] parse_asn1_object: not enough data, need %d, have %d",
+        LOGD("parse_asn1_object: not enough data, need %d, have %d",
              length, len - *offset);
         return -1;
     }
@@ -393,7 +393,7 @@ static int parse_asn1_object(const unsigned char *data, int len, int *offset,
     // Advance offset past the object data
     *offset += length;
 
-    LOGV("[zTee] parse_asn1_object: success, tag=0x%02x, length=%d, constructed=%d",
+    LOGV("parse_asn1_object: success, tag=0x%02x, length=%d, constructed=%d",
          tag, length, (tag & 0x20) != 0);
 
     return tag;
@@ -447,30 +447,30 @@ static int parse_asn1_tag_number(const unsigned char *data, int len, int *offset
 // Parse ASN.1 length (based on readLength in ASN1InputStream.java)
 static int parse_asn1_length(const unsigned char *data, int len, int *offset) {
     if (*offset >= len) {
-        LOGD("[zTee] parse_asn1_length: EOF reached, offset=%d, len=%d", *offset, len);
+        LOGD("parse_asn1_length: EOF reached, offset=%d, len=%d", *offset, len);
         return -1;  // EOF
     }
 
     int length = data[*offset];
     (*offset)++;
 
-    LOGV("[zTee] parse_asn1_length: first byte=0x%02x", length);
+    LOGV("parse_asn1_length: first byte=0x%02x", length);
 
     // Short form length (bit 7 is 0)
     if ((length >> 7) == 0) {
-        LOGV("[zTee] parse_asn1_length: short form length=%d", length);
+        LOGV("parse_asn1_length: short form length=%d", length);
         return length;
     }
 
     // Indefinite length
     if (length == 0x80) {
-        LOGW("[zTee] parse_asn1_length: indefinite length");
+        LOGW("parse_asn1_length: indefinite length");
         return -1;
     }
 
     // Invalid length
     if (length < 0) {
-        LOGD("[zTee] parse_asn1_length: EOF found when length expected");
+        LOGD("parse_asn1_length: EOF found when length expected");
         return -1;
     }
 
@@ -478,16 +478,16 @@ static int parse_asn1_length(const unsigned char *data, int len, int *offset) {
     int octets_count = length & 0x7F;
     length = 0;
 
-    LOGV("[zTee] parse_asn1_length: long form, octets_count=%d", octets_count);
+    LOGV("parse_asn1_length: long form, octets_count=%d", octets_count);
 
             for (int i = 0; i < octets_count; i++) {
             if (*offset >= len) {
-                LOGD("[zTee] parse_asn1_length: EOF found reading length");
+                LOGD("parse_asn1_length: EOF found reading length");
                 return -1;  // EOF
             }
 
             if ((length >> 23) != 0) {
-                LOGW("[zTee] parse_asn1_length: long form definite-length more than 31 bits");
+                LOGW("parse_asn1_length: long form definite-length more than 31 bits");
                 return -1;  // Length too large
             }
 
@@ -495,24 +495,24 @@ static int parse_asn1_length(const unsigned char *data, int len, int *offset) {
             (*offset)++;
 
             length = (length << 8) | octet;  // 使用位或操作符，确保正确拼接
-            LOGV("[zTee] parse_asn1_length: octet[%d]=0x%02x, length=%d", i, octet, length);
+            LOGV("parse_asn1_length: octet[%d]=0x%02x, length=%d", i, octet, length);
         }
 
-        LOGV("[zTee] parse_asn1_length: final length=%d", length);
+        LOGV("parse_asn1_length: final length=%d", length);
     return length;
 }
 
 // Parse ASN.1 tag and length
 static int parse_asn1_tag(const unsigned char *data, int len, int *offset, asn1_object_t *obj) {
     if (*offset >= len) {
-        LOGD("[zTee] parse_asn1_tag: EOF reached, offset=%d, len=%d", *offset, len);
+        LOGD("parse_asn1_tag: EOF reached, offset=%d, len=%d", *offset, len);
         return -1;  // EOF
     }
 
     int tag = data[*offset];
     (*offset)++;
 
-    LOGV("[zTee] parse_asn1_tag: tag=0x%02x, offset=%d", tag, *offset);
+    LOGV("parse_asn1_tag: tag=0x%02x, offset=%d", tag, *offset);
 
     obj->tag = tag;
     obj->tag_class = tag & 0xE0; // ASN1_FLAGS
@@ -520,19 +520,19 @@ static int parse_asn1_tag(const unsigned char *data, int len, int *offset, asn1_
 
     int tag_no = parse_asn1_tag_number(data, len, offset, tag);
     if (tag_no < 0) {
-        LOGD("[zTee] parse_asn1_tag: Failed to parse tag number");
+        LOGD("parse_asn1_tag: Failed to parse tag number");
         return -1;
     }
 
-    LOGV("[zTee] parse_asn1_tag: tag_no=%d", tag_no);
+    LOGV("parse_asn1_tag: tag_no=%d", tag_no);
 
     int length = parse_asn1_length(data, len, offset);
     if (length < 0) {
-        LOGD("[zTee] parse_asn1_tag: Failed to parse length");
+        LOGD("parse_asn1_tag: Failed to parse length");
         return -1;
     }
 
-    LOGV("[zTee] parse_asn1_tag: length=%d", length);
+    LOGV("parse_asn1_tag: length=%d", length);
 
     obj->length = length;
     obj->data = data + *offset;  // Point to the actual data content
@@ -541,7 +541,7 @@ static int parse_asn1_tag(const unsigned char *data, int len, int *offset, asn1_
     // Advance offset past the object data
     *offset += length;
 
-    LOGV("[zTee] parse_asn1_tag: success, tag=0x%02x, length=%d, constructed=%d, data_len=%d, new_offset=%d",
+    LOGV("parse_asn1_tag: success, tag=0x%02x, length=%d, constructed=%d, data_len=%d, new_offset=%d",
          obj->tag, obj->length, obj->is_constructed, obj->data_len, *offset);
 
     return 0;
@@ -553,16 +553,16 @@ static int parse_x509_certificate(const unsigned char *data, int len, tee_info_t
     const unsigned char *cert_data;
     int cert_len;
 
-    LOGI("[zTee] Starting X.509 certificate parsing, total length: %d", len);
+    LOGI("Starting X.509 certificate parsing, total length: %d", len);
 
     // Parse certificate sequence
     int tag = parse_asn1_object(data, len, &offset, &cert_data, &cert_len);
     if (tag != ASN1_CONSTRUCTED_SEQUENCE) {
-        LOGE("[zTee] Expected certificate sequence, got tag: 0x%02x", tag);
+        LOGE("Expected certificate sequence, got tag: 0x%02x", tag);
         return -1;
     }
 
-    LOGD("[zTee] Certificate sequence length: %d", cert_len);
+    LOGD("Certificate sequence length: %d", cert_len);
 
     // Parse certificate body (the first element in the sequence)
     const unsigned char *body_data;
@@ -571,11 +571,11 @@ static int parse_x509_certificate(const unsigned char *data, int len, tee_info_t
 
     tag = parse_asn1_object(cert_data, cert_len, &body_offset, &body_data, &body_len);
     if (tag != ASN1_CONSTRUCTED_SEQUENCE) {
-        LOGE("[zTee] Expected certificate body sequence, got tag: 0x%02x", tag);
+        LOGE("Expected certificate body sequence, got tag: 0x%02x", tag);
         return -1;
     }
 
-    LOGD("[zTee] Certificate body sequence length: %d", body_len);
+    LOGD("Certificate body sequence length: %d", body_len);
 
     // Skip version, serial number, signature algorithm, issuer, validity, subject
     // We need to parse 6 elements before reaching subject public key info
@@ -586,11 +586,11 @@ static int parse_x509_certificate(const unsigned char *data, int len, tee_info_t
 
         tag = parse_asn1_object(body_data, body_len, &element_offset, &element_data, &element_len);
         if (tag < 0) {
-            LOGE("[zTee] Failed to parse element %d", i);
+            LOGE("Failed to parse element %d", i);
             return -1;
         }
 
-        LOGV("[zTee] Skipped element %d: tag=0x%02x, length=%d", i, tag, element_len);
+        LOGV("Skipped element %d: tag=0x%02x, length=%d", i, tag, element_len);
 
         // Move to next element
         body_data += element_offset;
@@ -604,11 +604,11 @@ static int parse_x509_certificate(const unsigned char *data, int len, tee_info_t
 
     tag = parse_asn1_object(body_data, body_len, &spki_offset, &spki_data, &spki_len);
     if (tag != ASN1_CONSTRUCTED_SEQUENCE) {
-        LOGE("[zTee] Expected subject public key info sequence, got tag: 0x%02x", tag);
+        LOGE("Expected subject public key info sequence, got tag: 0x%02x", tag);
         return -1;
     }
 
-    LOGD("[zTee] Subject public key info: tag=0x%02x, length=%d", tag, spki_len);
+    LOGD("Subject public key info: tag=0x%02x, length=%d", tag, spki_len);
 
     // Move past subject public key info
     body_data += spki_offset;
@@ -621,11 +621,11 @@ static int parse_x509_certificate(const unsigned char *data, int len, tee_info_t
         int ext_offset = 0;
 
         tag = parse_asn1_object(body_data, body_len, &ext_offset, &ext_data, &ext_len);
-        LOGD("[zTee] Found extension area: tag=0x%02x, length=%d", tag, ext_len);
+        LOGD("Found extension area: tag=0x%02x, length=%d", tag, ext_len);
 
         // Extensions can be either SEQUENCE (0x30) or context-specific tag 3 (0xa3)
         if (tag == ASN1_CONSTRUCTED_SEQUENCE || tag == 0xa3) {
-            LOGD("[zTee] Found extensions sequence, length: %d", ext_len);
+            LOGD("Found extensions sequence, length: %d", ext_len);
 
             // Look for attestation extension using manual parsing
             unsigned char *extension_data = NULL;
@@ -633,7 +633,7 @@ static int parse_x509_certificate(const unsigned char *data, int len, tee_info_t
 
             if (get_extension_by_oid_manual(ext_data, ext_len, TEE_ATTESTATION_OID, &extension_data,
                                             &extension_len) == 0) {
-                LOGI("[zTee] Found attestation extension");
+                LOGI("Found attestation extension");
                 tee_info->has_attestation_extension = 1;
 
                 // Print extension value for comparison with Java
@@ -641,45 +641,45 @@ static int parse_x509_certificate(const unsigned char *data, int len, tee_info_t
 
                 // Parse attestation extension - extension_data already contains the SEQUENCE data
                 if (parse_attestation_record(extension_data, extension_len, tee_info) != 0) {
-                    LOGE("[zTee] Failed to parse attestation extension");
+                    LOGE("Failed to parse attestation extension");
                     return -1;
                 }
             } else {
-                LOGW("[zTee] Attestation extension not found");
+                LOGW("Attestation extension not found");
                 tee_info->has_attestation_extension = 0;
             }
         } else {
-            LOGD("[zTee] No extensions found, tag: 0x%02x", tag);
+            LOGD("No extensions found, tag: 0x%02x", tag);
             tee_info->has_attestation_extension = 0;
         }
     } else {
-        LOGD("[zTee] No extensions found in certificate");
+        LOGD("No extensions found in certificate");
         tee_info->has_attestation_extension = 0;
     }
 
-    LOGI("[zTee] X.509 certificate parsing completed");
+    LOGI("X.509 certificate parsing completed");
     return 0;
 }
 
 // Parse attestation record
 static int parse_attestation_record(const unsigned char *data, int len, tee_info_t *tee_info) {
-    LOGI("[zTee] Parsing attestation record, length: %d", len);
+    LOGI("Parsing attestation record, length: %d", len);
 
     int offset = 0;
     asn1_object_t obj;
 
     // Parse attestation sequence
     if (parse_asn1_tag(data, len, &offset, &obj) != 0) {
-        LOGE("[zTee] Failed to parse attestation sequence");
+        LOGE("Failed to parse attestation sequence");
         return -1;
     }
 
     if ((obj.tag & 0x1F) != ASN1_SEQUENCE || !obj.is_constructed) {
-        LOGE("[zTee] Expected attestation sequence, got tag=0x%02x", obj.tag);
+        LOGE("Expected attestation sequence, got tag=0x%02x", obj.tag);
         return -1;
     }
 
-    LOGD("[zTee] Attestation sequence length: %d", obj.length);
+    LOGD("Attestation sequence length: %d", obj.length);
 
     // Parse attestation elements
     int att_offset = 0;
@@ -687,49 +687,49 @@ static int parse_attestation_record(const unsigned char *data, int len, tee_info
 
     // Element 0: attestation version (skip)
     if (parse_asn1_tag(obj.data, obj.data_len, &att_offset, &att_obj) != 0) {
-        LOGE("[zTee] Failed to parse attestation version");
+        LOGE("Failed to parse attestation version");
         return -1;
     }
 
     // Element 1: attestation security level
     if (parse_asn1_tag(obj.data, obj.data_len, &att_offset, &att_obj) != 0) {
-        LOGE("[zTee] Failed to parse security level");
+        LOGE("Failed to parse security level");
         return -1;
     }
 
     if ((att_obj.tag == ASN1_INTEGER || att_obj.tag == ASN1_ENUMERATED) && att_obj.data_len > 0) {
         tee_info->security_level = att_obj.data[0];
-        LOGI("[zTee] Security level: %d", tee_info->security_level);
+        LOGI("Security level: %d", tee_info->security_level);
     }
 
     // Skip elements 2-5 (keymaster version, attestation challenge, software enforced, tee enforced)
     for (int i = 2; i <= 5; i++) {
         if (parse_asn1_tag(obj.data, obj.data_len, &att_offset, &att_obj) != 0) {
-            LOGE("[zTee] Failed to skip element %d", i);
+            LOGE("Failed to skip element %d", i);
             return -1;
         }
     }
 
     // Element 6: software enforced authorization list
     if (parse_asn1_tag(obj.data, obj.data_len, &att_offset, &att_obj) != 0) {
-        LOGE("[zTee] Failed to parse software enforced list");
+        LOGE("Failed to parse software enforced list");
         return -1;
     }
 
     if ((att_obj.tag & 0x1F) == ASN1_SEQUENCE && att_obj.is_constructed) {
-        LOGD("[zTee] Software enforced list length: %d", att_obj.length);
+        LOGD("Software enforced list length: %d", att_obj.length);
         find_root_of_trust_in_authorization_list(att_obj.data, att_obj.data_len,
                                                  &tee_info->root_of_trust);
     }
 
     // Element 7: tee enforced authorization list
     if (parse_asn1_tag(obj.data, obj.data_len, &att_offset, &att_obj) != 0) {
-        LOGE("[zTee] Failed to parse tee enforced list");
+        LOGE("Failed to parse tee enforced list");
         return -1;
     }
 
     if ((att_obj.tag & 0x1F) == ASN1_SEQUENCE && att_obj.is_constructed) {
-        LOGD("[zTee] TEE enforced list length: %d", att_obj.length);
+        LOGD("TEE enforced list length: %d", att_obj.length);
         // If root of trust not found in software enforced, try tee enforced
         if (!tee_info->root_of_trust.valid) {
             find_root_of_trust_in_authorization_list(att_obj.data, att_obj.data_len,
@@ -743,7 +743,7 @@ static int parse_attestation_record(const unsigned char *data, int len, tee_info
 // Find root of trust in authorization list
 static int find_root_of_trust_in_authorization_list(const unsigned char *data, int len,
                                                     root_of_trust_t *root_of_trust) {
-    LOGD("[zTee] Searching for root of trust in authorization list, length: %d", len);
+    LOGD("Searching for root of trust in authorization list, length: %d", len);
 
     int offset = 0;
     asn1_object_t obj;
@@ -759,14 +759,14 @@ static int find_root_of_trust_in_authorization_list(const unsigned char *data, i
             // This is a high tag number, we need to parse it
             // We already have the tag_no from parse_asn1_tag, so we can use it directly
             if (obj.tag == 0xbf) {  // This is tag 704 (KM_TAG_ROOT_OF_TRUST)
-                LOGI("[zTee] Found root of trust tag (tag_no=704)");
+                LOGI("Found root of trust tag (tag_no=704)");
 
                 // Parse root of trust sequence
                 if (parse_root_of_trust_sequence(obj.data, obj.data_len, root_of_trust) == 0) {
-                    LOGI("[zTee] Successfully parsed root of trust");
+                    LOGI("Successfully parsed root of trust");
                     return 0;
                 } else {
-                    LOGW("[zTee] Failed to parse root of trust sequence");
+                    LOGW("Failed to parse root of trust sequence");
                 }
             }
         }
@@ -778,26 +778,26 @@ static int find_root_of_trust_in_authorization_list(const unsigned char *data, i
 // Parse root of trust sequence
 static int
 parse_root_of_trust_sequence(const unsigned char *data, int len, root_of_trust_t *root_of_trust) {
-    LOGD("[zTee] Parsing root of trust sequence, length: %d", len);
+    LOGD("Parsing root of trust sequence, length: %d", len);
 
     int offset = 0;
     asn1_object_t obj;
 
     // Parse root of trust sequence
     if (parse_asn1_tag(data, len, &offset, &obj) != 0) {
-        LOGE("[zTee] Failed to parse root of trust sequence");
+        LOGE("Failed to parse root of trust sequence");
         return -1;
     }
 
-    LOGD("[zTee] Root of trust data: tag=0x%02x, length=%d, constructed=%d", obj.tag,
+    LOGD("Root of trust data: tag=0x%02x, length=%d, constructed=%d", obj.tag,
          obj.length, obj.is_constructed);
 
     if ((obj.tag & 0x1F) != ASN1_SEQUENCE || !obj.is_constructed) {
-        LOGE("[zTee] Expected root of trust sequence, got tag=0x%02x", obj.tag);
+        LOGE("Expected root of trust sequence, got tag=0x%02x", obj.tag);
         return -1;
     }
 
-    LOGD("[zTee] Root of trust sequence length: %d", obj.length);
+    LOGD("Root of trust sequence length: %d", obj.length);
 
     // Parse root of trust elements
     int rot_offset = 0;
@@ -805,42 +805,42 @@ parse_root_of_trust_sequence(const unsigned char *data, int len, root_of_trust_t
 
     // Element 0: verified boot key
     if (parse_asn1_tag(obj.data, obj.data_len, &rot_offset, &rot_obj) != 0) {
-        LOGE("[zTee] Failed to parse verified boot key");
+        LOGE("Failed to parse verified boot key");
         return -1;
     }
 
     if (rot_obj.tag == ASN1_OCTET_STRING_TAG) {
         bytes_to_hex(rot_obj.data, rot_obj.data_len, root_of_trust->verified_boot_key_hex);
-        LOGI("[zTee] Verified boot key: %s", root_of_trust->verified_boot_key_hex);
+        LOGI("Verified boot key: %s", root_of_trust->verified_boot_key_hex);
     }
 
     // Element 1: device locked
     if (parse_asn1_tag(obj.data, obj.data_len, &rot_offset, &rot_obj) != 0) {
-        LOGE("[zTee] Failed to parse device locked");
+        LOGE("Failed to parse device locked");
         return -1;
     }
 
     if (rot_obj.tag == ASN1_BOOLEAN && rot_obj.data_len > 0) {
         root_of_trust->device_locked = (rot_obj.data[0] != 0);
-        LOGI("[zTee] Device locked: %d", root_of_trust->device_locked);
+        LOGI("Device locked: %d", root_of_trust->device_locked);
     }
 
     // Element 2: verified boot state
     if (parse_asn1_tag(obj.data, obj.data_len, &rot_offset, &rot_obj) != 0) {
-        LOGE("[zTee] Failed to parse verified boot state");
+        LOGE("Failed to parse verified boot state");
         return -1;
     }
 
     if ((rot_obj.tag == ASN1_INTEGER || rot_obj.tag == ASN1_ENUMERATED) && rot_obj.data_len > 0) {
         root_of_trust->verified_boot_state = rot_obj.data[0];
-        LOGI("[zTee] Verified boot state: %d", root_of_trust->verified_boot_state);
+        LOGI("Verified boot state: %d", root_of_trust->verified_boot_state);
     }
 
     // Element 3: verified boot hash (optional)
     if (rot_offset < obj.data_len) {
         if (parse_asn1_tag(obj.data, obj.data_len, &rot_offset, &rot_obj) == 0) {
             if (rot_obj.tag == ASN1_OCTET_STRING_TAG) {
-                LOGD("[zTee] Verified boot hash length: %d", rot_obj.data_len);
+                LOGD("Verified boot hash length: %d", rot_obj.data_len);
             }
         }
     }
@@ -860,34 +860,34 @@ void bytes_to_hex(const unsigned char *data, int len, char *hex_str) {
 // Main function to parse TEE certificate
 int parse_tee_certificate(const unsigned char *cert_data, int cert_len, tee_info_t *tee_info) {
     if (!cert_data || !tee_info || cert_len <= 0) {
-        LOGE("[zTee] Invalid parameters");
+        LOGE("Invalid parameters");
         return -1;
     }
 
     // Initialize tee_info
     memset(tee_info, 0, sizeof(tee_info_t));
 
-    LOGI("[zTee] Starting TEE certificate parsing, length: %d", cert_len);
+    LOGI("Starting TEE certificate parsing, length: %d", cert_len);
 
     // Log first few bytes for debugging
     if (cert_len > 0) {
         char hex_data[65];
         bytes_to_hex(cert_data, cert_len > 32 ? 32 : cert_len, hex_data);
-        LOGD("[zTee] Certificate data (first 32 bytes): %s", hex_data);
+        LOGD("Certificate data (first 32 bytes): %s", hex_data);
     }
 
     // Parse X.509 certificate
     if (parse_x509_certificate(cert_data, cert_len, tee_info) != 0) {
-        LOGE("[zTee] Failed to parse X.509 certificate");
+        LOGE("Failed to parse X.509 certificate");
         return -1;
     }
 
-    LOGI("[zTee] TEE certificate parsing completed");
-    LOGI("[zTee] Security level: %d", tee_info->security_level);
-    LOGI("[zTee] Has attestation extension: %d", tee_info->has_attestation_extension);
+    LOGI("TEE certificate parsing completed");
+    LOGI("Security level: %d", tee_info->security_level);
+    LOGI("Has attestation extension: %d", tee_info->has_attestation_extension);
 
     if (tee_info->root_of_trust.valid) {
-        LOGI("[zTee] Root of trust: %s, device locked: %d, verified boot state: %d",
+        LOGI("Root of trust: %s, device locked: %d, verified boot state: %d",
              tee_info->root_of_trust.verified_boot_key_hex,
              tee_info->root_of_trust.device_locked,
              tee_info->root_of_trust.verified_boot_state);

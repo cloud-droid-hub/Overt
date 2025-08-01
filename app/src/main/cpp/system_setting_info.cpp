@@ -13,7 +13,7 @@
 
 bool isCharging(JNIEnv *env, jobject context) {
     if (context == nullptr) {
-        LOGE("[system_setting_info] Failed to get context");
+        LOGE("Failed to get context");
         return JNI_FALSE;
     }
 
@@ -33,7 +33,7 @@ bool isCharging(JNIEnv *env, jobject context) {
                                                         "(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;");
     jobject batteryStatusIntent = env->CallObjectMethod(context, registerReceiverMethod, nullptr, intentFilter);
     if (batteryStatusIntent == nullptr) {
-        LOGE("[system_setting_info] Failed to register receiver for battery status");
+        LOGE("Failed to register receiver for battery status");
         return JNI_FALSE;
     }
 
@@ -54,10 +54,10 @@ bool isCharging(JNIEnv *env, jobject context) {
 
     // 判断状态
     if (status == BATTERY_STATUS_CHARGING || status == BATTERY_STATUS_FULL) {
-        LOGI("[system_setting_info] Device is charging");
+        LOGI("Device is charging");
         return JNI_TRUE;
     } else {
-        LOGI("[system_setting_info] Device is not charging");
+        LOGI("Device is not charging");
         return JNI_FALSE;
     }
 }
@@ -83,11 +83,11 @@ string getInstallerName(JNIEnv *env, jobject context) {
 
     // 如果返回值为 null，说明是 ADB 安装
     if (installer == nullptr) {
-        LOGD("[system_setting_info] installer=null");
+        LOGD("installer=null");
         return "";
     } else {
         const char* installer_cstr = env->GetStringUTFChars(installer, 0);
-        LOGI("[system_setting_info] installer=%s", installer_cstr);
+        LOGI("installer=%s", installer_cstr);
         return string(installer_cstr);
     }
 }
@@ -236,12 +236,12 @@ map<string, map<string, string>> get_system_setting_info(JNIEnv* env, jobject co
     map<string, map<string, string>> info;
 
     if (env == nullptr) {
-        LOGE("[system_setting_info] Failed to get env");
+        LOGE("Failed to get env");
         return info;
     }
 
     if (context == nullptr) {
-        LOGE("[system_setting_info] Failed to get context");
+        LOGE("Failed to get context");
         return info;
     }
 
@@ -270,49 +270,49 @@ map<string, map<string, string>> get_system_setting_info(JNIEnv* env, jobject co
     bool is_vpn_enable = isVpnEnable(env, context);
 
 
-            LOGI("[system_setting_info] is_charging=%d", is_charging);
+            LOGI("is_charging=%d", is_charging);
     if(is_charging){
         info["battery"]["risk"] = "warn";
         info["battery"]["explain"] = "phone is being charged";
     }
 
-            LOGI("[system_setting_info] isMarketInstalled=%d", is_market_installed);
+            LOGI("isMarketInstalled=%d", is_market_installed);
     if(!is_market_installed){
         info["installer"]["risk"] = "warn";
         info["installer"]["explain"] = "not install from official app market [" + getInstallerName(env, context) + "]";
     }
 
-            LOGI("[system_setting_info] is_sim_exist=%d", is_sim_exist);
+            LOGI("is_sim_exist=%d", is_sim_exist);
     if(!is_sim_exist){
         info["sim"]["risk"] = "error";
         info["sim"]["explain"] = "no sim card";
     }
 
-            LOGI("[system_setting_info] is_developer_mode_enabled=%d", is_developer_mode_enabled);
+            LOGI("is_developer_mode_enabled=%d", is_developer_mode_enabled);
     if(is_developer_mode_enabled){
         info["developer_mode"]["risk"] = "error";
         info["developer_mode"]["explain"] = "developer mode is enabled";
     }
 
-            LOGI("[system_setting_info] is_usb_debug_enabled=%d", is_usb_debug_enabled);
+            LOGI("is_usb_debug_enabled=%d", is_usb_debug_enabled);
     if(is_usb_debug_enabled){
         info["usb_debug"]["risk"] = "error";
         info["usb_debug"]["explain"] = "usb debugging is enabled";
     }
 
-            LOGI("[system_setting_info] is_proxy_enabled=%d", is_proxy_enabled);
+            LOGI("is_proxy_enabled=%d", is_proxy_enabled);
     if(is_proxy_enabled){
         info["proxy"]["risk"] = "error";
         info["proxy"]["explain"] = "proxy is enabled";
     }
 
-            LOGI("[system_setting_info] is_password_locked=%d", is_password_locked);
+            LOGI("is_password_locked=%d", is_password_locked);
     if(!is_password_locked){
         info["password"]["risk"] = "warn";
         info["password"]["explain"] = "lock screen password is not set";
     }
 
-            LOGI("[system_setting_info] is_vpn_enable=%d", is_vpn_enable);
+            LOGI("is_vpn_enable=%d", is_vpn_enable);
     if(is_vpn_enable){
         info["vpn"]["risk"] = "error";
         info["vpn"]["explain"] = "vpn is enable";

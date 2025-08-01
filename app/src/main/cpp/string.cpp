@@ -38,14 +38,14 @@ namespace nonstd {
 
 // Default constructor
     string::string() : data(new char[1]{'\0'}), len(0), capacity(1) {
-        LOGV("[string] nonstd::string() default constructor called, data=%p", data);
+        LOGV("nonstd::string() default constructor called, data=%p", data);
     }
 
 // Constructor from C-string
     string::string(const char* str) {
-        LOGV("[string] nonstd::string(const char* str) is called with str=%p", str);
+        LOGV("nonstd::string(const char* str) is called with str=%p", str);
         if (!str) {
-            LOGV("[string] nonstd::string: str is NULL, creating empty string");
+            LOGV("nonstd::string: str is NULL, creating empty string");
             data = new char[1]{'\0'};
             len = 0;
             capacity = 1;
@@ -55,16 +55,16 @@ namespace nonstd {
         data = new char[len + 1];  // +1 for null terminator
         capacity = len + 1;
         custom_strcpy(data, str);  // Use custom strcpy
-        LOGV("[string] nonstd::string(const char*) completed, data=%p, length=%zu", data, len);
+        LOGV("nonstd::string(const char*) completed, data=%p, length=%zu", data, len);
     }
     
     // Constructor from C-string with length (based on std::string implementation)
     string::string(const char* str, size_t len) {
-        LOGV("[string] nonstd::string(const char* str, size_t len) is called with str=%p, len=%zu", str, len);
+        LOGV("nonstd::string(const char* str, size_t len) is called with str=%p, len=%zu", str, len);
         
         // Following std::string behavior: allow nullptr if len == 0
         if (!str && len > 0) {
-            LOGV("[string] nonstd::string: str is NULL but len > 0, throwing logic_error");
+            LOGV("nonstd::string: str is NULL but len > 0, throwing logic_error");
             throw std::logic_error("nonstd::string: construction from null is not valid");
         }
         
@@ -83,12 +83,12 @@ namespace nonstd {
             capacity = 1;
         }
         
-        LOGV("[string] nonstd::string(const char*, size_t) completed, data=%p, length=%zu", data, this->len);
+        LOGV("nonstd::string(const char*, size_t) completed, data=%p, length=%zu", data, this->len);
     }
 
 // Copy constructor
     string::string(const string& other) {
-        LOGV("[string] nonstd::string(const string& other) copy constructor called, other.data=%p, other.len=%zu", other.data, other.len);
+        LOGV("nonstd::string(const string& other) copy constructor called, other.data=%p, other.len=%zu", other.data, other.len);
         len = other.len;
         data = new char[len + 1];
         capacity = len + 1;
@@ -97,21 +97,21 @@ namespace nonstd {
         } else {
             data[0] = '\0';
         }
-        LOGV("[string] nonstd::string(const string&) completed, data=%p, length=%zu", data, len);
+        LOGV("nonstd::string(const string&) completed, data=%p, length=%zu", data, len);
     }
 
 // Move constructor
     string::string(string&& other) noexcept : data(other.data), len(other.len), capacity(other.capacity) {
-        LOGV("[string] nonstd::string(string&& other) move constructor called, other.data=%p, other.len=%zu", other.data, other.len);
+        LOGV("nonstd::string(string&& other) move constructor called, other.data=%p, other.len=%zu", other.data, other.len);
         other.data = nullptr;  // Nullify the other object's data
         other.len = 0;
         other.capacity = 0;
-        LOGV("[string] nonstd::string(string&&) completed, data=%p, length=%zu", data, len);
+        LOGV("nonstd::string(string&&) completed, data=%p, length=%zu", data, len);
     }
 
 // Destructor
     string::~string() {
-        LOGV("[string] nonstd::string destructor called, data=%p, len=%zu", data, len);
+        LOGV("nonstd::string destructor called, data=%p, len=%zu", data, len);
         if (data) {
             delete[] data;
         }
@@ -119,7 +119,7 @@ namespace nonstd {
 
 // Copy assignment operator
     string& string::operator=(const string& other) {
-        LOGV("[string] nonstd::string.operator=(const string& other) called, other.data=%p, other.len=%zu", other.data, other.len);
+        LOGV("nonstd::string.operator=(const string& other) called, other.data=%p, other.len=%zu", other.data, other.len);
         if (this == &other) return *this;  // Self-assignment check
 
         if (data) {
@@ -135,13 +135,13 @@ namespace nonstd {
             data[0] = '\0';
         }
 
-        LOGV("[string] nonstd::string.operator= completed, data=%p, length=%zu", data, len);
+        LOGV("nonstd::string.operator= completed, data=%p, length=%zu", data, len);
         return *this;
     }
 
 // Move assignment operator
     string& string::operator=(string&& other) noexcept {
-        LOGV("[string] nonstd::string.operator=(string&& other) move assignment called, other.data=%p, other.len=%zu", other.data, other.len);
+        LOGV("nonstd::string.operator=(string&& other) move assignment called, other.data=%p, other.len=%zu", other.data, other.len);
         if (this != &other) {
             if (data) {
                 delete[] data;  // Clean up existing data
@@ -155,7 +155,7 @@ namespace nonstd {
             other.len = 0;
             other.capacity = 0;
         }
-        LOGV("[string] nonstd::string.operator=(string&&) completed, data=%p, length=%zu", data, len);
+        LOGV("nonstd::string.operator=(string&&) completed, data=%p, length=%zu", data, len);
         return *this;
     }
 
@@ -166,35 +166,35 @@ namespace nonstd {
 
 // Get the size of the string (same as length)
     size_t string::size() const {
-        LOGV("[string] nonstd::string.size() is called, returning %zu", len);
+        LOGV("nonstd::string.size() is called, returning %zu", len);
         return len;
     }
 
 // Check if the string is empty
     bool string::empty() const {
-        LOGV("[string] nonstd::string.empty() is called, returning %s", (len == 0) ? "true" : "false");
+        LOGV("nonstd::string.empty() is called, returning %s", (len == 0) ? "true" : "false");
         return len == 0;
     }
 
     // Clear the string
     void string::clear() {
-        LOGV("[string] nonstd::string.clear() is called, old data=%p, old length=%zu", data, len);
+        LOGV("nonstd::string.clear() is called, old data=%p, old length=%zu", data, len);
         if (data) {
             delete[] data;
         }
         data = new char[1]{'\0'};
         len = 0;
         capacity = 1;
-        LOGV("[string] nonstd::string.clear() completed, new data=%p, new length=%zu", data, len);
+        LOGV("nonstd::string.clear() completed, new data=%p, new length=%zu", data, len);
     }
 
 // Get substring starting at pos with length len
     string string::substr(size_t pos, size_t len) const {
-        LOGV("[string] nonstd::string.substr(pos=%zu, len=%zu) is called", pos, len);
+        LOGV("nonstd::string.substr(pos=%zu, len=%zu) is called", pos, len);
         
         // Check bounds
         if (pos >= this->len) {
-            LOGV("[string] nonstd::string.substr: pos %zu >= length %zu, throwing out_of_range", pos, this->len);
+            LOGV("nonstd::string.substr: pos %zu >= length %zu, throwing out_of_range", pos, this->len);
             throw std::out_of_range("string::substr");
         }
         
@@ -204,7 +204,7 @@ namespace nonstd {
             actual_len = this->len - pos;
         }
         
-        LOGV("[string] nonstd::string.substr: creating substring of length %zu", actual_len);
+        LOGV("nonstd::string.substr: creating substring of length %zu", actual_len);
         
         // Create new string with substring
         string result;
@@ -220,15 +220,15 @@ namespace nonstd {
             result.len = actual_len;
         }
         
-        LOGV("[string] nonstd::string.substr: returning substring '%s'", result.c_str());
+        LOGV("nonstd::string.substr: returning substring '%s'", result.c_str());
         return result;
     }
 
 // Access the underlying C-string
     const char* string::c_str() const {
-        LOGV("[string] nonstd::string.c_str() is called, data=%p, len=%zu", data, len);
+        LOGV("nonstd::string.c_str() is called, data=%p, len=%zu", data, len);
         if (!data) {
-            LOGV("[string] nonstd::string.c_str(): data is NULL, returning empty string");
+            LOGV("nonstd::string.c_str(): data is NULL, returning empty string");
             return "";
         }
         return data;
@@ -265,7 +265,7 @@ namespace nonstd {
 
 // Friend function for const char* + string
     string operator+(const char* str, const string& other) {
-        LOGV("[string] nonstd::operator+(const char*, const string&) called, str='%s', other='%s'", str, other.c_str());
+        LOGV("nonstd::operator+(const char*, const string&) called, str='%s', other='%s'", str, other.c_str());
         
         size_t str_len = 0;
         while (str[str_len] != '\0') {
@@ -287,13 +287,13 @@ namespace nonstd {
         src = other.data;
         while ((*dest++ = *src++) != '\0') {}
         
-        LOGV("[string] nonstd::operator+(const char*, const string&) done, result='%s'", result.c_str());
+        LOGV("nonstd::operator+(const char*, const string&) done, result='%s'", result.c_str());
         return result;
     }
 
 // Compound assignment operator (+=) for string
     string& string::operator+=(const string& other) {
-        LOGV("[string] nonstd::string.operator+=(const string&) called, this len=%zu, other len=%zu", len, other.len);
+        LOGV("nonstd::string.operator+=(const string&) called, this len=%zu, other len=%zu", len, other.len);
         
         size_t new_len = len + other.len;
         char* new_data = new char[new_len + 1];  // +1 for null terminator
@@ -306,13 +306,13 @@ namespace nonstd {
         len = new_len;
         capacity = new_len + 1;
         
-        LOGV("[string] nonstd::string.operator+=(const string&) done, new len=%zu", len);
+        LOGV("nonstd::string.operator+=(const string&) done, new len=%zu", len);
         return *this;
     }
 
 // Compound assignment operator (+=) for C-string
     string& string::operator+=(const char* str) {
-        LOGV("[string] nonstd::string.operator+=(const char*) called, this len=%zu, str len=%zu", len, custom_strlen(str));
+        LOGV("nonstd::string.operator+=(const char*) called, this len=%zu, str len=%zu", len, custom_strlen(str));
         
         size_t str_len = custom_strlen(str);
         size_t new_len = len + str_len;
@@ -326,13 +326,13 @@ namespace nonstd {
         len = new_len;
         capacity = new_len + 1;
         
-        LOGV("[string] nonstd::string.operator+=(const char*) done, new len=%zu", len);
+        LOGV("nonstd::string.operator+=(const char*) done, new len=%zu", len);
         return *this;
     }
 
 // Compound assignment operator (+=) for char
     string& string::operator+=(char ch) {
-        LOGV("[string] nonstd::string.operator+=(char '%c') is called, current length=%zu", ch, len);
+        LOGV("nonstd::string.operator+=(char '%c') is called, current length=%zu", ch, len);
         
         size_t new_len = len + 1;  // Add one character
         char* new_data = new char[new_len + 1];  // +1 for null terminator
@@ -346,37 +346,37 @@ namespace nonstd {
         len = new_len;
         capacity = new_len + 1;
         
-        LOGV("[string] nonstd::string.operator+=(char) completed, new length=%zu", len);
+        LOGV("nonstd::string.operator+=(char) completed, new length=%zu", len);
         return *this;
     }
 
     // Equality comparison operator (==) for string
     bool string::operator==(const string& other) const {
-        LOGV("[string] nonstd::string.operator==(string) is called, comparing '%s' with '%s'", data, other.data);
+        LOGV("nonstd::string.operator==(string) is called, comparing '%s' with '%s'", data, other.data);
         
         if (len != other.len) {
-            LOGV("[string] nonstd::string.operator==(string): lengths differ (%zu vs %zu), returning false", len, other.len);
+            LOGV("nonstd::string.operator==(string): lengths differ (%zu vs %zu), returning false", len, other.len);
             return false;
         }
         
         // Compare each character
         for (size_t i = 0; i < len; ++i) {
             if (data[i] != other.data[i]) {
-                LOGV("[string] nonstd::string.operator==(string): characters differ at position %zu ('%c' vs '%c'), returning false", i, data[i], other.data[i]);
+                LOGV("nonstd::string.operator==(string): characters differ at position %zu ('%c' vs '%c'), returning false", i, data[i], other.data[i]);
                 return false;
             }
         }
         
-        LOGV("[string] nonstd::string.operator==(string): strings are equal, returning true");
+        LOGV("nonstd::string.operator==(string): strings are equal, returning true");
         return true;
     }
 
     // Equality comparison operator (==) for const char*
     bool string::operator==(const char* str) const {
-        LOGV("[string] nonstd::string.operator==(const char*) is called, comparing '%s' with '%s'", data, str ? str : "NULL");
+        LOGV("nonstd::string.operator==(const char*) is called, comparing '%s' with '%s'", data, str ? str : "NULL");
         
         if (!str) {
-            LOGV("[string] nonstd::string.operator==(const char*): str is NULL, returning false");
+            LOGV("nonstd::string.operator==(const char*): str is NULL, returning false");
             return false;
         }
         
@@ -384,7 +384,7 @@ namespace nonstd {
         size_t i = 0;
         while (i < len && str[i] != '\0') {
             if (data[i] != str[i]) {
-                LOGV("[string] nonstd::string.operator==(const char*): characters differ at position %zu ('%c' vs '%c'), returning false", i, data[i], str[i]);
+                LOGV("nonstd::string.operator==(const char*): characters differ at position %zu ('%c' vs '%c'), returning false", i, data[i], str[i]);
                 return false;
             }
             i++;
@@ -392,7 +392,7 @@ namespace nonstd {
         
         // Check if both strings ended at the same time
         bool result = (i == len && str[i] == '\0');
-        LOGV("[string] nonstd::string.operator==(const char*): comparison result = %s", result ? "true" : "false");
+        LOGV("nonstd::string.operator==(const char*): comparison result = %s", result ? "true" : "false");
         return result;
     }
 
@@ -408,42 +408,42 @@ namespace nonstd {
 
     // Less than comparison operator (<) for string
     bool string::operator<(const string& other) const {
-        LOGV("[string] nonstd::string.operator<(string) is called, comparing '%s' with '%s'", data, other.data);
+        LOGV("nonstd::string.operator<(string) is called, comparing '%s' with '%s'", data, other.data);
         
         size_t min_len = (len < other.len) ? len : other.len;
         
         for (size_t i = 0; i < min_len; ++i) {
             if (data[i] < other.data[i]) {
-                LOGV("[string] nonstd::string.operator<(string): '%c' < '%c' at position %zu, returning true", data[i], other.data[i], i);
+                LOGV("nonstd::string.operator<(string): '%c' < '%c' at position %zu, returning true", data[i], other.data[i], i);
                 return true;
             } else if (data[i] > other.data[i]) {
-                LOGV("[string] nonstd::string.operator<(string): '%c' > '%c' at position %zu, returning false", data[i], other.data[i], i);
+                LOGV("nonstd::string.operator<(string): '%c' > '%c' at position %zu, returning false", data[i], other.data[i], i);
                 return false;
             }
         }
         
         // If all characters are equal up to min_len, shorter string is less
         bool result = (len < other.len);
-        LOGV("[string] nonstd::string.operator<(string): lengths compared (%zu < %zu), returning %s", len, other.len, result ? "true" : "false");
+        LOGV("nonstd::string.operator<(string): lengths compared (%zu < %zu), returning %s", len, other.len, result ? "true" : "false");
         return result;
     }
 
     // Less than comparison operator (<) for const char*
     bool string::operator<(const char* str) const {
-        LOGV("[string] nonstd::string.operator<(const char*) is called, comparing '%s' with '%s'", data, str ? str : "NULL");
+        LOGV("nonstd::string.operator<(const char*) is called, comparing '%s' with '%s'", data, str ? str : "NULL");
         
         if (!str) {
-            LOGV("[string] nonstd::string.operator<(const char*): str is NULL, returning false");
+            LOGV("nonstd::string.operator<(const char*): str is NULL, returning false");
             return false;
         }
         
         size_t i = 0;
         while (i < len && str[i] != '\0') {
             if (data[i] < str[i]) {
-                LOGV("[string] nonstd::string.operator<(const char*): '%c' < '%c' at position %zu, returning true", data[i], str[i], i);
+                LOGV("nonstd::string.operator<(const char*): '%c' < '%c' at position %zu, returning true", data[i], str[i], i);
                 return true;
             } else if (data[i] > str[i]) {
-                LOGV("[string] nonstd::string.operator<(const char*): '%c' > '%c' at position %zu, returning false", data[i], str[i], i);
+                LOGV("nonstd::string.operator<(const char*): '%c' > '%c' at position %zu, returning false", data[i], str[i], i);
                 return false;
             }
             i++;
@@ -451,7 +451,7 @@ namespace nonstd {
         
         // If all characters are equal up to min_len, shorter string is less
         bool result = (i == len && str[i] != '\0');
-        LOGV("[string] nonstd::string.operator<(const char*): comparison result = %s", result ? "true" : "false");
+        LOGV("nonstd::string.operator<(const char*): comparison result = %s", result ? "true" : "false");
         return result;
     }
 
@@ -490,16 +490,16 @@ namespace nonstd {
 
     // Find methods implementation
     size_t string::find(const char* str, size_t pos) const {
-        LOGV("[string] nonstd::string.find(const char*) called with '%s' at pos %zu", str ? str : "NULL", pos);
+        LOGV("nonstd::string.find(const char*) called with '%s' at pos %zu", str ? str : "NULL", pos);
         
         if (!str || pos >= len) {
-            LOGV("[string] nonstd::string.find: invalid parameters, returning npos");
+            LOGV("nonstd::string.find: invalid parameters, returning npos");
             return npos;
         }
         
         size_t str_len = custom_strlen(str);
         if (str_len == 0) {
-            LOGV("[string] nonstd::string.find: empty search string, returning pos %zu", pos);
+            LOGV("nonstd::string.find: empty search string, returning pos %zu", pos);
             return pos;
         }
         
@@ -513,49 +513,49 @@ namespace nonstd {
                 }
             }
             if (found) {
-                LOGV("[string] nonstd::string.find: found at position %zu", i);
+                LOGV("nonstd::string.find: found at position %zu", i);
                 return i;
             }
         }
         
-        LOGV("[string] nonstd::string.find: not found, returning npos");
+        LOGV("nonstd::string.find: not found, returning npos");
         return npos;
     }
     
     size_t string::find(const string& str, size_t pos) const {
-        LOGV("[string] nonstd::string.find(string) called with '%s' at pos %zu", str.c_str(), pos);
+        LOGV("nonstd::string.find(string) called with '%s' at pos %zu", str.c_str(), pos);
         return find(str.c_str(), pos);
     }
     
     size_t string::find(char ch, size_t pos) const {
-        LOGV("[string] nonstd::string.find(char) called with '%c' at pos %zu", ch, pos);
+        LOGV("nonstd::string.find(char) called with '%c' at pos %zu", ch, pos);
         
         if (pos >= len) {
-            LOGV("[string] nonstd::string.find(char): pos >= len, returning npos");
+            LOGV("nonstd::string.find(char): pos >= len, returning npos");
             return npos;
         }
         
         for (size_t i = pos; i < len; ++i) {
             if (data[i] == ch) {
-                LOGV("[string] nonstd::string.find(char): found at position %zu", i);
+                LOGV("nonstd::string.find(char): found at position %zu", i);
                 return i;
             }
         }
         
-        LOGV("[string] nonstd::string.find(char): not found, returning npos");
+        LOGV("nonstd::string.find(char): not found, returning npos");
         return npos;
     }
 
     size_t string::find_first_not_of(const char* s, size_t pos) const {
-        LOGV("[string] nonstd::string.find_first_not_of(const char*) called with \"%s\" at pos %zu", s, pos);
+        LOGV("nonstd::string.find_first_not_of(const char*) called with \"%s\" at pos %zu", s, pos);
 
         if (!s) {
-            LOGV("[string] nonstd::string.find_first_not_of: null pointer passed, returning npos");
+            LOGV("nonstd::string.find_first_not_of: null pointer passed, returning npos");
             return npos;
         }
 
         if (pos >= len) {
-            LOGV("[string] nonstd::string.find_first_not_of: pos >= len, returning npos");
+            LOGV("nonstd::string.find_first_not_of: pos >= len, returning npos");
             return npos;
         }
 
@@ -569,28 +569,28 @@ namespace nonstd {
             }
 
             if (!found) {
-                LOGV("[string] nonstd::string.find_first_not_of: first non-matching character at position %zu", i);
+                LOGV("nonstd::string.find_first_not_of: first non-matching character at position %zu", i);
                 return i;
             }
         }
 
-        LOGV("[string] nonstd::string.find_first_not_of: all characters matched, returning npos");
+        LOGV("nonstd::string.find_first_not_of: all characters matched, returning npos");
         return npos;
     }
 
     
     // Reverse find methods implementation (rfind)
     size_t string::rfind(const char* str, size_t pos) const {
-        LOGV("[string] nonstd::string.rfind(const char*) called with '%s' at pos %zu", str ? str : "NULL", pos);
+        LOGV("nonstd::string.rfind(const char*) called with '%s' at pos %zu", str ? str : "NULL", pos);
         
         if (!str) {
-            LOGV("[string] nonstd::string.rfind: str is NULL, returning npos");
+            LOGV("nonstd::string.rfind: str is NULL, returning npos");
             return npos;
         }
         
         size_t str_len = custom_strlen(str);
         if (str_len == 0) {
-            LOGV("[string] nonstd::string.rfind: empty search string, returning pos %zu", pos);
+            LOGV("nonstd::string.rfind: empty search string, returning pos %zu", pos);
             return pos;
         }
         
@@ -610,22 +610,22 @@ namespace nonstd {
             }
             if (found) {
                 size_t result = i - str_len + 1;
-                LOGV("[string] nonstd::string.rfind: found at position %zu", result);
+                LOGV("nonstd::string.rfind: found at position %zu", result);
                 return result;
             }
         }
         
-        LOGV("[string] nonstd::string.rfind: not found, returning npos");
+        LOGV("nonstd::string.rfind: not found, returning npos");
         return npos;
     }
     
     size_t string::rfind(const string& str, size_t pos) const {
-        LOGV("[string] nonstd::string.rfind(string) called with '%s' at pos %zu", str.c_str(), pos);
+        LOGV("nonstd::string.rfind(string) called with '%s' at pos %zu", str.c_str(), pos);
         return rfind(str.c_str(), pos);
     }
     
     size_t string::rfind(char ch, size_t pos) const {
-        LOGV("[string] nonstd::string.rfind(char) called with '%c' at pos %zu", ch, pos);
+        LOGV("nonstd::string.rfind(char) called with '%c' at pos %zu", ch, pos);
         
         // Adjust pos if it's npos or beyond string length
         if (pos == npos || pos >= len) {
@@ -635,22 +635,22 @@ namespace nonstd {
         // Search from pos backwards for the character
         for (int i = static_cast<int>(pos); i >= 0; --i) {
             if (data[i] == ch) {
-                LOGV("[string] nonstd::string.rfind(char): found at position %zu", static_cast<size_t>(i));
+                LOGV("nonstd::string.rfind(char): found at position %zu", static_cast<size_t>(i));
                 return static_cast<size_t>(i);
             }
         }
         
-        LOGV("[string] nonstd::string.rfind(char): not found, returning npos");
+        LOGV("nonstd::string.rfind(char): not found, returning npos");
         return npos;
     }
 
     size_t string::find_last_of(const string& str, size_t pos) const {
-        LOGV("[string] nonstd::string.find_last_of(string) called with '%s' at pos %zu", str.c_str(), pos);
+        LOGV("nonstd::string.find_last_of(string) called with '%s' at pos %zu", str.c_str(), pos);
         return find_last_of(str.c_str(), pos);
     }
     
     size_t string::find_last_of(char ch, size_t pos) const {
-        LOGV("[string] nonstd::string.find_last_of(char) called with '%c' at pos %zu", ch, pos);
+        LOGV("nonstd::string.find_last_of(char) called with '%c' at pos %zu", ch, pos);
         
         // Adjust pos if it's npos or beyond string length
         if (pos == npos || pos >= len) {
@@ -660,49 +660,49 @@ namespace nonstd {
         // Search from pos backwards for the character
         for (int i = static_cast<int>(pos); i >= 0; --i) {
             if (data[i] == ch) {
-                LOGV("[string] nonstd::string.find_last_of(char): found '%c' at position %zu", ch, static_cast<size_t>(i));
+                LOGV("nonstd::string.find_last_of(char): found '%c' at position %zu", ch, static_cast<size_t>(i));
                 return static_cast<size_t>(i);
             }
         }
         
-        LOGV("[string] nonstd::string.find_last_of(char): not found, returning npos");
+        LOGV("nonstd::string.find_last_of(char): not found, returning npos");
         return npos;
     }
     
     // Compare methods implementation
     int string::compare(const string& str) const {
-        LOGV("[string] nonstd::string.compare(string) called, comparing '%s' with '%s'", data, str.c_str());
+        LOGV("nonstd::string.compare(string) called, comparing '%s' with '%s'", data, str.c_str());
         
         size_t min_len = (len < str.len) ? len : str.len;
         
         for (size_t i = 0; i < min_len; ++i) {
             if (data[i] < str.data[i]) {
-                LOGV("[string] nonstd::string.compare: '%c' < '%c' at position %zu, returning -1", data[i], str.data[i], i);
+                LOGV("nonstd::string.compare: '%c' < '%c' at position %zu, returning -1", data[i], str.data[i], i);
                 return -1;
             } else if (data[i] > str.data[i]) {
-                LOGV("[string] nonstd::string.compare: '%c' > '%c' at position %zu, returning 1", data[i], str.data[i], i);
+                LOGV("nonstd::string.compare: '%c' > '%c' at position %zu, returning 1", data[i], str.data[i], i);
                 return 1;
             }
         }
         
         // If all characters are equal up to min_len, compare lengths
         if (len < str.len) {
-            LOGV("[string] nonstd::string.compare: lengths compared (%zu < %zu), returning -1", len, str.len);
+            LOGV("nonstd::string.compare: lengths compared (%zu < %zu), returning -1", len, str.len);
             return -1;
         } else if (len > str.len) {
-            LOGV("[string] nonstd::string.compare: lengths compared (%zu > %zu), returning 1", len, str.len);
+            LOGV("nonstd::string.compare: lengths compared (%zu > %zu), returning 1", len, str.len);
             return 1;
         } else {
-            LOGV("[string] nonstd::string.compare: strings are equal, returning 0");
+            LOGV("nonstd::string.compare: strings are equal, returning 0");
             return 0;
         }
     }
     
     int string::compare(const char* str) const {
-        LOGV("[string] nonstd::string.compare(const char*) called, comparing '%s' with '%s'", data, str ? str : "NULL");
+        LOGV("nonstd::string.compare(const char*) called, comparing '%s' with '%s'", data, str ? str : "NULL");
         
         if (!str) {
-            LOGV("[string] nonstd::string.compare: str is NULL, returning 1");
+            LOGV("nonstd::string.compare: str is NULL, returning 1");
             return 1;
         }
         
@@ -711,32 +711,32 @@ namespace nonstd {
         
         for (size_t i = 0; i < min_len; ++i) {
             if (data[i] < str[i]) {
-                LOGV("[string] nonstd::string.compare: '%c' < '%c' at position %zu, returning -1", data[i], str[i], i);
+                LOGV("nonstd::string.compare: '%c' < '%c' at position %zu, returning -1", data[i], str[i], i);
                 return -1;
             } else if (data[i] > str[i]) {
-                LOGV("[string] nonstd::string.compare: '%c' > '%c' at position %zu, returning 1", data[i], str[i], i);
+                LOGV("nonstd::string.compare: '%c' > '%c' at position %zu, returning 1", data[i], str[i], i);
                 return 1;
             }
         }
         
         // If all characters are equal up to min_len, compare lengths
         if (len < str_len) {
-            LOGV("[string] nonstd::string.compare: lengths compared (%zu < %zu), returning -1", len, str_len);
+            LOGV("nonstd::string.compare: lengths compared (%zu < %zu), returning -1", len, str_len);
             return -1;
         } else if (len > str_len) {
-            LOGV("[string] nonstd::string.compare: lengths compared (%zu > %zu), returning 1", len, str_len);
+            LOGV("nonstd::string.compare: lengths compared (%zu > %zu), returning 1", len, str_len);
             return 1;
         } else {
-            LOGV("[string] nonstd::string.compare: strings are equal, returning 0");
+            LOGV("nonstd::string.compare: strings are equal, returning 0");
             return 0;
         }
     }
     
     int string::compare(size_t pos, size_t len, const string& str) const {
-        LOGV("[string] nonstd::string.compare(pos=%zu, len=%zu, string) called", pos, len);
+        LOGV("nonstd::string.compare(pos=%zu, len=%zu, string) called", pos, len);
         
         if (pos >= this->len) {
-            LOGV("[string] nonstd::string.compare: pos >= length, returning -1");
+            LOGV("nonstd::string.compare: pos >= length, returning -1");
             return -1;
         }
         
@@ -751,10 +751,10 @@ namespace nonstd {
     }
     
     int string::compare(size_t pos, size_t len, const char* str) const {
-        LOGV("[string] nonstd::string.compare(pos=%zu, len=%zu, const char*) called", pos, len);
+        LOGV("nonstd::string.compare(pos=%zu, len=%zu, const char*) called", pos, len);
         
         if (pos >= this->len) {
-            LOGV("[string] nonstd::string.compare: pos >= length, returning -1");
+            LOGV("nonstd::string.compare: pos >= length, returning -1");
             return -1;
         }
         
@@ -769,10 +769,10 @@ namespace nonstd {
     }
     
     int string::compare(size_t pos, size_t len, const string& str, size_t subpos, size_t sublen) const {
-        LOGV("[string] nonstd::string.compare(pos=%zu, len=%zu, string, subpos=%zu, sublen=%zu) called", pos, len, subpos, sublen);
+        LOGV("nonstd::string.compare(pos=%zu, len=%zu, string, subpos=%zu, sublen=%zu) called", pos, len, subpos, sublen);
         
         if (pos >= this->len || subpos >= str.len) {
-            LOGV("[string] nonstd::string.compare: invalid positions, returning -1");
+            LOGV("nonstd::string.compare: invalid positions, returning -1");
             return -1;
         }
         
@@ -789,32 +789,32 @@ namespace nonstd {
         
         for (size_t i = 0; i < min_len; ++i) {
             if (data[pos + i] < str.data[subpos + i]) {
-                LOGV("[string] nonstd::string.compare: '%c' < '%c' at position %zu, returning -1", data[pos + i], str.data[subpos + i], i);
+                LOGV("nonstd::string.compare: '%c' < '%c' at position %zu, returning -1", data[pos + i], str.data[subpos + i], i);
                 return -1;
             } else if (data[pos + i] > str.data[subpos + i]) {
-                LOGV("[string] nonstd::string.compare: '%c' > '%c' at position %zu, returning 1", data[pos + i], str.data[subpos + i], i);
+                LOGV("nonstd::string.compare: '%c' > '%c' at position %zu, returning 1", data[pos + i], str.data[subpos + i], i);
                 return 1;
             }
         }
         
         // If all characters are equal up to min_len, compare lengths
         if (len < sublen) {
-            LOGV("[string] nonstd::string.compare: substring lengths compared (%zu < %zu), returning -1", len, sublen);
+            LOGV("nonstd::string.compare: substring lengths compared (%zu < %zu), returning -1", len, sublen);
             return -1;
         } else if (len > sublen) {
-            LOGV("[string] nonstd::string.compare: substring lengths compared (%zu > %zu), returning 1", len, sublen);
+            LOGV("nonstd::string.compare: substring lengths compared (%zu > %zu), returning 1", len, sublen);
             return 1;
         } else {
-            LOGV("[string] nonstd::string.compare: substrings are equal, returning 0");
+            LOGV("nonstd::string.compare: substrings are equal, returning 0");
             return 0;
         }
     }
     
     int string::compare(size_t pos, size_t len, const char* str, size_t sublen) const {
-        LOGV("[string] nonstd::string.compare(pos=%zu, len=%zu, const char*, sublen=%zu) called", pos, len, sublen);
+        LOGV("nonstd::string.compare(pos=%zu, len=%zu, const char*, sublen=%zu) called", pos, len, sublen);
         
         if (pos >= this->len || !str) {
-            LOGV("[string] nonstd::string.compare: invalid parameters, returning -1");
+            LOGV("nonstd::string.compare: invalid parameters, returning -1");
             return -1;
         }
         
@@ -828,23 +828,23 @@ namespace nonstd {
         
         for (size_t i = 0; i < min_len; ++i) {
             if (data[pos + i] < str[i]) {
-                LOGV("[string] nonstd::string.compare: '%c' < '%c' at position %zu, returning -1", data[pos + i], str[i], i);
+                LOGV("nonstd::string.compare: '%c' < '%c' at position %zu, returning -1", data[pos + i], str[i], i);
                 return -1;
             } else if (data[pos + i] > str[i]) {
-                LOGV("[string] nonstd::string.compare: '%c' > '%c' at position %zu, returning 1", data[pos + i], str[i], i);
+                LOGV("nonstd::string.compare: '%c' > '%c' at position %zu, returning 1", data[pos + i], str[i], i);
                 return 1;
             }
         }
         
         // If all characters are equal up to min_len, compare lengths
         if (len < sublen) {
-            LOGV("[string] nonstd::string.compare: substring lengths compared (%zu < %zu), returning -1", len, sublen);
+            LOGV("nonstd::string.compare: substring lengths compared (%zu < %zu), returning -1", len, sublen);
             return -1;
         } else if (len > sublen) {
-            LOGV("[string] nonstd::string.compare: substring lengths compared (%zu > %zu), returning 1", len, sublen);
+            LOGV("nonstd::string.compare: substring lengths compared (%zu > %zu), returning 1", len, sublen);
             return 1;
         } else {
-            LOGV("[string] nonstd::string.compare: substrings are equal, returning 0");
+            LOGV("nonstd::string.compare: substrings are equal, returning 0");
             return 0;
         }
     }
@@ -866,22 +866,22 @@ namespace nonstd {
     }
 
     void string::reserve(size_t new_cap) {
-        LOGV("[string] nonstd::string.reserve(new_cap=%zu) is called", new_cap);
+        LOGV("nonstd::string.reserve(new_cap=%zu) is called", new_cap);
 
         if (new_cap <= capacity) {
-            LOGV("[string] nonstd::string.reserve: no need to grow (current=%zu)", capacity);
+            LOGV("nonstd::string.reserve: no need to grow (current=%zu)", capacity);
             return;
         }
 
         /* 新缓冲区 */
         char* new_data = new char[new_cap + 1];   // +1 for '\0'
-        LOGV("[string] nonstd::string.reserve: allocating %zu bytes", new_cap + 1);
+        LOGV("nonstd::string.reserve: allocating %zu bytes", new_cap + 1);
 
         /* 拷贝旧内容 */
         if (data) {
             for (size_t i = 0; i < len; ++i) new_data[i] = data[i];
             delete[] data;
-            LOGV("[string] nonstd::string.reserve: copied %zu chars, freed old buffer", len);
+            LOGV("nonstd::string.reserve: copied %zu chars, freed old buffer", len);
         }
 
         new_data[len] = '\0';
@@ -890,7 +890,7 @@ namespace nonstd {
     }
 
     string& string::append(const char* s, size_t n) {
-        LOGV("[string] nonstd::string.append(ptr=%p, n=%zu) is called", (void*)s, n);
+        LOGV("nonstd::string.append(ptr=%p, n=%zu) is called", (void*)s, n);
 
         if (!s || n == 0) return *this;
 
@@ -907,7 +907,7 @@ namespace nonstd {
         len += n;
         data[len] = '\0';
 
-        LOGV("[string] nonstd::string.append: appended %zu chars, new length=%zu", n, len);
+        LOGV("nonstd::string.append: appended %zu chars, new length=%zu", n, len);
         return *this;
     }
 

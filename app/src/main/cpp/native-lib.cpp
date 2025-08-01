@@ -26,10 +26,10 @@
 #include "zJson.h"
 
 void* overt_thread(void* arg) {
-    LOGD("[native-lib] overt_thread started");
+    LOGD("overt_thread started");
     while (true) {
-        LOGD("[native-lib] overt_thread loop");
-        LOGI("[native-lib] thread_func: processing device info updates");
+        LOGD("overt_thread loop");
+        LOGI("thread_func: processing device info updates");
 
         zDevice::getInstance()->update_device_info("task_info", get_task_info());
         zDevice::getInstance()->update_device_info("maps_info",get_maps_info());
@@ -50,23 +50,23 @@ void* overt_thread(void* arg) {
         JNIEnv *env = zJavaVm::getInstance()->getEnv();
 
         if(env == nullptr){
-            LOGE("[native-lib] thread_func: env is null");
+            LOGE("thread_func: env is null");
             continue;
         }
 
         jclass activity_class = zJavaVm::getInstance()->findClass("com/example/overt/MainActivity");
         if (activity_class == nullptr) {
-            LOGE("[native-lib] thread_func: activity_class is null");
+            LOGE("thread_func: activity_class is null");
             continue;
         }
 
         jmethodID method_id = env->GetStaticMethodID(activity_class, "onDeviceInfoUpdated", "()V");
         if (method_id == nullptr){
-            LOGE("[native-lib] thread_func: method_id onDeviceInfoUpdated is null");
+            LOGE("thread_func: method_id onDeviceInfoUpdated is null");
             continue;
         }
 
-        LOGI("[native-lib] thread_func: calling onDeviceInfoUpdated");
+        LOGI("thread_func: calling onDeviceInfoUpdated");
         env->CallStaticVoidMethod(activity_class, method_id);
 
         sleep(10);
@@ -75,31 +75,31 @@ void* overt_thread(void* arg) {
 }
 
 void __attribute__((constructor)) init_(void){
-    LOGD("[native-lib] init_ constructor called");
-    LOGI("[native-lib] init_ start");
+    LOGD("init_ constructor called");
+    LOGI("init_ start");
 
     pthread_t tid;
     if (pthread_create(&tid, nullptr, overt_thread, nullptr) != 0) {
-        LOGE("[native-lib] pthread_create failed");
+        LOGE("pthread_create failed");
         return;
     }
 
-    LOGI("[native-lib] init_ over");
+    LOGI("init_ over");
 }
 
 extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-    LOGD("[native-lib] JNI_OnLoad called");
-    LOGI("[native-lib] JNI_OnLoad");
+    LOGD("JNI_OnLoad called");
+    LOGI("JNI_OnLoad");
     return JNI_VERSION_1_6;
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_example_overt_MainActivity_get_1device_1info(JNIEnv *env, jobject thiz) {
-    LOGD("[native-lib] get_device_info JNI call");
-    LOGI("[native-lib] get_device_info: starting JNI call");
+    LOGD("get_device_info JNI call");
+    LOGI("get_device_info: starting JNI call");
     jobject result = cmap_to_jmap_nested_3(env, zDevice::getInstance()->get_device_info());
-    LOGI("[native-lib] get_device_info: conversion completed successfully");
+    LOGI("get_device_info: conversion completed successfully");
     return result;
 }
