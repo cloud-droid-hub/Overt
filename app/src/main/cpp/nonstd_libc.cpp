@@ -17,60 +17,18 @@
 #include <linux/types.h>
 #include <bits/glibc-syscalls.h>
 #include <dirent.h>
+#include <asm-generic/unistd.h>
 
-#define LOGD(...) __android_log_print(ANDROID_LOG_ERROR, "lxz", __VA_ARGS__)
+#define LOGV(...) __android_log_print(ANDROID_LOG_ERROR, "lxz", __VA_ARGS__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "lxz", __VA_ARGS__)
 
-#include "config.h"
+#include "zLog.h"
 #include "syscall.h"
 #include "nonstd_libc.h"
 
 #ifdef USE_NONSTD_API
 
-/*
- *  | 位段    | 含义                               |
-    | ----- | -------------------------------- |
-    | 31-24 | `11010110`（即 0xD6） → 操作码：`BR` 类型 |
-    | 23-5  | `000000000000000100001`（x16 的编码） |
-    | 4-0   | `00000`（unused）                  |
- * */
 
-DIR* nonstd_opendir(const char* name) {
-    LOGV("nonstd_opendir called: name='%s'", name ? name : "NULL");
-    auto function_ptr= opendir;
-    for(int i=0; i<4; i++){
-        unsigned int inst = *((unsigned int*)function_ptr+i);
-        if((inst & 0xff000000) == 0xD6000000){
-            LOGV("opendir is unsafe");
-            return opendir("");
-        }
-    }
-    return opendir(name);
-}
-
-struct dirent* nonstd_readdir(DIR* dirp) {
-    auto function_ptr= readdir;
-    for(int i=0; i<4; i++){
-        unsigned int inst = *((unsigned int*)function_ptr+i);
-        if((inst & 0xff000000) == 0xD6000000){
-            LOGD("readdir is unsafe");
-            return readdir(nullptr);
-        }
-    }
-    return readdir((DIR*)dirp);
-}
-int nonstd_closedir(DIR* dirp) {
-    LOGV("nonstd_closedir called: dirp=%p", dirp);
-    auto function_ptr= closedir;
-    for(int i=0; i<4; i++){
-        unsigned int inst = *((unsigned int*)function_ptr+i);
-        if((inst & 0xff000000) == 0xD6000000){
-            LOGV("closedir is unsafe");
-            return closedir(nullptr);
-        }
-    }
-    return closedir(dirp);
-}
 
 // 手动实现strcmp函数 - 自定义版本
 int nonstd_strcmp(const char *str1, const char *str2) {
@@ -134,25 +92,25 @@ size_t nonstd_strlen(const char *str) {
 }
 
 char* nonstd_strcpy(char *dest, const char *src) {
-    LOGD("nonstd_strcpy called: dest=%p, src='%s'", dest, src ? src : "NULL");
+    LOGV("nonstd_strcpy called: dest=%p, src='%s'", dest, src ? src : "NULL");
     
     if (!dest || !src) {
-        LOGD("strcpy: NULL pointer");
+        LOGV("strcpy: NULL pointer");
         return dest;
     }
     
     char *d = dest;
     while ((*d++ = *src++) != '\0');
     
-    LOGD("strcpy: copied '%s'", dest);
+    LOGV("strcpy: copied '%s'", dest);
     return dest;
 }
 
 char* nonstd_strcat(char *dest, const char *src) {
-    LOGD("nonstd_strcat called: dest='%s', src='%s'", dest ? dest : "NULL", src ? src : "NULL");
+    LOGV("nonstd_strcat called: dest='%s', src='%s'", dest ? dest : "NULL", src ? src : "NULL");
     
     if (!dest || !src) {
-        LOGD("strcat: NULL pointer");
+        LOGV("strcat: NULL pointer");
         return dest;
     }
     
@@ -160,117 +118,138 @@ char* nonstd_strcat(char *dest, const char *src) {
     while (*d != '\0') d++;
     while ((*d++ = *src++) != '\0');
     
-    LOGD("strcat: result = '%s'", dest);
+    LOGV("strcat: result = '%s'", dest);
     return dest;
 }
 
 int nonstd_strncmp(const char *str1, const char *str2, size_t n) {
-    LOGD("nonstd_strncmp called: str1='%s', str2='%s', n=%zu", 
+    LOGV("nonstd_strncmp called: str1='%s', str2='%s', n=%zu", 
          str1 ? str1 : "NULL", str2 ? str2 : "NULL", n);
     
     if (n == 0) {
-        LOGD("strncmp: n=0, returning 0");
+        LOGV("strncmp: n=0, returning 0");
         return 0;
     }
     
     do {
         if (*str1 != *str2++) {
             int result = (*(unsigned char *)str1 - *(unsigned char *)(--str2));
-            LOGD("strncmp: diff, returning %d", result);
+            LOGV("strncmp: diff, returning %d", result);
             return result;
         }
         if (*str1++ == 0) break;
     } while (--n != 0);
     
-    LOGD("strncmp: equal, returning 0");
+    LOGV("strncmp: equal, returning 0");
     return 0;
 }
 
 // ==================== 内存函数 ====================
 
+
+#define PAGE_ALIGN(x) (((x) + 0xFFF) & ~0xFFF)
+#define LOGV(...)  // 替换为你的日志输出
+
+typedef struct {
+    size_t size;
+    uint8_t data[];  // C99 flexible array member
+} MemHeader;
+
 void* nonstd_malloc(size_t size) {
-    LOGD("nonstd_malloc called: size=%zu", size);
+    if (size == 0) return NULL;
 
-    if (size == 0) {
-        LOGD("malloc: size=0, returning NULL");
+    size_t total_size = PAGE_ALIGN(sizeof(MemHeader) + size);
+
+    void* p = (void*)syscall(__NR_mmap,
+                             NULL,
+                             total_size,
+                             PROT_READ | PROT_WRITE,
+                             MAP_PRIVATE | MAP_ANONYMOUS,
+                             -1,
+                             0);
+
+    if (p == MAP_FAILED) {
+        LOGV("nonstd_malloc: mmap failed, errno=%d", errno);
         return NULL;
     }
 
-    // 使用系统调用分配内存
-    void *ptr = (void*)__syscall6(SYS_mmap, 0, size,
-                                 PROT_READ | PROT_WRITE,
-                                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    MemHeader* header = (MemHeader*)p;
+    header->size = total_size;
 
-    if (ptr == MAP_FAILED) {
-        LOGD("malloc: mmap failed, returning NULL");
-        return NULL;
-    }
-
-    LOGD("malloc: allocated %zu bytes at %p", size, ptr);
-    return ptr;
+    LOGV("nonstd_malloc: allocated %zu bytes (user size=%zu) at %p", total_size, size, header->data);
+    return header->data;
 }
 
-void nonstd_free(void *ptr) {
-    LOGD("nonstd_free called: ptr=%p", ptr);
-    
-    if (!ptr) {
-        LOGD("free: NULL pointer, ignoring");
+void nonstd_free(void* ptr) {
+    if (!ptr) return;
+
+    MemHeader* header = (MemHeader*)((char*)ptr - offsetof(MemHeader, data));
+    if ((uintptr_t)header % 4096 != 0) {
+        LOGV("nonstd_free: invalid pointer alignment %p", ptr);
         return;
     }
-    
-    // 使用系统调用释放内存
-    long result = __syscall2(SYS_munmap, (long)ptr, 0);
-    if (result == 0) {
-        LOGD("free: successfully freed %p", ptr);
-    } else {
-        LOGD("free: munmap failed for %p", ptr);
-    }
+
+    syscall(__NR_munmap, (void*)header, header->size);
+    LOGV("nonstd_free: unmapped %zu bytes at %p", header->size, ptr);
 }
 
 void* nonstd_calloc(size_t nmemb, size_t size) {
-    LOGD("nonstd_calloc called: nmemb=%zu, size=%zu", nmemb, size);
-    
-    size_t total_size = nmemb * size;
-    if (total_size == 0 || total_size / nmemb != size) { // 检查溢出
-        LOGD("calloc: invalid size, returning NULL");
+    LOGV("nonstd_calloc called: nmemb=%zu, size=%zu", nmemb, size);
+
+    // 溢出检查
+    if (nmemb == 0 || size == 0 || nmemb > SIZE_MAX / size) {
+        LOGV("nonstd_calloc: invalid allocation size, returning NULL");
         return NULL;
     }
-    
-    void *ptr = nonstd_malloc(total_size);
+
+    size_t total_size = nmemb * size;
+    void* ptr = nonstd_malloc(total_size);
     if (ptr) {
-        // 清零内存
-        memset(ptr, 0, total_size);
-        LOGD("calloc: allocated and zeroed %zu bytes at %p", total_size, ptr);
+        // 可自定义清零，也可用如下低级写法替代 memset
+        uint8_t* p = (uint8_t*)ptr;
+        for (size_t i = 0; i < total_size; ++i) {
+            p[i] = 0;
+        }
+        LOGV("nonstd_calloc: allocated and zeroed %zu bytes at %p", total_size, ptr);
     }
-    
+
     return ptr;
 }
 
-void* nonstd_realloc(void *ptr, size_t size) {
-    LOGD("nonstd_realloc called: ptr=%p, size=%zu", ptr, size);
-    
+
+void* nonstd_realloc(void* ptr, size_t size) {
+    LOGV("nonstd_realloc called: ptr=%p, size=%zu", ptr, size);
+
     if (!ptr) {
-        LOGD("realloc: NULL pointer, calling malloc");
-        return nonstd_malloc(size);
+        return nonstd_malloc(size);  // 相当于 malloc
     }
-    
+
     if (size == 0) {
-        LOGD("realloc: size=0, calling free and returning NULL");
-        nonstd_free(ptr);
+        nonstd_free(ptr);            // 相当于 free
         return NULL;
     }
-    
-    // 简单实现：分配新内存，复制数据，释放旧内存
-    void *new_ptr = nonstd_malloc(size);
-    if (new_ptr) {
-        // 这里应该获取原内存块的大小，简化处理
-        nonstd_memcpy(new_ptr, ptr, size);
-        nonstd_free(ptr);
-        LOGD("realloc: reallocated to %zu bytes at %p", size, new_ptr);
+
+    // 获取旧块大小
+    MemHeader* old_header = (MemHeader*)((char*)ptr - offsetof(MemHeader, data));
+    size_t old_size = old_header->size - sizeof(MemHeader);  // 原用户可用大小
+
+    void* new_ptr = nonstd_malloc(size);
+    if (!new_ptr) return NULL;
+
+    // 复制较小的那一部分
+    size_t copy_size = (size < old_size) ? size : old_size;
+    const uint8_t* src = (const uint8_t*)ptr;
+    uint8_t* dst = (uint8_t*)new_ptr;
+    for (size_t i = 0; i < copy_size; ++i) {
+        dst[i] = src[i];
     }
-    
+
+    nonstd_free(ptr);
+    LOGV("nonstd_realloc: copied %zu bytes to new block %p", copy_size, new_ptr);
     return new_ptr;
 }
+
+
 
 // ==================== 文件操作函数 ====================
 
@@ -278,7 +257,7 @@ int nonstd_open(const char *pathname, int flags, ...) {
     LOGE("nonstd_open called: pathname='%s', flags=0x%x", pathname ? pathname : "NULL", flags);
     
     if (!pathname) {
-        LOGD("open: NULL pathname");
+        LOGV("open: NULL pathname");
         return -1;
     }
     
@@ -292,90 +271,167 @@ int nonstd_open(const char *pathname, int flags, ...) {
     
     // 使用 openat 系统调用，AT_FDCWD 表示相对于当前工作目录
     int fd = (int)__syscall4(SYS_openat, AT_FDCWD, (long)pathname, flags, mode);
-    LOGD("open: returned fd=%d", fd);
+    LOGV("open: returned fd=%d", fd);
     return fd;
 }
 
 int nonstd_close(int fd) {
-    LOGD("nonstd_close called: fd=%d", fd);
+    LOGV("nonstd_close called: fd=%d", fd);
     
     int result = (int)__syscall1(SYS_close, fd);
-    LOGD("close: result=%d", result);
+    LOGV("close: result=%d", result);
     return result;
 }
 
 ssize_t nonstd_read(int fd, void *buf, size_t count) {
-    LOGD("nonstd_read called: fd=%d, buf=%p, count=%zu", fd, buf, count);
+    LOGV("nonstd_read called: fd=%d, buf=%p, count=%zu", fd, buf, count);
 
     if (!buf) {
-        LOGD("read: NULL buffer");
+        LOGV("read: NULL buffer");
         return -1;
     }
 
     ssize_t result = __syscall3(SYS_read, fd, (long)buf, count);
-    LOGD("read: result=%zd", result);
+    LOGV("read: result=%zd", result);
     return result;
 }
 
 ssize_t nonstd_write(int fd, const void *buf, size_t count) {
-    LOGD("nonstd_write called: fd=%d, buf=%p, count=%zu", fd, buf, count);
+    LOGV("nonstd_write called: fd=%d, buf=%p, count=%zu", fd, buf, count);
     
     if (!buf) {
-        LOGD("write: NULL buffer");
+        LOGV("write: NULL buffer");
         return -1;
     }
     
     ssize_t result = __syscall3(SYS_write, fd, (long)buf, count);
-    LOGD("write: result=%zd", result);
+    LOGV("write: result=%zd", result);
     return result;
 }
 
 // ==================== 网络函数 ====================
+//
+//int nonstd_socket(int domain, int type, int protocol) {
+//    LOGV("nonstd_socket called: domain=%d, type=%d, protocol=%d", domain, type, protocol);
+//
+//    int sock = (int)__syscall3(SYS_socket, domain, type, protocol);
+//    LOGV("socket: returned sock=%d", sock);
+//    return sock;
+//}
+//
+//int nonstd_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+//    LOGV("nonstd_connect called: sockfd=%d, addr=%p, addrlen=%u", sockfd, addr, addrlen);
+//
+//    int result = (int)__syscall3(SYS_connect, sockfd, (long)addr, addrlen);
+//    LOGV("connect: result=%d", result);
+//    return result;
+//}
 
 int nonstd_socket(int domain, int type, int protocol) {
-    LOGD("nonstd_socket called: domain=%d, type=%d, protocol=%d", domain, type, protocol);
-    
-    int sock = (int)__syscall3(SYS_socket, domain, type, protocol);
-    LOGD("socket: returned sock=%d", sock);
-    return sock;
+    LOGV("nonstd_socket called: domain=%d, type=%d, protocol=%d", domain, type, protocol);
+
+    // socket syscall 参数顺序：domain, type, protocol
+    long sock = __syscall3(SYS_socket, (long)domain, (long)type, (long)protocol);
+
+    if (sock < 0) {
+        LOGV("socket: syscall failed, errno=%d", -sock);
+        return -1;
+    }
+
+    LOGV("socket: created sockfd=%ld", sock);
+    return (int)sock;
 }
 
 int nonstd_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
-    LOGD("nonstd_connect called: sockfd=%d, addr=%p, addrlen=%u", sockfd, addr, addrlen);
-    
-    int result = (int)__syscall3(SYS_connect, sockfd, (long)addr, addrlen);
-    LOGD("connect: result=%d", result);
-    return result;
+    LOGV("nonstd_connect called: sockfd=%d, addr=%p, addrlen=%u", sockfd, addr, addrlen);
+
+    // connect 参数顺序：sockfd, addr, addrlen
+    long result = __syscall3(SYS_connect, (long)sockfd, (long)addr, (long)addrlen);
+
+    if (result < 0) {
+        LOGV("connect: syscall failed, errno=%ld", -result);
+        return -1;
+    }
+
+    LOGV("connect: success");
+    return 0;
+}
+
+
+
+int nonstd_fcntl(int fd, int cmd, ...) {
+    LOGV("nonstd_fcntl called: fd=%d, cmd=%d", fd, cmd);
+
+    va_list args;
+    va_start(args, cmd);
+
+    long arg = 0;
+    // 某些 fcntl 命令需要第三个参数
+    switch (cmd) {
+        case F_DUPFD:
+        case F_DUPFD_CLOEXEC:
+        case F_SETFD:
+        case F_SETFL:
+        case F_SETLK:
+        case F_SETLKW:
+        case F_GETOWN_EX:
+        case F_SETOWN_EX:
+        case F_GETLEASE:
+        case F_SETLEASE:
+        case F_NOTIFY:
+        case F_SETPIPE_SZ:
+        case F_ADD_SEALS:
+        case F_GET_RW_HINT:
+        case F_SET_RW_HINT:
+            arg = va_arg(args, long); // 取第三个参数
+            break;
+        default:
+            arg = 0; // 默认无参数
+            break;
+    }
+
+    va_end(args);
+
+    long result = __syscall3(SYS_fcntl64, (long)fd, (long)cmd, arg);
+
+    if (result < 0) {
+        LOGV("fcntl: syscall failed, errno=%ld", -result);
+        errno = -result;
+        return -1;
+    }
+
+    LOGV("fcntl: success, result=%ld", result);
+    return (int)result;
 }
 
 int nonstd_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
-    LOGD("nonstd_bind called: sockfd=%d, addr=%p, addrlen=%u", sockfd, addr, addrlen);
+    LOGV("nonstd_bind called: sockfd=%d, addr=%p, addrlen=%u", sockfd, addr, addrlen);
     
     int result = (int)__syscall3(SYS_bind, sockfd, (long)addr, addrlen);
-    LOGD("bind: result=%d", result);
+    LOGV("bind: result=%d", result);
     return result;
 }
 
 int nonstd_listen(int sockfd, int backlog) {
-    LOGD("nonstd_listen called: sockfd=%d, backlog=%d", sockfd, backlog);
+    LOGV("nonstd_listen called: sockfd=%d, backlog=%d", sockfd, backlog);
     
     int result = (int)__syscall2(SYS_listen, sockfd, backlog);
-    LOGD("listen: result=%d", result);
+    LOGV("listen: result=%d", result);
     return result;
 }
 
 int nonstd_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
-    LOGD("nonstd_accept called: sockfd=%d, addr=%p, addrlen=%p", sockfd, addr, addrlen);
+    LOGV("nonstd_accept called: sockfd=%d, addr=%p, addrlen=%p", sockfd, addr, addrlen);
     
     int result = (int)__syscall3(SYS_accept, sockfd, (long)addr, (long)addrlen);
-    LOGD("accept: result=%d", result);
+    LOGV("accept: result=%d", result);
     return result;
 }
 
 // ==================== 时间函数 ====================
 
 time_t nonstd_time(time_t *tloc) {
-    LOGD("nonstd_time called: tloc=%p", tloc);
+    LOGV("nonstd_time called: tloc=%p", tloc);
     
     // 在 ARM64 上，time 系统调用已被废弃，使用 clock_gettime 替代
     struct timespec ts;
@@ -396,49 +452,49 @@ time_t nonstd_time(time_t *tloc) {
 }
 
 int nonstd_gettimeofday(struct timeval *tv, struct timezone *tz) {
-    LOGD("nonstd_gettimeofday called: tv=%p, tz=%p", tv, tz);
+    LOGV("nonstd_gettimeofday called: tv=%p, tz=%p", tv, tz);
     
     int result = (int)__syscall2(SYS_gettimeofday, (long)tv, (long)tz);
-    LOGD("gettimeofday: result=%d", result);
+    LOGV("gettimeofday: result=%d", result);
     return result;
 }
 
 // ==================== 进程函数 ====================
 
 pid_t nonstd_getpid(void) {
-    LOGD("nonstd_getpid called");
+    LOGV("nonstd_getpid called");
     
     pid_t result = (pid_t)__syscall0(SYS_getpid);
-    LOGD("getpid: result=%d", result);
+    LOGV("getpid: result=%d", result);
     return result;
 }
 
 pid_t nonstd_getppid(void) {
-    LOGD("nonstd_getppid called");
+    LOGV("nonstd_getppid called");
     
     // getppid系统调用号
     pid_t result = (pid_t)__syscall0(173); // SYS_getppid
-    LOGD("getppid: result=%d", result);
+    LOGV("getppid: result=%d", result);
     return result;
 }
 
 // ==================== 信号函数 ====================
 
 int nonstd_kill(pid_t pid, int sig) {
-    LOGD("nonstd_kill called: pid=%d, sig=%d", pid, sig);
+    LOGV("nonstd_kill called: pid=%d, sig=%d", pid, sig);
     
     int result = (int)__syscall2(SYS_kill, pid, sig);
-    LOGD("kill: result=%d", result);
+    LOGV("kill: result=%d", result);
     return result;
 }
 
 // ==================== 其他常用函数 ====================
 
 int nonstd_atoi(const char *nptr) {
-    LOGD("nonstd_atoi called: nptr='%s'", nptr ? nptr : "NULL");
+    LOGV("nonstd_atoi called: nptr='%s'", nptr ? nptr : "NULL");
     
     if (!nptr) {
-        LOGD("atoi: NULL pointer, returning 0");
+        LOGV("atoi: NULL pointer, returning 0");
         return 0;
     }
     
@@ -465,15 +521,15 @@ int nonstd_atoi(const char *nptr) {
     }
     
     result *= sign;
-    LOGD("atoi: result=%d", result);
+    LOGV("atoi: result=%d", result);
     return result;
 }
 
 long nonstd_atol(const char *nptr) {
-    LOGD("nonstd_atol called: nptr='%s'", nptr ? nptr : "NULL");
+    LOGV("nonstd_atol called: nptr='%s'", nptr ? nptr : "NULL");
     
     if (!nptr) {
-        LOGD("atol: NULL pointer, returning 0");
+        LOGV("atol: NULL pointer, returning 0");
         return 0;
     }
     
@@ -500,14 +556,14 @@ long nonstd_atol(const char *nptr) {
     }
     
     result *= sign;
-    LOGD("atol: result=%ld", result);
+    LOGV("atol: result=%ld", result);
     return result;
 }
 
 // ==================== 扩展字符串函数 ====================
 
-const char* nonstd_strrchr(const char *str, int character) {
-    LOGD("nonstd_strrchr called: str='%s', character='%c'", str ? str : "NULL", character);
+char* nonstd_strrchr(const char *str, int character) {
+    LOGV("nonstd_strrchr called: str='%s', character='%c'", str ? str : "NULL", character);
     
     const char *ptr = nullptr;
     while (*str != '\0') {
@@ -517,12 +573,12 @@ const char* nonstd_strrchr(const char *str, int character) {
         str++;
     }
     
-    LOGD("strrchr: result=%p", (void*)ptr);
+    LOGV("strrchr: result=%p", (void*)ptr);
     return (char *) ptr;
 }
 
 char* nonstd_strncpy(char *dst, const char *src, size_t n) {
-    LOGD("nonstd_strncpy called: dst=%p, src='%s', n=%zu", dst, src ? src : "NULL", n);
+    LOGV("nonstd_strncpy called: dst=%p, src='%s', n=%zu", dst, src ? src : "NULL", n);
     
     if (n != 0) {
         char *d = dst;
@@ -538,12 +594,12 @@ char* nonstd_strncpy(char *dst, const char *src, size_t n) {
         } while (--n != 0);
     }
     
-    LOGD("strncpy: result='%s'", dst);
+    LOGV("strncpy: result='%s'", dst);
     return (dst);
 }
 
 size_t nonstd_strlcpy(char *dst, const char *src, size_t siz) {
-    LOGD("nonstd_strlcpy called: dst=%p, src='%s', siz=%zu", dst, src ? src : "NULL", siz);
+    LOGV("nonstd_strlcpy called: dst=%p, src='%s', siz=%zu", dst, src ? src : "NULL", siz);
     
     char *d = dst;
     const char *s = src;
@@ -563,12 +619,12 @@ size_t nonstd_strlcpy(char *dst, const char *src, size_t siz) {
     }
     
     size_t result = (s - src - 1);    /* count does not include NUL */
-    LOGD("strlcpy: result=%zu", result);
+    LOGV("strlcpy: result=%zu", result);
     return result;
 }
 
-const char* nonstd_strstr(const char *s, const char *find) {
-    LOGD("nonstd_strstr called: s='%s', find='%s'", s ? s : "NULL", find ? find : "NULL");
+char* nonstd_strstr(const char *s, const char *find) {
+    LOGV("nonstd_strstr called: s='%s', find='%s'", s ? s : "NULL", find ? find : "NULL");
     
     char c, sc;
     size_t len;
@@ -583,46 +639,46 @@ const char* nonstd_strstr(const char *s, const char *find) {
         s--;
     }
     
-    LOGD("strstr: result='%s'", s);
+    LOGV("strstr: result='%s'", s);
     return ((char *) s);
 }
 
 void* nonstd_memset(void *dst, int val, size_t count) {
-    LOGD("nonstd_memset called: dst=%p, val=%d, count=%zu", dst, val, count);
+    LOGV("nonstd_memset called: dst=%p, val=%d, count=%zu", dst, val, count);
     
     char *ptr = (char*)dst;
     while (count--)
         *ptr++ = val;
     
-    LOGD("memset: completed");
+    LOGV("memset: completed");
     return dst;
 }
 
 void* nonstd_memcpy(void *dst, const void *src, size_t len) {
-    LOGD("nonstd_memcpy called: dst=%p, src=%p, len=%zu", dst, src, len);
+    LOGV("nonstd_memcpy called: dst=%p, src=%p, len=%zu", dst, src, len);
     
     const char* s = (const char*)src;
     char *d = (char*)dst;
     while (len--)
         *d++ = *s++;
     
-    LOGD("memcpy: completed");
+    LOGV("memcpy: completed");
     return dst;
 }
 
 int nonstd_memcmp(const void *s1, const void *s2, size_t n) {
-    LOGD("nonstd_memcmp called: s1=%p, s2=%p, n=%zu", s1, s2, n);
+    LOGV("nonstd_memcmp called: s1=%p, s2=%p, n=%zu", s1, s2, n);
     
     if (!s1 && !s2) {
-        LOGD("memcmp: both pointers are NULL, returning 0");
+        LOGV("memcmp: both pointers are NULL, returning 0");
         return 0;
     }
     if (!s1) {
-        LOGD("memcmp: s1 is NULL, returning -1");
+        LOGV("memcmp: s1 is NULL, returning -1");
         return -1;
     }
     if (!s2) {
-        LOGD("memcmp: s2 is NULL, returning 1");
+        LOGV("memcmp: s2 is NULL, returning 1");
         return 1;
     }
     
@@ -632,109 +688,110 @@ int nonstd_memcmp(const void *s1, const void *s2, size_t n) {
     for (size_t i = 0; i < n; i++) {
         if (p1[i] != p2[i]) {
             int result = static_cast<int>(p1[i]) - static_cast<int>(p2[i]);
-            LOGD("memcmp: difference at position %zu: %u vs %u, returning %d", i, p1[i], p2[i], result);
+            LOGV("memcmp: difference at position %zu: %u vs %u, returning %d", i, p1[i], p2[i], result);
             return result;
         }
     }
     
-    LOGD("memcmp: identical, returning 0");
+    LOGV("memcmp: identical, returning 0");
     return 0;
 }
 
-const char* nonstd_strchr(const char *p, int ch) {
-    LOGD("nonstd_strchr called: p='%s', ch='%c'", p ? p : "NULL", ch);
+char* nonstd_strchr(const char *p, int ch) {
+    LOGV("nonstd_strchr called: p='%s', ch='%c'", p ? p : "NULL", ch);
     
     for (;; ++p) {
         if (*p == static_cast<char>(ch)) {
-            LOGD("strchr: found at %p", (void*)p);
+            LOGV("strchr: found at %p", (void*)p);
             return const_cast<char *>(p);
         }
         if (*p == '\0') {
-            LOGD("strchr: not found");
+            LOGV("strchr: not found");
             return nullptr;
         }
     }
+    return nullptr;
 }
 
 // ==================== 扩展文件操作函数 ====================
 
 int nonstd_fstat(int __fd, struct stat* __buf) {
-    LOGD("nonstd_fstat called: fd=%d, buf=%p", __fd, __buf);
+    LOGV("nonstd_fstat called: fd=%d, buf=%p", __fd, __buf);
     
     int result = __syscall2(SYS_fstat, __fd, (long)__buf);
-    LOGD("fstat: result=%d", result);
+    LOGV("fstat: result=%d", result);
     return result;
 }
 
 off_t nonstd_lseek(int __fd, off_t __offset, int __whence) {
-    LOGD("nonstd_lseek called: fd=%d, offset=%ld, whence=%d", __fd, __offset, __whence);
+    LOGV("nonstd_lseek called: fd=%d, offset=%ld, whence=%d", __fd, __offset, __whence);
 
     off_t result = __syscall3(SYS_lseek, __fd, __offset, __whence);
-    LOGD("lseek: result=%ld", result);
+    LOGV("lseek: result=%ld", result);
     return result;
 }
 
 ssize_t nonstd_readlinkat(int __dir_fd, const char* __path, char* __buf, size_t __buf_size) {
-    LOGD("nonstd_readlinkat called: dir_fd=%d, path='%s', buf=%p, buf_size=%zu",
+    LOGV("nonstd_readlinkat called: dir_fd=%d, path='%s', buf=%p, buf_size=%zu",
          __dir_fd, __path ? __path : "NULL", __buf, __buf_size);
 
     ssize_t result = __syscall4(SYS_readlinkat, __dir_fd, (long)__path, (long)__buf, (long)__buf_size);
-    LOGD("readlinkat: result=%zd", result);
+    LOGV("readlinkat: result=%zd", result);
     return result;
 }
 
 // ==================== 扩展系统函数 ====================
 
 int nonstd_nanosleep(const struct timespec* __request, struct timespec* __remainder) {
-    LOGD("nonstd_nanosleep called: request=%p, remainder=%p", __request, __remainder);
+    LOGV("nonstd_nanosleep called: request=%p, remainder=%p", __request, __remainder);
 
     int result = (int)__syscall2(SYS_nanosleep, (long)__request, (long)__remainder);
-    LOGD("nanosleep: result=%d", result);
+    LOGV("nanosleep: result=%d", result);
     return result;
 }
 
 int nonstd_mprotect(void* __addr, size_t __size, int __prot) {
-    LOGD("nonstd_mprotect called: addr=%p, size=%zu, prot=%d", __addr, __size, __prot);
+    LOGV("nonstd_mprotect called: addr=%p, size=%zu, prot=%d", __addr, __size, __prot);
     
     int result = (int)__syscall3(SYS_mprotect, (long)__addr, (long)__size, (long)__prot);
-    LOGD("mprotect: result=%d", result);
+    LOGV("mprotect: result=%d", result);
     return result;
 }
 
 int nonstd_inotify_init1(int flags) {
-    LOGD("nonstd_inotify_init1 called: flags=%d", flags);
+    LOGV("nonstd_inotify_init1 called: flags=%d", flags);
     
     int result = __syscall1(SYS_inotify_init1, flags);
-    LOGD("inotify_init1: result=%d", result);
+    LOGV("inotify_init1: result=%d", result);
     return result;
 }
 
 int nonstd_inotify_add_watch(int __fd, const char *__path, uint32_t __mask) {
-    LOGD("nonstd_inotify_add_watch called: fd=%d, path='%s', mask=%u", __fd, __path ? __path : "NULL", __mask);
+    LOGV("nonstd_inotify_add_watch called: fd=%d, path='%s', mask=%u", __fd, __path ? __path : "NULL", __mask);
     
     int result = __syscall3(SYS_inotify_add_watch, __fd, (long)__path, (long)__mask);
-    LOGD("inotify_add_watch: result=%d", result);
+    LOGV("inotify_add_watch: result=%d", result);
     return result;
 }
 
 int nonstd_inotify_rm_watch(int __fd, uint32_t __watch_descriptor) {
-    LOGD("nonstd_inotify_rm_watch called: fd=%d, watch_descriptor=%u", __fd, __watch_descriptor);
+    LOGV("nonstd_inotify_rm_watch called: fd=%d, watch_descriptor=%u", __fd, __watch_descriptor);
     
     int result = __syscall2(SYS_inotify_rm_watch, __fd, (long)__watch_descriptor);
-    LOGD("inotify_rm_watch: result=%d", result);
+    LOGV("inotify_rm_watch: result=%d", result);
     return result;
 }
 
 int nonstd_tgkill(int __tgid, int __tid, int __signal) {
-    LOGD("nonstd_tgkill called: tgid=%d, tid=%d, signal=%d", __tgid, __tid, __signal);
+    LOGV("nonstd_tgkill called: tgid=%d, tid=%d, signal=%d", __tgid, __tid, __signal);
     
     int result = (int)__syscall3(SYS_tgkill, __tgid, __tid, __signal);
-    LOGD("tgkill: result=%d", result);
+    LOGV("tgkill: result=%d", result);
     return result;
 }
 
 void nonstd_exit(int __status) {
-    LOGD("nonstd_exit called: status=%d", __status);
+    LOGV("nonstd_exit called: status=%d", __status);
     
     __syscall1(SYS_exit, __status);
     // 这行代码永远不会执行
@@ -753,18 +810,18 @@ void nonstd_exit(int __status) {
 
 
 ssize_t nonstd_readlink(const char *pathname, char *buf, size_t bufsiz) {
-    LOGD("nonstd_readlink called: pathname='%s', buf=%p, bufsiz=%zu", pathname ? pathname : "NULL", buf, bufsiz);
+    LOGV("nonstd_readlink called: pathname='%s', buf=%p, bufsiz=%zu", pathname ? pathname : "NULL", buf, bufsiz);
     if (!pathname || !buf) {
-        LOGD("readlink: NULL arg");
+        LOGV("readlink: NULL arg");
         return -1;
     }
     ssize_t result = (ssize_t)__syscall3(SYS_readlink, (long)pathname, (long)buf, (long)bufsiz);
-    LOGD("readlink: result=%zd", result);
+    LOGV("readlink: result=%zd", result);
     return result;
 }
 
 struct tm* nonstd_localtime(const time_t* timep) {
-    LOGD("nonstd_localtime called: timep=%p", timep);
+    LOGV("nonstd_localtime called: timep=%p", timep);
     if (!timep) return nullptr;
     static struct tm result;
     time_t t = *timep;
@@ -774,25 +831,36 @@ struct tm* nonstd_localtime(const time_t* timep) {
 }
 
 int nonstd_stat(const char* __path, struct stat* __buf) {
-    LOGD("nonstd_stat called: path='%s', buf=%p", __path ? __path : "NULL", __buf);
+    LOGV("nonstd_stat called: path='%s', buf=%p", __path ? __path : "NULL", __buf);
     if (!__path || !__buf) {
-        LOGD("stat: NULL arg");
+        LOGV("stat: NULL arg");
         return -1;
     }
     int result = (int)__syscall4(SYS_newfstatat, AT_FDCWD, (long)__path, (long)__buf, 0);
-    LOGD("stat: result=%d", result);
+    LOGV("stat: result=%d", result);
     return result;
 }
 
+
 int nonstd_access(const char* __path, int __mode) {
-    LOGD("nonstd_access called: path='%s', mode=0x%x", __path ? __path : "NULL", __mode);
+    LOGV("nonstd_access called: path='%s', mode=0x%x", __path ? __path : "NULL", __mode);
+
     if (!__path) {
-        LOGD("access: NULL path");
+        LOGV("access: NULL path");
+        errno = EFAULT;  // 错误地址
         return -1;
     }
-    int result = __syscall2(SYS_access, (long)__path, __mode);
-    LOGD("access: result=%d", result);
-    return result;
+
+    long result = __syscall2(SYS_access, (uintptr_t)__path, (long)__mode);
+
+    if (result < 0) {
+        errno = -result;
+        LOGV("access: failed, errno=%d", errno);
+        return -1;
+    }
+
+    LOGV("access: success");
+    return 0;
 }
 
 #endif // USE_NONSTD_API

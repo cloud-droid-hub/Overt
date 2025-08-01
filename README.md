@@ -82,35 +82,43 @@ Overt是一个功能强大的Android设备安全检测工具，采用Java + Nati
 ├─────────────────────────────────────┤
 │            JNI桥接层                 │
 │  ├── native-lib.cpp                 │
-│  └── JNI接口函数                    │
+│  └── JNI接口函数                      │
 ├─────────────────────────────────────┤
-│          Native C++层                │
-│  ├── zDevice (设备信息管理)          │
-│  ├── TEE证书解析模块                 │
-│  │  ├── tee_cert_parser.cpp        │
-│  │  ├── tee_cert_parser.h          │
-│  │  └── tee_info.cpp               │
-│  ├── 检测模块                        │
-│  │  ├── root_file_info             │
-│  │  ├── package_info               │
-│  │  ├── system_prop_info           │
-│  │  ├── mounts_info                │
-│  │  ├── linker_info                │
-│  │  ├── maps_info                  │
-│  │  ├── class_loader_info          │
-│  │  ├── time_info                  │
-│  │  ├── port_info                  │
-│  │  ├── task_info                  │
-│  │  └── system_setting_info        │
-│  └── 工具类                         │
-│      ├── zFile                     │
-│      ├── zLog                      │
-│      ├── zJavaVm                   │
-│      ├── zClassLoader              │
-│      ├── zLinker                   │
-│      ├── zElf                      │
-│      ├── zUtil                     │
-│      └── crc                       │
+│          Native C++层               │
+│  ├── 设备信息管理中心                  │
+│  │  └── zDevice                     │
+│  ├── 检测模块 (_info结尾)             │
+│  │  ├── tee_info                    │
+│  │  ├── root_file_info              │
+│  │  ├── package_info                │
+│  │  ├── system_prop_info            │
+│  │  ├── system_setting_info         │
+│  │  ├── mounts_info                 │
+│  │  ├── maps_info                   │
+│  │  ├── linker_info                 │
+│  │  ├── class_loader_info           │
+│  │  ├── ssl_info                    │
+│  │  ├── time_info                   │
+│  │  ├── task_info                   │
+│  │  └── port_info                   │
+│  ├── 工具类 (z开头)                  │
+│  │  ├── zJavaVm (JVM管理)           │
+│  │  ├── zLinker (动态链接器)         │
+│  │  ├── zClassLoader (类加载器)      │
+│  │  ├── zHttps (HTTPS客户端)         │
+│  │  ├── zTee (TEE检测)              │
+│  │  ├── zFile (文件操作)             │
+│  │  ├── zElf (ELF解析)              │
+│  │  ├── zJson (JSON处理)            │
+│  │  ├── zUtil (通用工具)            │
+│  │  ├── zCrc32 (CRC校验)            │
+│  │  └── zLog (日志记录)              │
+│  └── 自定义API层                    │
+│     ├── config.h (宏控制)           │
+│     ├── nonstd_libc (自定义库函数)   │
+│     ├── string (自定义字符串)        │
+│     ├── vector (自定义向量)          │
+│     └── map (自定义映射)             │
 └─────────────────────────────────────┘
 ```
 

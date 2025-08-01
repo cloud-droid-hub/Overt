@@ -78,6 +78,7 @@
 #define SYS_access 21
 #define SYS_readlink 89
 #define SYS_newfstatat 79
+#define SYS_fcntl64 221
 
 // 系统调用内联函数
 __attribute__((always_inline))

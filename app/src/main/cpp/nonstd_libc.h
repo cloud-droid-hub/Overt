@@ -13,6 +13,8 @@
 #include <stdint.h>
 #include <dirent.h>
 
+#define USE_NONSTD_API
+
 extern "C" {
 // ==================== 字符串函数 ====================
 int nonstd_strcmp(const char *str1, const char *str2);
@@ -20,11 +22,11 @@ size_t nonstd_strlen(const char *str);
 char *nonstd_strcpy(char *dest, const char *src);
 char *nonstd_strcat(char *dest, const char *src);
 int nonstd_strncmp(const char *str1, const char *str2, size_t n);
-const char *nonstd_strrchr(const char *str, int character);
+char *nonstd_strrchr(const char *str, int character);
 char *nonstd_strncpy(char *dst, const char *src, size_t n);
 size_t nonstd_strlcpy(char *dst, const char *src, size_t siz);
-const char *nonstd_strstr(const char *s, const char *find);
-const char *nonstd_strchr(const char *p, int ch);
+char *nonstd_strstr(const char *s, const char *find);
+char *nonstd_strchr(const char *p, int ch);
 
 // ==================== 内存函数 ====================
 void *nonstd_malloc(size_t size);
@@ -77,22 +79,16 @@ int nonstd_inotify_rm_watch(int __fd, uint32_t __watch_descriptor);
 int nonstd_tgkill(int __tgid, int __tid, int __signal);
 void nonstd_exit(int __status);
 
-DIR *nonstd_opendir(const char *name);
-struct dirent *nonstd_readdir(DIR *dirp);
-int nonstd_closedir(DIR *dirp);
-
 ssize_t nonstd_readlink(const char *pathname, char *buf, size_t bufsiz);
 struct tm *nonstd_localtime(const time_t *timep);
 int nonstd_stat(const char *__path, struct stat *__buf);
 int nonstd_access(const char *__path, int __mode);
 }
+
+
 #ifdef USE_NONSTD_API
 
 // 使用非标准库实现
-
-#else // USE_NONSTD_API
-
-// 宏定义，用于在不使用非标准库的情况下，使用标准库的函数
 
 // ==================== 字符串函数宏定义 ====================
 #define nonstd_strcmp strcmp
@@ -105,8 +101,8 @@ int nonstd_access(const char *__path, int __mode);
 #define nonstd_strlcpy strlcpy
 #define nonstd_strstr strstr
 #define nonstd_strchr strchr
-
-// ==================== 内存函数宏定义 ====================
+//
+//// ==================== 内存函数宏定义 ====================
 #define nonstd_malloc malloc
 #define nonstd_free free
 #define nonstd_calloc calloc
@@ -127,6 +123,7 @@ int nonstd_access(const char *__path, int __mode);
 // ==================== 网络函数宏定义 ====================
 #define nonstd_socket socket
 #define nonstd_connect connect
+#define nonstd_fcntl fcntl
 #define nonstd_bind bind
 #define nonstd_listen listen
 #define nonstd_accept accept
@@ -146,7 +143,7 @@ int nonstd_access(const char *__path, int __mode);
 #define nonstd_atoi atoi
 #define nonstd_atol atol
 
-// ==================== 扩展系统函数宏定义 ====================
+//// ==================== 扩展系统函数宏定义 ====================
 #define nonstd_nanosleep nanosleep
 #define nonstd_mprotect mprotect
 #define nonstd_inotify_init1 inotify_init1
@@ -159,15 +156,6 @@ int nonstd_access(const char *__path, int __mode);
 #define nonstd_localtime localtime
 #define nonstd_stat stat
 #define nonstd_access access
-
-
-#define nonstd_opendir opendir
-#define nonstd_readdir readdir
-#define nonstd_closedir closedir
-
-#define atoi nonstd_atoi
-#define atol nonstd_atol
-
 
 
 #endif // USE_NONSTD_API

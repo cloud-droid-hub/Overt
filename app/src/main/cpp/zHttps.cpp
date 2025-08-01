@@ -407,12 +407,12 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     // TLS握手
     LOGI("Performing TLS handshake...");
     
-            // 检查超时
-        if (timer.isTimeout()) {
-            response.error_message = "TLS handshake timeout before starting";
-            LOGE("TLS handshake timeout before starting");
-            return response;
-        }
+    // 检查超时
+    if (timer.isTimeout()) {
+        response.error_message = "TLS handshake timeout before starting";
+        LOGE("TLS handshake timeout before starting");
+        return response;
+    }
     
     // 使用轮询进行TLS握手，带超时检查
     do {

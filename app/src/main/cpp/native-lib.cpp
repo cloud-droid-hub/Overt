@@ -28,7 +28,6 @@
 void* overt_thread(void* arg) {
     LOGD("overt_thread started");
     while (true) {
-        LOGD("overt_thread loop");
         LOGI("thread_func: processing device info updates");
 
         zDevice::getInstance()->update_device_info("task_info", get_task_info());
@@ -69,13 +68,12 @@ void* overt_thread(void* arg) {
         LOGI("thread_func: calling onDeviceInfoUpdated");
         env->CallStaticVoidMethod(activity_class, method_id);
 
-        sleep(10);
+        sleep(5);
     }
     return nullptr;
 }
 
 void __attribute__((constructor)) init_(void){
-    LOGD("init_ constructor called");
     LOGI("init_ start");
 
     pthread_t tid;
@@ -89,15 +87,13 @@ void __attribute__((constructor)) init_(void){
 
 extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-    LOGD("JNI_OnLoad called");
-    LOGI("JNI_OnLoad");
+    LOGI("JNI_OnLoad called");
     return JNI_VERSION_1_6;
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_example_overt_MainActivity_get_1device_1info(JNIEnv *env, jobject thiz) {
-    LOGD("get_device_info JNI call");
     LOGI("get_device_info: starting JNI call");
     jobject result = cmap_to_jmap_nested_3(env, zDevice::getInstance()->get_device_info());
     LOGI("get_device_info: conversion completed successfully");

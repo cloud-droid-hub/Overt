@@ -7,6 +7,8 @@
 #define MAX_SEGMENT_LEN 3000
 
 void zLogPrint(int level, const char* tag, const char* file_name, const char* function_name, int line_num, const char* format, ...) {
+    if(level < CURRENT_LOG_LEVEL) return;
+
     va_list args;
     va_start(args, format);
 
