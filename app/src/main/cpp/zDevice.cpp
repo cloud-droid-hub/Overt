@@ -33,3 +33,10 @@ void zDevice::update_device_info(const string& key, const map<string, map<string
     device_info[key] = value;
     LOGI("update_device_info: updated key=%s", key.c_str());
 };
+
+void zDevice::clear_device_info(){
+    LOGD("clear_device_info called");
+    std::unique_lock<std::shared_mutex> lock(device_info_mtx_);
+    device_info.clear();
+    LOGI("clear_device_info");
+};

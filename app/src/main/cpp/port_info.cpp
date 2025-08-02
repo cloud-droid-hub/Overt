@@ -55,6 +55,7 @@ bool is_port_in_use(int port) {
     return in_use;
 }
 
+
 map<string, map<string, string>> get_port_info(){
 
     map<string, map<string, string>> info;
@@ -69,8 +70,6 @@ map<string, map<string, string>> get_port_info(){
         if (is_port_in_use(item.first)) {
             info[item.second]["risk"] = "error";
             info[item.second]["explain"] = "black port is in use " + item.second;
-//            info[string(std::to_string(item.first).c_str())]["risk"] = "error";
-//            info[string(std::to_string(item.first).c_str())]["explain"] = "black port is in use " + item.second;
         }
     }
 

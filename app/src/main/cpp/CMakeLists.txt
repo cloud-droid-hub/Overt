@@ -62,7 +62,9 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zFile.cpp
         zCrc32.cpp
         zJson.cpp
+        zBroadCast.cpp
 
+        local_network_info.cpp
         root_file_info.cpp
         mounts_info.cpp
         system_prop_info.cpp

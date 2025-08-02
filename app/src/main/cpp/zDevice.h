@@ -39,6 +39,7 @@ public:
 
     void update_device_info(const string& key, const map<string, map<string, string>>& value);
 
+    void clear_device_info();
 };
 
 #endif //OVERT_ZDEVICE_H

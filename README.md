@@ -5,7 +5,7 @@
 [![Build](https://img.shields.io/badge/Build-Gradle-orange.svg)](https://gradle.org/)
 [![NDK](https://img.shields.io/badge/NDK-CMake%203.22.1+-yellow.svg)](https://developer.android.com/ndk)
 
-Overt是一个功能强大的Android设备安全检测工具，采用Java + Native C++混合架构，提供全面的设备安全状态检测和分析功能。项目集成了先进的TEE（可信执行环境）证书解析技术，能够深度分析Android设备的安全状态。
+Overt是一款功能强大的Android设备安全检测工具，采用Java + Native C++混合架构，提供全面的设备安全状态检测和分析功能。项目集成了先进的TEE（可信执行环境）证书解析技术，能够深度分析Android设备的安全状态。
 
 ## 🚀 主要功能
 

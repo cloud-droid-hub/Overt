@@ -24,11 +24,15 @@
 #include "config.h"
 #include "ssl_info.h"
 #include "zJson.h"
+#include "zBroadCast.h"
+#include "local_network_info.h"
 
 void* overt_thread(void* arg) {
     LOGD("overt_thread started");
     while (true) {
         LOGI("thread_func: processing device info updates");
+
+        zDevice::getInstance()->update_device_info("local_network_info", get_local_network_info());
 
         zDevice::getInstance()->update_device_info("task_info", get_task_info());
         zDevice::getInstance()->update_device_info("maps_info",get_maps_info());
@@ -73,6 +77,8 @@ void* overt_thread(void* arg) {
     return nullptr;
 }
 
+
+
 void __attribute__((constructor)) init_(void){
     LOGI("init_ start");
 
@@ -88,6 +94,7 @@ void __attribute__((constructor)) init_(void){
 extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     LOGI("JNI_OnLoad called");
+
     return JNI_VERSION_1_6;
 }
 
@@ -97,5 +104,6 @@ Java_com_example_overt_MainActivity_get_1device_1info(JNIEnv *env, jobject thiz)
     LOGI("get_device_info: starting JNI call");
     jobject result = cmap_to_jmap_nested_3(env, zDevice::getInstance()->get_device_info());
     LOGI("get_device_info: conversion completed successfully");
+    zDevice::getInstance()->clear_device_info();
     return result;
 }

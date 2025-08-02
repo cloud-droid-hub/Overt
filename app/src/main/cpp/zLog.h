@@ -12,11 +12,11 @@
 #define ENABLE_LOGGING
 
 // 日志级别定义
-#define LOG_LEVEL_VERBOSE 0
-#define LOG_LEVEL_DEBUG   1
-#define LOG_LEVEL_INFO    2
-#define LOG_LEVEL_WARN    3
-#define LOG_LEVEL_ERROR   4
+#define LOG_LEVEL_VERBOSE 2
+#define LOG_LEVEL_DEBUG   3
+#define LOG_LEVEL_INFO    4
+#define LOG_LEVEL_WARN    5
+#define LOG_LEVEL_ERROR   6
 
 // 当前日志级别 - 可以通过修改这个值来控制日志输出级别
 #define CURRENT_LOG_LEVEL LOG_LEVEL_DEBUG
