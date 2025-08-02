@@ -27,13 +27,23 @@
 #include "zBroadCast.h"
 #include "local_network_info.h"
 
+#define OVERT_SLEEP_TIME 10
+
 void* overt_thread(void* arg) {
     LOGD("overt_thread started");
+
     while (true) {
         LOGI("thread_func: processing device info updates");
 
-        zDevice::getInstance()->update_device_info("local_network_info", get_local_network_info());
+        // 绑定到当前空闲的大核
+        bind_self_to_least_used_big_core();
 
+        // 提升线程优先级
+        raise_thread_priority();
+
+        time_t start_time = time(nullptr);
+
+        zDevice::getInstance()->update_device_info("local_network_info", get_local_network_info());
         zDevice::getInstance()->update_device_info("task_info", get_task_info());
         zDevice::getInstance()->update_device_info("maps_info",get_maps_info());
         zDevice::getInstance()->update_device_info("root_file_info", get_root_file_info());
@@ -72,7 +82,10 @@ void* overt_thread(void* arg) {
         LOGI("thread_func: calling onDeviceInfoUpdated");
         env->CallStaticVoidMethod(activity_class, method_id);
 
-        sleep(5);
+        time_t end_time = time(nullptr);
+
+        LOGE("end_time - start_time %ld", end_time - start_time);
+        sleep(OVERT_SLEEP_TIME > (end_time - start_time) ? OVERT_SLEEP_TIME - (end_time - start_time) : 0);
     }
     return nullptr;
 }

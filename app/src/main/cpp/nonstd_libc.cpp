@@ -19,16 +19,11 @@
 #include <dirent.h>
 #include <asm-generic/unistd.h>
 
-#define LOGV(...) __android_log_print(ANDROID_LOG_ERROR, "lxz", __VA_ARGS__)
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "lxz", __VA_ARGS__)
-
 #include "zLog.h"
 #include "syscall.h"
 #include "nonstd_libc.h"
 
 #ifdef USE_NONSTD_API
-
-
 
 // 手动实现strcmp函数 - 自定义版本
 int nonstd_strcmp(const char *str1, const char *str2) {
@@ -156,6 +151,7 @@ typedef struct {
 } MemHeader;
 
 void* nonstd_malloc(size_t size) {
+    LOGV("nonstd_malloc is called");
     if (size == 0) return NULL;
 
     size_t total_size = PAGE_ALIGN(sizeof(MemHeader) + size);

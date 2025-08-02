@@ -47,4 +47,10 @@ string string_format(const string &format, Args ... args)
     return string(buf.get(), buf.get() + size_buf - 1);
 }
 
+vector<int> get_big_core_list();
+
+void bind_self_to_least_used_big_core();
+
+void raise_thread_priority(int sched_priority = 0);
+
 #endif //OVERT_ZUTIL_H

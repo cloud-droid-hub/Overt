@@ -13,7 +13,7 @@
 #include <stdint.h>
 #include <dirent.h>
 
-#define USE_NONSTD_API
+
 
 extern "C" {
 // ==================== 字符串函数 ====================
@@ -85,6 +85,7 @@ int nonstd_stat(const char *__path, struct stat *__buf);
 int nonstd_access(const char *__path, int __mode);
 }
 
+#define USE_NONSTD_API
 
 #ifdef USE_NONSTD_API
 
@@ -101,12 +102,14 @@ int nonstd_access(const char *__path, int __mode);
 #define nonstd_strlcpy strlcpy
 #define nonstd_strstr strstr
 #define nonstd_strchr strchr
-//
-//// ==================== 内存函数宏定义 ====================
-#define nonstd_malloc malloc
-#define nonstd_free free
-#define nonstd_calloc calloc
-#define nonstd_realloc realloc
+
+// ==================== 内存函数宏定义 ====================
+// libc 的 malloc 是有缓存优化的，所以慎重启用这个四个内存分配相关的函数，会严重消耗性能
+//#define nonstd_malloc malloc
+//#define nonstd_free free
+//#define nonstd_calloc calloc
+//#define nonstd_realloc realloc
+
 #define nonstd_memset memset
 #define nonstd_memcpy memcpy
 #define nonstd_memcmp memcmp
