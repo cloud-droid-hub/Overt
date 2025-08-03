@@ -2,14 +2,15 @@
 // Created by lxz on 2025/6/6.
 //
 
-#include <sys/syscall.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <jni.h>
 #include <linux/resource.h>
 #include <sys/resource.h>
+
 #include "zLog.h"
 #include "zUtil.h"
+#include "syscall.h"
 
 #define MAX_CPU 8
 
@@ -427,13 +428,9 @@ string format_timestamp(long timestamp) {
     return string(buffer);
 }
 
-
-
-
 pid_t gettid() {
-    return syscall(SYS_gettid);
+    return __syscall0(SYS_gettid);
 }
-
 
 vector<int> get_big_core_list() {
     LOGI("get_big_core_list called");

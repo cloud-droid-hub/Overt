@@ -104,10 +104,10 @@ void __attribute__((constructor)) init_(void){
     LOGI("init_ over");
 }
 
+
 extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     LOGI("JNI_OnLoad called");
-
     return JNI_VERSION_1_6;
 }
 

@@ -25,6 +25,7 @@ private:
 
     static zBroadCast* instance;
 
+    pthread_t local_ip_monitor_tid = 0;
     pthread_t sender_tid = 0;
     pthread_t listener_tid = 0;
 

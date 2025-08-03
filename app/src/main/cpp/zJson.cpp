@@ -591,7 +591,7 @@ string zJson::toString() const {
     if (is_error_) {
         return "null";
     }
-    
+
     switch (type_) {
         case Type::NULL_VALUE:
             return "null";
@@ -608,7 +608,7 @@ string zJson::toString() const {
                 char buffer[64];
                 snprintf(buffer, sizeof(buffer), "%.6f", num);
                 string result(buffer);
-                
+
                 // 移除尾部的0
                 while (result.back() == '0' && result.find('.') != string::npos) {
                     result.pop_back();

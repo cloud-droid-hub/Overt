@@ -124,8 +124,11 @@ void* local_ip_monitor_thread(void* args) {
 
 void zBroadCast::start_local_ip_monitor(){
     LOGI("start_local_ip_monitor called");
-    pthread_t tid;
-    if (pthread_create(&tid, nullptr, local_ip_monitor_thread, nullptr) != 0) {
+    if (local_ip_monitor_tid != 0){
+        LOGW("UDP broadcast local_ip_monitor already running (tid: %lu)", local_ip_monitor_tid);
+        return;
+    }
+    if (pthread_create(&local_ip_monitor_tid, nullptr, local_ip_monitor_thread, nullptr) != 0) {
         LOGE("Failed to create local IP monitor thread");
     } else {
         LOGI("Local IP monitor thread created successfully");

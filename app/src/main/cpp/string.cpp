@@ -4,10 +4,28 @@
 #include <stdexcept>  // For std::out_of_range
 
 #include "string.h"
+#include "obfusheader.h"
 
 namespace nonstd {
 
-// Custom implementation of strlen (get the length of the string)
+    // Constructor from C-string
+    string::string(const char* str) {
+        LOGV("nonstd::string(const char* str) is called with str=%p", str);
+        if (!str) {
+                LOGV("nonstd::string: str is NULL, creating empty string");
+                data = new char[1]{'\0'};
+                len = 0;
+                capacity = 1;
+                return;
+            }
+        len = custom_strlen(str);  // Use custom strlen
+        data = new char[len + 1];  // +1 for null terminator
+        capacity = len + 1;
+        custom_strcpy(data, str);  // Use custom strcpy
+        LOGV("nonstd::string(const char*) completed, data=%p, length=%zu", data, len);
+    }
+
+    // Custom implementation of strlen (get the length of the string)
     size_t string::custom_strlen(const char* str) const {
         if (!str) return 0;
         size_t length = 0;
@@ -41,23 +59,7 @@ namespace nonstd {
         LOGV("nonstd::string() default constructor called, data=%p", data);
     }
 
-// Constructor from C-string
-    string::string(const char* str) {
-        LOGV("nonstd::string(const char* str) is called with str=%p", str);
-        if (!str) {
-            LOGV("nonstd::string: str is NULL, creating empty string");
-            data = new char[1]{'\0'};
-            len = 0;
-            capacity = 1;
-            return;
-        }
-        len = custom_strlen(str);  // Use custom strlen
-        data = new char[len + 1];  // +1 for null terminator
-        capacity = len + 1;
-        custom_strcpy(data, str);  // Use custom strcpy
-        LOGV("nonstd::string(const char*) completed, data=%p, length=%zu", data, len);
-    }
-    
+
     // Constructor from C-string with length (based on std::string implementation)
     string::string(const char* str, size_t len) {
         LOGV("nonstd::string(const char* str, size_t len) is called with str=%p, len=%zu", str, len);
