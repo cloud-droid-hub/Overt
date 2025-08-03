@@ -11,6 +11,7 @@
 #include "zLog.h"
 #include "zUtil.h"
 #include "syscall.h"
+#include "zFile.h"
 
 #define MAX_CPU 8
 
@@ -441,28 +442,24 @@ vector<int> get_big_core_list() {
 
     LOGD("Scanning CPU frequencies for %d CPUs", MAX_CPU);
     for (int cpu = 0; cpu < MAX_CPU; ++cpu) {
-        char path[128];
-        snprintf(path, sizeof(path), "/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", cpu);
-        LOGV("Checking CPU %d frequency file: %s", cpu, path);
-        
-        FILE* f = fopen(path, "r");
-        if (!f) {
-            LOGD("CPU %d frequency file not accessible", cpu);
-            continue;
-        }
 
-        int freq = 0;
-        if (fscanf(f, "%d", &freq) == 1) {
-            freqs[cpu] = freq;
-            LOGD("CPU %d max frequency: %d kHz", cpu, freq);
-            if (freq > max_freq) {
-                max_freq = freq;
-                LOGI("New max frequency found: %d kHz (CPU %d)", max_freq, cpu);
-            }
-        } else {
-            LOGW("Failed to read frequency for CPU %d", cpu);
+        string path = string_format("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", cpu);
+
+        LOGV("Checking CPU %d frequency file: %s", cpu, path.c_str());
+
+        zFile cpuinfo_max_freq_file(path);
+
+        string cpu_freq_str = cpuinfo_max_freq_file.readAllText();
+        LOGE("freq_str %s", cpu_freq_str.c_str());
+
+        int cpu_freq = atoi(cpu_freq_str.c_str());
+        LOGE("cpu_freq %d", cpu_freq);
+
+        freqs[cpu] = cpu_freq;
+        if (cpu_freq > max_freq) {
+            max_freq = cpu_freq;
+            LOGI("New max frequency found: %d kHz (CPU %d)", max_freq, cpu);
         }
-        fclose(f);
     }
 
     LOGI("Max frequency found: %d kHz", max_freq);

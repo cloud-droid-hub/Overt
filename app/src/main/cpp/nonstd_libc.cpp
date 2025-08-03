@@ -1,5 +1,4 @@
-#include <string.h>
-#include <android/log.h>
+
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -21,9 +20,13 @@
 
 #include "zLog.h"
 #include "syscall.h"
+#include <string.h>
 #include "nonstd_libc.h"
 
 #ifdef USE_NONSTD_API
+
+
+#define PAGE_ALIGN(x) (((x) + 0xFFF) & ~0xFFF)
 
 // 手动实现strcmp函数 - 自定义版本
 int nonstd_strcmp(const char *str1, const char *str2) {
@@ -141,10 +144,6 @@ int nonstd_strncmp(const char *str1, const char *str2, size_t n) {
 
 // ==================== 内存函数 ====================
 
-
-#define PAGE_ALIGN(x) (((x) + 0xFFF) & ~0xFFF)
-#define LOGV(...)  // 替换为你的日志输出
-
 typedef struct {
     size_t size;
     uint8_t data[];  // C99 flexible array member
@@ -212,7 +211,6 @@ void* nonstd_calloc(size_t nmemb, size_t size) {
     return ptr;
 }
 
-
 void* nonstd_realloc(void* ptr, size_t size) {
     LOGV("nonstd_realloc called: ptr=%p, size=%zu", ptr, size);
 
@@ -249,7 +247,7 @@ void* nonstd_realloc(void* ptr, size_t size) {
 
 // ==================== 文件操作函数 ====================
 
-int nonstd_open(const char *pathname, int flags, ...) {
+int nonstd_open(const char* pathname, int flags, ...) {
     LOGE("nonstd_open called: pathname='%s', flags=0x%x", pathname ? pathname : "NULL", flags);
     
     if (!pathname) {

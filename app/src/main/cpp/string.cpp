@@ -2,30 +2,37 @@
 
 #include <cstring>  // For custom_strlen, custom_strcpy, and custom_strcat implementations
 #include <stdexcept>  // For std::out_of_range
-
 #include "string.h"
-#include "obfusheader.h"
 
 namespace nonstd {
 
-    // Constructor from C-string
+    /**
+     * 从C字符串构造string对象
+     * 根据C风格字符串创建string对象，自动计算长度
+     * @param str C风格字符串指针
+     */
     string::string(const char* str) {
         LOGV("nonstd::string(const char* str) is called with str=%p", str);
         if (!str) {
-                LOGV("nonstd::string: str is NULL, creating empty string");
-                data = new char[1]{'\0'};
-                len = 0;
-                capacity = 1;
-                return;
-            }
-        len = custom_strlen(str);  // Use custom strlen
-        data = new char[len + 1];  // +1 for null terminator
+            LOGV("nonstd::string: str is NULL, creating empty string");
+            data = new char[1]{'\0'};
+            len = 0;
+            capacity = 1;
+            return;
+        }
+        len = custom_strlen(str);  // 使用自定义strlen计算长度
+        data = new char[len + 1];  // +1为null终止符
         capacity = len + 1;
-        custom_strcpy(data, str);  // Use custom strcpy
+        custom_strcpy(data, str);  // 使用自定义strcpy复制字符串
         LOGV("nonstd::string(const char*) completed, data=%p, length=%zu", data, len);
     }
 
-    // Custom implementation of strlen (get the length of the string)
+    /**
+     * 自定义strlen实现
+     * 计算C风格字符串的长度，不包含null终止符
+     * @param str 要计算长度的字符串
+     * @return 字符串长度
+     */
     size_t string::custom_strlen(const char* str) const {
         if (!str) return 0;
         size_t length = 0;
@@ -35,36 +42,55 @@ namespace nonstd {
         return length;
     }
 
-// Custom implementation of strcpy (copy a C-string)
+    /**
+     * 自定义strcpy实现
+     * 将源字符串复制到目标缓冲区
+     * @param dest 目标缓冲区
+     * @param src 源字符串
+     * @return 目标缓冲区指针
+     */
     char* string::custom_strcpy(char* dest, const char* src) const {
         if (!dest || !src) return dest;
         char* d = dest;
-        while ((*d++ = *src++) != '\0') {}  // Copy characters
+        while ((*d++ = *src++) != '\0') {}  // 逐字符复制
         return dest;
     }
 
-// Custom implementation of strcat (concatenate two C-strings)
+    /**
+     * 自定义strcat实现
+     * 将源字符串追加到目标字符串末尾
+     * @param dest 目标字符串
+     * @param src 要追加的源字符串
+     * @return 目标字符串指针
+     */
     char* string::custom_strcat(char* dest, const char* src) const {
         if (!dest || !src) return dest;
         char* d = dest;
-        while (*d != '\0') {  // Find the end of the first string
+        while (*d != '\0') {  // 找到第一个字符串的末尾
             ++d;
         }
-        while ((*d++ = *src++) != '\0') {}  // Append the second string
+        while ((*d++ = *src++) != '\0') {}  // 追加第二个字符串
         return dest;
     }
 
-// Default constructor
+    /**
+     * 默认构造函数
+     * 创建空的string对象
+     */
     string::string() : data(new char[1]{'\0'}), len(0), capacity(1) {
         LOGV("nonstd::string() default constructor called, data=%p", data);
     }
 
-
-    // Constructor from C-string with length (based on std::string implementation)
+    /**
+     * 从C字符串和长度构造string对象
+     * 根据C风格字符串和指定长度创建string对象
+     * @param str C风格字符串指针
+     * @param len 要复制的字符长度
+     */
     string::string(const char* str, size_t len) {
         LOGV("nonstd::string(const char* str, size_t len) is called with str=%p, len=%zu", str, len);
         
-        // Following std::string behavior: allow nullptr if len == 0
+        // 遵循std::string行为：如果len为0则允许nullptr
         if (!str && len > 0) {
             LOGV("nonstd::string: str is NULL but len > 0, throwing logic_error");
             throw std::logic_error("nonstd::string: construction from null is not valid");
@@ -74,13 +100,13 @@ namespace nonstd {
         if (len > 0) {
             data = new char[len + 1];
             capacity = len + 1;
-            // Copy the specified length
+            // 复制指定长度的字符
             for (size_t i = 0; i < len; ++i) {
                 data[i] = str[i];
             }
             data[len] = '\0';
         } else {
-            // Empty string
+            // 空字符串
             data = new char[1]{'\0'};
             capacity = 1;
         }
@@ -88,30 +114,41 @@ namespace nonstd {
         LOGV("nonstd::string(const char*, size_t) completed, data=%p, length=%zu", data, this->len);
     }
 
-// Copy constructor
+    /**
+     * 拷贝构造函数
+     * 根据另一个string对象创建新的string对象
+     * @param other 要拷贝的string对象
+     */
     string::string(const string& other) {
         LOGV("nonstd::string(const string& other) copy constructor called, other.data=%p, other.len=%zu", other.data, other.len);
         len = other.len;
         data = new char[len + 1];
         capacity = len + 1;
         if (other.data) {
-            custom_strcpy(data, other.data);  // Use custom strcpy
+            custom_strcpy(data, other.data);  // 使用自定义strcpy
         } else {
             data[0] = '\0';
         }
         LOGV("nonstd::string(const string&) completed, data=%p, length=%zu", data, len);
     }
 
-// Move constructor
+    /**
+     * 移动构造函数
+     * 从另一个string对象移动资源，原对象变为空状态
+     * @param other 要移动的string对象
+     */
     string::string(string&& other) noexcept : data(other.data), len(other.len), capacity(other.capacity) {
         LOGV("nonstd::string(string&& other) move constructor called, other.data=%p, other.len=%zu", other.data, other.len);
-        other.data = nullptr;  // Nullify the other object's data
+        other.data = nullptr;  // 将原对象的数据指针置空
         other.len = 0;
         other.capacity = 0;
         LOGV("nonstd::string(string&&) completed, data=%p, length=%zu", data, len);
     }
 
-// Destructor
+    /**
+     * 析构函数
+     * 释放字符串占用的内存
+     */
     string::~string() {
         LOGV("nonstd::string destructor called, data=%p, len=%zu", data, len);
         if (data) {
@@ -119,13 +156,18 @@ namespace nonstd {
         }
     }
 
-// Copy assignment operator
+    /**
+     * 拷贝赋值操作符
+     * 将另一个string对象的内容拷贝到当前对象
+     * @param other 要拷贝的string对象
+     * @return 当前对象的引用
+     */
     string& string::operator=(const string& other) {
         LOGV("nonstd::string.operator=(const string& other) called, other.data=%p, other.len=%zu", other.data, other.len);
-        if (this == &other) return *this;  // Self-assignment check
+        if (this == &other) return *this;  // 自赋值检查
 
         if (data) {
-            delete[] data;  // Clean up existing data
+            delete[] data;  // 清理现有数据
         }
 
         len = other.len;
@@ -141,19 +183,24 @@ namespace nonstd {
         return *this;
     }
 
-// Move assignment operator
+    /**
+     * 移动赋值操作符
+     * 从另一个string对象移动资源到当前对象
+     * @param other 要移动的string对象
+     * @return 当前对象的引用
+     */
     string& string::operator=(string&& other) noexcept {
         LOGV("nonstd::string.operator=(string&& other) move assignment called, other.data=%p, other.len=%zu", other.data, other.len);
         if (this != &other) {
             if (data) {
-                delete[] data;  // Clean up existing data
+                delete[] data;  // 清理现有数据
             }
 
             data = other.data;
             len = other.len;
             capacity = other.capacity;
 
-            other.data = nullptr;  // Nullify the other object's data
+            other.data = nullptr;  // 将原对象的数据指针置空
             other.len = 0;
             other.capacity = 0;
         }
@@ -161,36 +208,65 @@ namespace nonstd {
         return *this;
     }
 
-// Get the length of the string
+    /**
+     * 获取字符串长度
+     * @return 字符串的字符数量
+     */
     size_t string::length() const {
         return len;
     }
 
-// Get the size of the string (same as length)
+    /**
+     * 获取字符串大小
+     * 与length()函数相同
+     * @return 字符串的字符数量
+     */
     size_t string::size() const {
         LOGV("nonstd::string.size() is called, returning %zu", len);
         return len;
     }
 
-// Check if the string is empty
+    /**
+     * 检查字符串是否为空
+     * @return 如果字符串为空返回true
+     */
     bool string::empty() const {
         LOGV("nonstd::string.empty() is called, returning %s", (len == 0) ? "true" : "false");
         return len == 0;
     }
 
-    // Clear the string
+    /**
+     * 获取C风格字符串指针
+     * @return 指向内部字符数组的指针
+     */
+    const char* string::c_str() const {
+        LOGV("nonstd::string.c_str() is called, data=%p, len=%zu", data, len);
+        if (!data) {
+            LOGV("nonstd::string.c_str(): data is NULL, returning empty string");
+            return "";
+        }
+        return data;
+    }
+
+    /**
+     * 清空字符串内容
+     * 将字符串长度设为0，但保留内存分配
+     */
     void string::clear() {
         LOGV("nonstd::string.clear() is called, old data=%p, old length=%zu", data, len);
         if (data) {
-            delete[] data;
+            data[0] = '\0';
         }
-        data = new char[1]{'\0'};
         len = 0;
-        capacity = 1;
-        LOGV("nonstd::string.clear() completed, new data=%p, new length=%zu", data, len);
     }
 
-// Get substring starting at pos with length len
+    /**
+     * 获取子字符串
+     * 从指定位置开始提取指定长度的子字符串
+     * @param pos 起始位置
+     * @param len 子字符串长度
+     * @return 新的string对象，包含子字符串
+     */
     string string::substr(size_t pos, size_t len) const {
         LOGV("nonstd::string.substr(pos=%zu, len=%zu) is called", pos, len);
         
@@ -226,17 +302,12 @@ namespace nonstd {
         return result;
     }
 
-// Access the underlying C-string
-    const char* string::c_str() const {
-        LOGV("nonstd::string.c_str() is called, data=%p, len=%zu", data, len);
-        if (!data) {
-            LOGV("nonstd::string.c_str(): data is NULL, returning empty string");
-            return "";
-        }
-        return data;
-    }
-
-// Operator[] for character access
+    /**
+     * 下标操作符（非const版本）
+     * 返回指定位置的字符引用，允许修改
+     * @param index 字符位置
+     * @return 字符的引用
+     */
     char& string::operator[](size_t index) {
         if (index >= len) {
             throw std::out_of_range("Index out of range");
@@ -244,7 +315,12 @@ namespace nonstd {
         return data[index];
     }
 
-// Const version of operator[] for read-only access
+    /**
+     * 下标操作符（const版本）
+     * 返回指定位置的字符引用，不允许修改
+     * @param index 字符位置
+     * @return 字符的const引用
+     */
     const char& string::operator[](size_t index) const {
         if (index >= len) {
             throw std::out_of_range("Index out of range");
