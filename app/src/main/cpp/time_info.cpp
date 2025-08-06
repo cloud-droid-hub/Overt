@@ -2,34 +2,26 @@
 // Created by lxz on 2025/6/12.
 //
 
-#include <unistd.h>
-#include <limits.h> // PATH_MAX
-#include <cstring>
-#include <sys/types.h>
-#include <optional>
-#include <sys/sysinfo.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <jni.h>
-#include <string>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <linux/stat.h>
-#include <sys/syscall.h>
-#include <android/log.h>
-#include <string>
-#include <vector>
-#include <fstream>
-#include <sstream>
-#include <iostream>
+//#include <unistd.h>
+//#include <limits.h> // PATH_MAX
+//#include <sys/types.h>
+//#include <optional>
 
+//#include <unistd.h>
+//#include <sys/syscall.h>
+//#include <unistd.h>
+//#include <fcntl.h>
+//#include <jni.h>
+//#include <sys/stat.h>
+//#include <unistd.h>
+//#include <linux/stat.h>
+
+#include <sys/sysinfo.h>
+#include "syscall.h"
+#include <sys/syscall.h>
+#include "zLibc.h"
 #include "zLog.h"
 #include "zFile.h"
-#include "zUtil.h"
-#include "syscall.h"
 #include "time_info.h"
 #include "zHttps.h"
 #include "zJson.h"

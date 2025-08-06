@@ -2,9 +2,15 @@
 // Created by lxz on 2025/6/12.
 //
 
-#include "zLinker.h"
-#include "zUtil.h"
+
+
 #include "zLog.h"
+#include "zStd.h"
+#include "zStdUtil.h"
+#include "zLibc.h"
+#include "zLibcUtil.h"
+
+#include "zLinker.h"
 #include "linker_info.h"
 
 /**

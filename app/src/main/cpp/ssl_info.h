@@ -6,7 +6,7 @@
 #define SSLCHECK_SSL_INFO_H
 
 
-#include "config.h"
+#include "zStd.h"
 
 map<string, map<string, string>> get_ssl_info();
 

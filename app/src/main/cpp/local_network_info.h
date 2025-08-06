@@ -5,7 +5,7 @@
 #ifndef OVERT_LOCAL_NETWORK_INFO_H
 #define OVERT_LOCAL_NETWORK_INFO_H
 
-#include "config.h"
+#include "zStd.h"
 
 /**
  * 获取本地网络信息

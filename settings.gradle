@@ -21,3 +21,8 @@ dependencyResolutionManagement {
 
 rootProject.name = "Overt"
 include ':app'
+include ':zconfig'
+include ':zlog'
+include ':zlibc'
+include ':zstd'
+include ':zcore'

@@ -5,7 +5,7 @@
 #ifndef OVERT_MOUNTS_INFO_H
 #define OVERT_MOUNTS_INFO_H
 
-#include "config.h"
+#include "zStd.h"
 
 /**
  * 获取挂载点信息

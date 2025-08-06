@@ -2,13 +2,12 @@
 // Created by lxz on 2025/7/17.
 //
 
-#include <map>
-#include <jni.h>
 
-#include "zUtil.h"
+#include <jni.h>
+#include "zLog.h"
+#include "zLibc.h"
 #include "zJavaVm.h"
 #include "zTee.h"
-#include "zLog.h"
 #include "tee_info.h"
 
 // 验证启动状态常量定义

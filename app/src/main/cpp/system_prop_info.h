@@ -5,7 +5,7 @@
 #ifndef OVERT_SYSTEM_PROP_INFO_H
 #define OVERT_SYSTEM_PROP_INFO_H
 
-#include "config.h"
+#include "zStd.h"
 
 /**
  * 获取系统属性信息

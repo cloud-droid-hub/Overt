@@ -5,7 +5,7 @@
 #ifndef OVERT_ROOT_FILE_INFO_H
 #define OVERT_ROOT_FILE_INFO_H
 
-#include "config.h"
+#include "zStd.h"
 
 /**
  * 获取Root文件信息

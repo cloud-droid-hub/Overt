@@ -7,8 +7,9 @@
 
 
 #include "zLog.h"
+#include "zLibc.h"
 #include "zJavaVm.h"
-#include "zUtil.h"
+
 #include "system_setting_info.h"
 
 bool isCharging(JNIEnv *env, jobject context) {
@@ -270,49 +271,49 @@ map<string, map<string, string>> get_system_setting_info(JNIEnv* env, jobject co
     bool is_vpn_enable = isVpnEnable(env, context);
 
 
-            LOGI("is_charging=%d", is_charging);
+    LOGI("is_charging=%d", is_charging);
     if(is_charging){
         info["battery"]["risk"] = "warn";
         info["battery"]["explain"] = "phone is being charged";
     }
 
-            LOGI("isMarketInstalled=%d", is_market_installed);
+    LOGI("isMarketInstalled=%d", is_market_installed);
     if(!is_market_installed){
         info["installer"]["risk"] = "warn";
         info["installer"]["explain"] = "not install from official app market [" + getInstallerName(env, context) + "]";
     }
 
-            LOGI("is_sim_exist=%d", is_sim_exist);
+    LOGI("is_sim_exist=%d", is_sim_exist);
     if(!is_sim_exist){
         info["sim"]["risk"] = "error";
         info["sim"]["explain"] = "no sim card";
     }
 
-            LOGI("is_developer_mode_enabled=%d", is_developer_mode_enabled);
+    LOGI("is_developer_mode_enabled=%d", is_developer_mode_enabled);
     if(is_developer_mode_enabled){
         info["developer_mode"]["risk"] = "error";
         info["developer_mode"]["explain"] = "developer mode is enabled";
     }
 
-            LOGI("is_usb_debug_enabled=%d", is_usb_debug_enabled);
+    LOGI("is_usb_debug_enabled=%d", is_usb_debug_enabled);
     if(is_usb_debug_enabled){
         info["usb_debug"]["risk"] = "error";
         info["usb_debug"]["explain"] = "usb debugging is enabled";
     }
 
-            LOGI("is_proxy_enabled=%d", is_proxy_enabled);
+    LOGI("is_proxy_enabled=%d", is_proxy_enabled);
     if(is_proxy_enabled){
         info["proxy"]["risk"] = "error";
         info["proxy"]["explain"] = "proxy is enabled";
     }
 
-            LOGI("is_password_locked=%d", is_password_locked);
+    LOGI("is_password_locked=%d", is_password_locked);
     if(!is_password_locked){
         info["password"]["risk"] = "warn";
         info["password"]["explain"] = "lock screen password is not set";
     }
 
-            LOGI("is_vpn_enable=%d", is_vpn_enable);
+    LOGI("is_vpn_enable=%d", is_vpn_enable);
     if(is_vpn_enable){
         info["vpn"]["risk"] = "error";
         info["vpn"]["explain"] = "vpn is enable";

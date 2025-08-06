@@ -5,8 +5,11 @@
 #include <unistd.h>
 
 #include "zLog.h"
+#include "zLibc.h"
+#include "zLibcUtil.h"
+#include "zStd.h"
+#include "zStdUtil.h"
 #include "zFile.h"
-#include "zUtil.h"
 #include "zDevice.h"
 #include "maps_info.h"
 

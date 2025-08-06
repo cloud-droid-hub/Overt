@@ -5,6 +5,24 @@
       <entry key="app">
         <State />
       </entry>
+      <entry key="zconfig">
+        <State />
+      </entry>
+      <entry key="zcore">
+        <State />
+      </entry>
+      <entry key="zlibc">
+        <State />
+      </entry>
+      <entry key="zlog">
+        <State />
+      </entry>
+      <entry key="znonstdlibc">
+        <State />
+      </entry>
+      <entry key="zstd">
+        <State />
+      </entry>
     </value>
   </component>
 </project>

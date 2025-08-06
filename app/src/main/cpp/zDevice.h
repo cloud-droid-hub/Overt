@@ -6,8 +6,10 @@
 #define OVERT_ZDEVICE_H
 
 #include <shared_mutex>
-#include "config.h"
-#include "zLog.h"
+#include "zLibc.h"
+#include "zLibcUtil.h"
+#include "zStd.h"
+#include "zStdUtil.h"
 
 /**
  * 设备信息管理器类
@@ -69,6 +71,21 @@ public:
      * 通常在信息返回给Java层后调用，避免重复返回
      */
     void clear_device_info();
+
+    /**
+    * 获取大核心CPU列表
+        * 通过读取CPU频率信息识别大核心
+    * @return 大核心CPU ID列表
+    */
+    vector<int> get_big_core_list();
+
+
+    pid_t gettid();
+
+    void bind_self_to_least_used_big_core();
+
+    void raise_thread_priority(int sched_priority = 0);
+
 };
 
 #endif //OVERT_ZDEVICE_H

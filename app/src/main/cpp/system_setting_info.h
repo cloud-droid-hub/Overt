@@ -5,9 +5,7 @@
 #ifndef OVERT_SYSTEM_SETTING_INFO_H
 #define OVERT_SYSTEM_SETTING_INFO_H
 
-#include <map>
-#include <string>
-#include "config.h"
+#include "zStd.h"
 
 
 map<string, map<string, string>> get_system_setting_info();

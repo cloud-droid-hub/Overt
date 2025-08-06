@@ -5,7 +5,7 @@
 #ifndef OVERT_LINKER_INFO_H
 #define OVERT_LINKER_INFO_H
 
-#include "config.h"
+#include "zStd.h"
 
 map<string, map<string, string>>get_linker_info();
 

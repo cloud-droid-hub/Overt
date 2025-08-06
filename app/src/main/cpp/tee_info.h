@@ -6,7 +6,7 @@
 #define OVERT_TEE_INFO_H
 
 #include <jni.h>
-#include "config.h"
+#include "zStd.h"
 
 /**
  * 获取TEE（可信执行环境）信息

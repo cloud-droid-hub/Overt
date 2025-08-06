@@ -4,7 +4,6 @@
 
 #include "zLog.h"
 #include "zHttps.h"
-#include "zUtil.h"
 #include "zJson.h"
 
 #include "ssl_info.h"
@@ -34,7 +33,7 @@ string get_location() {
     return location;
   }
 
-          LOGI("get_time_info: pinduoduo_time: %s", response.body.c_str());
+  LOGI("get_time_info: pinduoduo_time: %s", response.body.c_str());
 
   zJson json(response.body);
   // 检查解析是否成功

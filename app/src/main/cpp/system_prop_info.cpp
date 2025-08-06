@@ -3,11 +3,15 @@
 //
 
 #include <sys/system_properties.h>
-#include <stdatomic.h>
+//#include <stdatomic.h>
 #include <unistd.h>
 
 #include "zLog.h"
-#include "zUtil.h"
+#include "zLibc.h"
+#include "zLibcUtil.h"
+#include "zStd.h"
+#include "zStdUtil.h"
+
 #include "system_prop_info.h"
 
 /**
