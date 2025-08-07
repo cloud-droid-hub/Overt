@@ -76,7 +76,7 @@ void test_file_module() {
 void test_json_module() {
     LOGI("=== JSON Module Tests START ===");
     
-    // 简单JSON解析测试
+    // 只做简单JSON解析测试，复杂的解析不了
     string jsonStr1 = "{\"name\":\"test\",\"age\":25,\"active\":true}";
     zJson json1(jsonStr1);
     LOGI("JSON parse success: %s", json1.isError() ? "false" : "true");
@@ -87,9 +87,7 @@ void test_json_module() {
         LOGI("age: %d", json1.getInt("age"));
         LOGI("active: %s", json1.getBoolean("active") ? "true" : "false");
     }
-    
 
-    
     LOGI("=== JSON Module Tests END ===");
 }
 
@@ -588,23 +586,22 @@ string get_location() {
 
 void __attribute__((constructor)) init_(void){
     LOGI("zCore init - Starting comprehensive tests");
-//    test_https_module();
-    get_location();
-//    // 执行各个模块的测试
-//    test_file_module();
-//    test_crc32_module();
-//    test_broadcast_module();
-//
-//    test_elf_module();
-//    test_classloader_module();
-//    test_jvm_module();
-//    test_tee_module();
-//    test_linker_module();
-//    test_integration();
-//    test_performance();
-//    test_error_handling();
-//
-//    test_json_module();
+
+    // 执行各个模块的测试
+    test_https_module();
+    test_file_module();
+    test_crc32_module();
+    test_broadcast_module();
+
+    test_elf_module();
+    test_classloader_module();
+    test_jvm_module();
+    test_tee_module();
+    test_linker_module();
+    test_integration();
+    test_performance();
+    test_error_handling();
+    test_json_module();
 
     LOGI("zCore init - All tests completed successfully");
 }

@@ -11,6 +11,9 @@
       <entry key="zcore">
         <State />
       </entry>
+      <entry key="zinfo">
+        <State />
+      </entry>
       <entry key="zlibc">
         <State />
       </entry>

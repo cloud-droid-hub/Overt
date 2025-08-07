@@ -6,7 +6,6 @@
 
 // 通过这个宏来控制标准 API 和 非标准 API 的使用
 #define ZCONFIG_ENABLE_NONSTD_API 1
-
 #define ZCONFIG_ENABLE_NONSTD_API 1
 
 // 全局日志开关 - 可以通过修改这个宏来控制日志输出

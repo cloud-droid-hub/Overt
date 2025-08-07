@@ -50,12 +50,16 @@ include_directories(${CMAKE_SOURCE_DIR}/../../../../zlog/src/main/cpp)
 include_directories(${CMAKE_SOURCE_DIR}/../../../../zlibc/src/main/cpp)
 include_directories(${CMAKE_SOURCE_DIR}/../../../../zstd/src/main/cpp)
 include_directories(${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp)
+include_directories(${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp)
 
 add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zlog/src/main/cpp/zLog.cpp
+
         ${CMAKE_SOURCE_DIR}/../../../../zlibc/src/main/cpp/zLibc.cpp
+
         ${CMAKE_SOURCE_DIR}/../../../../zstd/src/main/cpp/zString.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zstd/src/main/cpp/zStdUtil.cpp
+
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zHttps.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zLinker.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zElf.cpp
@@ -68,25 +72,26 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zFile.cpp
 
 
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zRootFileInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zMountsInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSystemPropInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLinkerInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zTimeInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zPackageInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zClassLoaderInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSystemSettingInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zMapsInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zTaskInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zPortInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zTeeInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSslInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLocalNetworkInfo.cpp
 
-        local_network_info.cpp
-        root_file_info.cpp
-        mounts_info.cpp
-        system_prop_info.cpp
-        linker_info.cpp
-        time_info.cpp
-        package_info.cpp
-        class_loader_info.cpp
-        system_setting_info.cpp
-        maps_info.cpp
-        task_info.cpp
-        port_info.cpp
-        tee_info.cpp
-        ssl_info.cpp
-        zDevice.cpp
+        zManager.cpp
 
         native-lib.cpp)
 
+include_directories(${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/include)
 
 # 添加mbedtls库
 add_library(mbedtls STATIC IMPORTED)
@@ -100,10 +105,6 @@ set_target_properties(mbedx509 PROPERTIES IMPORTED_LOCATION
 add_library(mbedcrypto STATIC IMPORTED)
 set_target_properties(mbedcrypto PROPERTIES IMPORTED_LOCATION
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/lib/mbedtls/libmbedcrypto.a)
-
-# 包含头文件目录
-include_directories(${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/include)
-
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
         mbedtls

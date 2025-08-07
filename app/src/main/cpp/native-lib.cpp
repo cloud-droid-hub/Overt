@@ -1,6 +1,5 @@
 #include <jni.h>
 
-
 #include "zLog.h"
 #include "zLibc.h"
 #include "zLibcUtil.h"
@@ -10,30 +9,31 @@
 #include "zJavaVm.h"
 #include "zJson.h"
 #include "zBroadCast.h"
-#include "zDevice.h"
+#include "zManager.h"
 
-#include "system_setting_info.h"
-#include "class_loader_info.h"
-#include "package_info.h"
-#include "root_file_info.h"
-#include "mounts_info.h"
-#include "system_prop_info.h"
-#include "linker_info.h"
-#include "time_info.h"
-#include "maps_info.h"
-#include "task_info.h"
-#include "port_info.h"
-#include "tee_info.h"
-#include "ssl_info.h"
-#include "local_network_info.h"
+#include "zRootFileInfo.h"
+#include "zMountsInfo.h"
+#include "zSystemPropInfo.h"
+#include "zLinkerInfo.h"
+#include "zTimeInfo.h"
+#include "zPackageInfo.h"
+#include "zClassLoaderInfo.h"
+#include "zSystemSettingInfo.h"
+#include "zMapsInfo.h"
+#include "zTaskInfo.h"
+#include "zPortInfo.h"
+#include "zTeeInfo.h"
+#include "zSslInfo.h"
+#include "zLocalNetworkInfo.h"
+
 
 // 定义线程睡眠时间常量（秒）
 #define OVERT_SLEEP_TIME 10
 
 // 0 zConfig
-// 1 zLog															无依赖
-// 2 nonstd_libc nonstd_libc_util											依赖等级 0、1
-// 3 nonstd_string nonstd_vector nonstd_map nonstd_util					    依赖等级 0、1、2
+// 1 zLog															        依赖等级 0
+// 2 zLibc zLibcUtil											            依赖等级 0、1
+// 3 zStdString zStdVector zStdMap zStdUtil					                依赖等级 0、1、2
 // 4 zFile zHttps zCrc zTee zJson zJavaVm zElf zClassLoader zBroadCast		依赖等级 0、1、2、3
 // 5、maps_info mounts_info	package_info ...								依赖等级 0、1、2、3、4
 // 6、device_info
@@ -51,55 +51,55 @@ void* overt_thread(void* arg) {
         LOGI("thread_func: processing device info updates");
 
         // 绑定到当前空闲的大核，提高性能
-        zDevice::getInstance()->bind_self_to_least_used_big_core();
+        zManager::getInstance()->bind_self_to_least_used_big_core();
 
         // 提升线程优先级，确保信息收集的及时性
-        zDevice::getInstance()->raise_thread_priority();
+        zManager::getInstance()->raise_thread_priority();
 
         // 记录开始时间，用于计算执行耗时
         time_t start_time = time(nullptr);
 
         // 收集SSL信息 - 检测SSL证书异常
-        zDevice::getInstance()->update_device_info("ssl_info", get_ssl_info());
+        zManager::getInstance()->update_device_info("ssl_info", get_ssl_info());
 
         // 收集本地网络信息 - 检测同一网络中的其他Overt设备
-        zDevice::getInstance()->update_device_info("local_network_info", get_local_network_info());
+        zManager::getInstance()->update_device_info("local_network_info", get_local_network_info());
 
         // 收集任务信息 - 检测Frida等调试工具注入的进程
-        zDevice::getInstance()->update_device_info("task_info", get_task_info());
+        zManager::getInstance()->update_device_info("task_info", get_task_info());
 
         // 收集内存映射信息 - 检测关键系统库是否被篡改
-        zDevice::getInstance()->update_device_info("maps_info",get_maps_info());
+        zManager::getInstance()->update_device_info("maps_info", get_maps_info());
 
         // 收集Root文件信息 - 检测Root相关文件
-        zDevice::getInstance()->update_device_info("root_file_info", get_root_file_info());
+        zManager::getInstance()->update_device_info("root_file_info", get_root_file_info());
 
         // 收集挂载点信息 - 检测异常的文件系统挂载
-        zDevice::getInstance()->update_device_info("mounts_info", get_mounts_info());
+        zManager::getInstance()->update_device_info("mounts_info", get_mounts_info());
 
         // 收集系统属性信息 - 检测系统配置异常
-        zDevice::getInstance()->update_device_info("system_prop_info", get_system_prop_info());
+        zManager::getInstance()->update_device_info("system_prop_info", get_system_prop_info());
 
         // 收集链接器信息 - 检测动态链接库加载异常
-        zDevice::getInstance()->update_device_info("linker_info", get_linker_info());
+        zManager::getInstance()->update_device_info("linker_info", get_linker_info());
 
         // 收集端口信息 - 检测网络端口异常
-        zDevice::getInstance()->update_device_info("port_info", get_port_info());
+        zManager::getInstance()->update_device_info("port_info", get_port_info());
 
         // 收集类加载器信息 - 检测Java层异常
-        zDevice::getInstance()->update_device_info("class_loader_info", get_class_loader_info());
+        zManager::getInstance()->update_device_info("class_loader_info", get_class_loader_info());
 
         // 收集包信息 - 检测已安装应用异常
-        zDevice::getInstance()->update_device_info("package_info", get_package_info());
+        zManager::getInstance()->update_device_info("package_info", get_package_info());
 
         // 收集系统设置信息 - 检测系统设置异常
-        zDevice::getInstance()->update_device_info("system_setting_info", get_system_setting_info());
+        zManager::getInstance()->update_device_info("system_setting_info", get_system_setting_info());
 
         // 收集TEE信息 - 检测可信执行环境异常
-        zDevice::getInstance()->update_device_info("tee_info", get_tee_info());
+        zManager::getInstance()->update_device_info("tee_info", get_tee_info());
 
         // 收集时间信息 - 检测系统时间异常
-        zDevice::getInstance()->update_device_info("time_info", get_time_info());
+        zManager::getInstance()->update_device_info("time_info", get_time_info());
 
         // 通知Java层更新设备信息
         JNIEnv *env = zJavaVm::getInstance()->getEnv();
@@ -444,10 +444,10 @@ Java_com_example_overt_MainActivity_get_1device_1info(JNIEnv *env, jobject thiz)
     LOGI("get_device_info: starting JNI call");
     
     // 将C++的三层嵌套Map转换为Java对象
-    jobject result = cmap_to_jmap_nested_3(env, zDevice::getInstance()->get_device_info());
+    jobject result = cmap_to_jmap_nested_3(env, zManager::getInstance()->get_device_info());
     LOGI("get_device_info: conversion completed successfully");
     
     // 清空设备信息缓存，避免重复返回
-    zDevice::getInstance()->clear_device_info();
+    zManager::getInstance()->clear_device_info();
     return result;
 }

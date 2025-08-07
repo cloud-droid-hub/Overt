@@ -12,6 +12,7 @@
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/zconfig" />
             <option value="$PROJECT_DIR$/zcore" />
+            <option value="$PROJECT_DIR$/zinfo" />
             <option value="$PROJECT_DIR$/zlibc" />
             <option value="$PROJECT_DIR$/zlog" />
             <option value="$PROJECT_DIR$/zstd" />
