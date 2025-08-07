@@ -368,6 +368,43 @@ namespace nonstd {
         return result;
     }
 
+// String + char operator
+    string string::operator+(char ch) const {
+        LOGV("nonstd::string.operator+(char '%c') is called, current length=%zu", ch, len);
+        
+        string result;
+        result.len = len + 1;  // Add one character
+        result.data = new char[result.len + 1];  // +1 for null terminator
+        result.capacity = result.len + 1;
+        
+        // Copy this string
+        custom_strcpy(result.data, data);
+        // Append the character
+        result.data[len] = ch;
+        result.data[result.len] = '\0';  // Add null terminator
+        
+        LOGV("nonstd::string.operator+(char) completed, result length=%zu", result.len);
+        return result;
+    }
+
+// Friend function for char + string
+    string operator+(char ch, const string& str) {
+        LOGV("nonstd::operator+(char, const string&) called, ch='%c', str='%s'", ch, str.c_str());
+        
+        string result;
+        result.len = 1 + str.len;  // One character + string length
+        result.data = new char[result.len + 1];  // +1 for null terminator
+        result.capacity = result.len + 1;
+        
+        // Put the character first
+        result.data[0] = ch;
+        // Then copy the string
+        strcpy(result.data + 1, str.data);
+        
+        LOGV("nonstd::operator+(char, const string&) completed, result length=%zu", result.len);
+        return result;
+    }
+
 // Compound assignment operator (+=) for string
     string& string::operator+=(const string& other) {
         LOGV("nonstd::string.operator+=(const string&) called, this len=%zu, other len=%zu", len, other.len);

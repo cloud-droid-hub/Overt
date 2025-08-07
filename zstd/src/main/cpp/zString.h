@@ -128,9 +128,12 @@ namespace nonstd {
 
         // Concatenation operator (A + B)
         string operator+(const string& other) const;
+        string operator+(char ch) const;
         
         // Friend function for const char* + string
         friend string operator+(const char* str, const string& other);
+        // Friend function for char + string
+        friend string operator+(char ch, const string& str);
         
         // Compound assignment operator (+=)
         string& operator+=(const string& other);

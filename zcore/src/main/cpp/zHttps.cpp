@@ -60,9 +60,6 @@ string HttpsRequest::buildRequest() const {
     string request = method + " " + path + " HTTP/1.1\r\n";
     request += "Host: ";
     request += host;
-    request += ":";
-//    request += std::to_string(port).c_str();
-    request += itoa(port, 10);
     // 只有在非默认端口时才添加端口号
     if (port != 443) {
         request += ":";
@@ -86,6 +83,7 @@ string HttpsRequest::buildRequest() const {
     if (!body.empty()) {
         request += body;
     }
+    LOGI("buildRequest: request data=%s", request.c_str());
     LOGI("buildRequest: request length=%zu", request.length());
     return request;
 }

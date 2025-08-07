@@ -102,18 +102,21 @@ vector<string> split_str(const string& str, char delim) {
     return result;
 }
 
-string itoa(int value, int base = 10){
+string itoa(int value, int base = 10) {
     if (base < 2 || base > 36) {
         throw std::invalid_argument("Invalid base. Base must be between 2 and 36.");
     }
 
     string result;
     bool isNegative = (value < 0 && base == 10);
-    unsigned int uValue = isNegative ? (unsigned int)(-value) : (unsigned int)value;
+
+    // 使用更宽的类型防止 INT_MIN 溢出
+    unsigned int uValue = (value < 0) ? static_cast<unsigned int>(-(long long)value) : static_cast<unsigned int>(value);
 
     do {
         int remainder = uValue % base;
-        result = (remainder < 10 ? "0" + remainder : "a" + remainder - 10) + result;
+        char digit = (remainder < 10) ? ('0' + remainder) : ('a' + remainder - 10);
+        result = digit + result;
         uValue /= base;
     } while (uValue);
 
