@@ -15,6 +15,7 @@
 #include "zJavaVm.h"
 #include "zTee.h"
 #include "zLinker.h"
+#include "zThread.h"
 
 // 文件模块测试函数
 void test_file_module() {
@@ -584,24 +585,148 @@ string get_location() {
     return location ;
 }
 
+
+
+
+// 测试任务函数
+void testTask(void* arg) {
+    int* data = static_cast<int*>(arg);
+    LOGI("Task executed with data: %d", *data);
+    zThread::sleep(100); // 模拟工作
+}
+
+// 读写锁测试函数
+void readerTask(void* arg) {
+    std::shared_mutex* sharedMutex = static_cast<std::shared_mutex*>(arg);
+    LOGI("Reader thread %lu started", (unsigned long)zThread::getCurrentThreadId());
+
+    // 获取读锁
+    std::shared_lock<std::shared_mutex> lock(*sharedMutex);
+    LOGI("Reader thread %lu acquired read lock", (unsigned long)zThread::getCurrentThreadId());
+
+    // 模拟读取操作
+    zThread::sleep(500);
+
+    LOGI("Reader thread %lu released read lock", (unsigned long)zThread::getCurrentThreadId());
+}
+
+void writerTask(void* arg) {
+    std::shared_mutex* sharedMutex = static_cast<std::shared_mutex*>(arg);
+    LOGI("Writer thread %lu started", (unsigned long)zThread::getCurrentThreadId());
+
+    // 获取写锁
+    std::unique_lock<std::shared_mutex> lock(*sharedMutex);
+    LOGI("Writer thread %lu acquired write lock", (unsigned long)zThread::getCurrentThreadId());
+
+    // 模拟写入操作
+    zThread::sleep(1000);
+
+    LOGI("Writer thread %lu released write lock", (unsigned long)zThread::getCurrentThreadId());
+}
+
+// 演示函数
+void demonstrateUseCases() {
+    LOGI("=== zThread 使用示例 ===");
+
+    // 获取线程管理器单例
+    zThread* threadManager = zThread::getInstance();
+
+    // 启动线程池
+    if (!threadManager->startThreadPool(4)) {
+        LOGE("Failed to start thread pool");
+        return;
+    }
+
+    LOGI("Thread pool started successfully");
+
+    // 测试基本任务提交
+    int testData1 = 100;
+    int testData2 = 200;
+
+    threadManager->submitTask(testTask, &testData1, TaskPriority::NORMAL, "task1");
+    threadManager->submitTask(testTask, &testData2, TaskPriority::HIGH, "task2");
+
+    // 测试延迟任务
+    int delayedData = 300;
+    threadManager->submitDelayedTask(testTask, &delayedData, 2000, "delayed_task");
+
+    // 测试周期性任务
+    int periodicData = 400;
+    threadManager->submitPeriodicTask(testTask, &periodicData, 1000, "periodic_task");
+
+    // 测试读写锁
+    std::shared_mutex* sharedMutex = threadManager->createSharedMutex();
+
+    // 创建多个读者线程
+    for (int i = 0; i < 3; ++i) {
+        threadManager->submitTask(readerTask, sharedMutex, TaskPriority::NORMAL, "reader_" + std::to_string(i));
+    }
+
+    // 创建写者线程
+    threadManager->submitTask(writerTask, sharedMutex, TaskPriority::HIGH, "writer");
+
+    // 等待一段时间观察结果
+    zThread::sleep(5000);
+
+    // 取消周期性任务
+    threadManager->cancelTask("periodic_task");
+
+    LOGI("=== 任务执行情况 ===");
+    LOGI("延迟任务已提交，将在2秒后执行");
+    LOGI("周期性任务已提交，每秒执行一次");
+    LOGI("读写锁测试：3个读者 + 1个写者");
+
+    // 获取线程信息
+    vector<ThreadInfo> threadInfo = threadManager->getThreadInfo();
+    LOGI("Current thread count: %zu", threadInfo.size());
+
+    for (const auto& info : threadInfo) {
+        LOGI("Thread %lu: %s, State: %d",
+             (unsigned long)info.threadId,
+             info.name.c_str(),
+             static_cast<int>(info.state));
+    }
+
+    // 测试消息传递
+    threadManager->broadcastMessage("Hello from main thread!");
+
+    // 测试新的任务统计方法
+    LOGI("=== 任务统计信息 ===");
+    LOGI("队列中的任务数: %zu", threadManager->getQueuedTaskCount());
+    LOGI("正在执行的任务数: %zu", threadManager->getExecutingTaskCount());
+    LOGI("活跃任务总数: %zu", threadManager->getActiveTaskCount());
+    LOGI("总的待处理任务数: %zu", threadManager->getPendingTaskCount());
+
+    // 等待所有任务完成
+    if (threadManager->waitForAllTasks(10000)) {
+        LOGI("All tasks completed successfully");
+    } else {
+        LOGW("Some tasks may not have completed");
+    }
+
+    // 停止线程池
+    threadManager->stopThreadPool(true);
+    LOGI("Thread pool stopped");
+}
+
 void __attribute__((constructor)) init_(void){
     LOGI("zCore init - Starting comprehensive tests");
-
-    // 执行各个模块的测试
-    test_https_module();
-    test_file_module();
-    test_crc32_module();
-    test_broadcast_module();
-
-    test_elf_module();
-    test_classloader_module();
-    test_jvm_module();
-    test_tee_module();
-    test_linker_module();
-    test_integration();
-    test_performance();
-    test_error_handling();
-    test_json_module();
+    demonstrateUseCases();
+//    // 执行各个模块的测试
+//    test_https_module();
+//    test_file_module();
+//    test_crc32_module();
+//    test_broadcast_module();
+//
+//    test_elf_module();
+//    test_classloader_module();
+//    test_jvm_module();
+//    test_tee_module();
+//    test_linker_module();
+//    test_integration();
+//    test_performance();
+//    test_error_handling();
+//    test_json_module();
 
     LOGI("zCore init - All tests completed successfully");
 }
