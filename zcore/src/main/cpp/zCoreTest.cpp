@@ -604,8 +604,8 @@ void readerTask(void* arg) {
     std::shared_lock<std::shared_mutex> lock(*sharedMutex);
     LOGI("Reader thread %lu acquired read lock", (unsigned long)zThread::getCurrentThreadId());
 
-    // 模拟读取操作
-    zThread::sleep(500);
+    // 模拟读取操作 - 减少执行时间以避免长时间阻塞
+    zThread::sleep(300);
 
     LOGI("Reader thread %lu released read lock", (unsigned long)zThread::getCurrentThreadId());
 }
@@ -618,8 +618,8 @@ void writerTask(void* arg) {
     std::unique_lock<std::shared_mutex> lock(*sharedMutex);
     LOGI("Writer thread %lu acquired write lock", (unsigned long)zThread::getCurrentThreadId());
 
-    // 模拟写入操作
-    zThread::sleep(1000);
+    // 模拟写入操作 - 减少执行时间以避免长时间阻塞
+    zThread::sleep(500);
 
     LOGI("Writer thread %lu released write lock", (unsigned long)zThread::getCurrentThreadId());
 }
@@ -697,8 +697,8 @@ void demonstrateUseCases() {
     LOGI("活跃任务总数: %zu", threadManager->getActiveTaskCount());
     LOGI("总的待处理任务数: %zu", threadManager->getPendingTaskCount());
 
-    // 等待所有任务完成
-    if (threadManager->waitForAllTasks(10000)) {
+    // 等待所有任务完成 - 增加超时时间以处理读写锁竞争
+    if (threadManager->waitForAllTasks(15000)) {
         LOGI("All tasks completed successfully");
     } else {
         LOGW("Some tasks may not have completed");

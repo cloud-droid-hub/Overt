@@ -2,15 +2,16 @@
 // Created by lxz on 2025/8/7.
 //
 
+// 包含线程管理类的头文件
 #include "zThread.h"
 
-// 静态单例实例指针
+// 静态单例实例指针 - 用于实现单例模式
 zThread* zThread::instance = nullptr;
 
-// 线程参数结构体
+// 线程参数结构体 - 用于向工作线程传递参数
 struct ThreadArg {
-    zThread* instance;
-    size_t threadIndex;
+    zThread* instance;    // 指向线程管理器实例的指针
+    size_t threadIndex;   // 线程在池中的索引号
 };
 
 /**
@@ -18,11 +19,15 @@ struct ThreadArg {
  * 初始化线程管理器，设置默认参数
  */
 zThread::zThread() : m_name("zThread"), m_maxThreads(4), m_running(false), m_activeThreads(0) {
-    // 初始化互斥锁和条件变量
+    // 初始化任务队列的互斥锁和条件变量 - 用于保护任务队列的并发访问
     pthread_mutex_init(&m_taskQueueMutex, nullptr);
     pthread_cond_init(&m_taskQueueCV, nullptr);
+    
+    // 初始化消息队列的互斥锁和条件变量 - 用于线程间通信
     pthread_mutex_init(&m_messageQueueMutex, nullptr);
     pthread_cond_init(&m_messageQueueCV, nullptr);
+    
+    // 初始化活跃任务列表的互斥锁 - 用于保护活跃任务映射的并发访问
     pthread_mutex_init(&m_activeTasksMutex, nullptr);
 }
 
@@ -32,107 +37,128 @@ zThread::zThread() : m_name("zThread"), m_maxThreads(4), m_running(false), m_act
  * @return zThread单例指针
  */
 zThread* zThread::getInstance() {
+    // 检查实例是否已存在，如果不存在则创建新实例
     if (instance == nullptr) {
         instance = new zThread();
     }
     return instance;
 }
 
-// 析构函数实现
+// 析构函数实现 - 清理所有资源
 zThread::~zThread() {
+    // 停止线程池并等待所有任务完成
     stopThreadPool(true);
     
-    // 销毁互斥锁和条件变量
+    // 销毁任务队列相关的同步对象
     pthread_mutex_destroy(&m_taskQueueMutex);
     pthread_cond_destroy(&m_taskQueueCV);
+    
+    // 销毁消息队列相关的同步对象
     pthread_mutex_destroy(&m_messageQueueMutex);
     pthread_cond_destroy(&m_messageQueueCV);
+    
+    // 销毁活跃任务列表的同步对象
     pthread_mutex_destroy(&m_activeTasksMutex);
     
-    // 销毁其他同步对象
+    // 销毁所有创建的互斥锁
     for (auto& mutex : m_mutexes) {
         pthread_mutex_destroy(&mutex);
     }
+    
+    // 销毁所有创建的条件变量
     for (auto& cv : m_conditionVariables) {
         pthread_cond_destroy(&cv);
     }
     
-    // 销毁读写锁
+    // 销毁所有创建的读写锁
     for (auto& sharedMutex : m_sharedMutexes) {
         delete sharedMutex;
     }
 }
 
-// 工作线程函数
+// 工作线程函数 - 每个工作线程的主循环
 void* workerThreadFunction(void* arg) {
+    // 解析线程参数
     ThreadArg* threadArg = static_cast<ThreadArg*>(arg);
-    zThread* instance = threadArg->instance;
-    size_t threadIndex = threadArg->threadIndex;
-    delete threadArg;
+    zThread* instance = threadArg->instance;      // 获取线程管理器实例
+    size_t threadIndex = threadArg->threadIndex;  // 获取线程索引
+    delete threadArg;  // 释放参数内存
     
+    // 获取当前线程ID并记录启动日志
     pthread_t currentThread = pthread_self();
     instance->logThreadEvent("Worker thread started", currentThread);
     
+    // 主工作循环 - 持续处理任务直到线程池停止
     while (instance->isThreadPoolRunning()) {
         Task* task = nullptr;
         
-        // 等待任务
+        // 等待任务 - 使用条件变量避免忙等待
         pthread_mutex_lock(&instance->m_taskQueueMutex);
         while (instance->m_taskQueue.empty() && instance->isThreadPoolRunning()) {
             pthread_cond_wait(&instance->m_taskQueueCV, &instance->m_taskQueueMutex);
         }
         
+        // 从队列中取出任务
+        Task localTask;
         if (!instance->m_taskQueue.empty()) {
-            task = &instance->m_taskQueue.front();
-            instance->m_taskQueue.erase(instance->m_taskQueue.begin());
+            localTask = instance->m_taskQueue.front();  // 复制队列头部的任务
+            instance->m_taskQueue.erase(instance->m_taskQueue.begin());  // 从队列中移除任务
+            task = &localTask;  // 使用本地副本的指针
+        }
+        pthread_mutex_unlock(&instance->m_taskQueueMutex);
+        
+        // 处理任务
+        if (task) {
+            instance->updateThreadState(threadIndex, ThreadState::RUNNING);  // 更新线程状态为运行中
+            instance->processTask(task);  // 执行任务
+            instance->updateThreadState(threadIndex, ThreadState::IDLE);     // 更新线程状态为空闲
             
-            // 从活跃任务列表中移除，避免重复处理
+            // 任务执行完成后从活跃任务列表中移除
             pthread_mutex_lock(&instance->m_activeTasksMutex);
             auto it = instance->m_activeTasks.find(task->taskId);
             if (it != instance->m_activeTasks.end()) {
                 instance->m_activeTasks.erase(it);
-                LOGI("Task %s removed from active tasks for processing", task->taskId.c_str());
+                LOGI("Task %s completed and removed from active tasks", task->taskId.c_str());
             }
             pthread_mutex_unlock(&instance->m_activeTasksMutex);
         }
-        pthread_mutex_unlock(&instance->m_taskQueueMutex);
-        
-        if (task) {
-            instance->updateThreadState(threadIndex, ThreadState::RUNNING);
-            instance->processTask(task);
-            instance->updateThreadState(threadIndex, ThreadState::IDLE);
-        }
     }
     
+    // 记录线程终止日志
     instance->logThreadEvent("Worker thread terminated", currentThread);
     return nullptr;
 }
 
-// 线程池管理实现
+// 线程池管理实现 - 启动线程池
 bool zThread::startThreadPool(size_t threadCount) {
+    // 检查线程池是否已经在运行
     if (m_running) {
         LOGW("Thread pool is already running");
         return false;
     }
     
+    // 计算实际创建的线程数，不超过最大线程数限制
     size_t actualThreadCount = (threadCount < m_maxThreads) ? threadCount : m_maxThreads;
-    m_running = true;
+    m_running = true;  // 设置运行标志
     
     // 创建工作线程
     for (size_t i = 0; i < actualThreadCount; ++i) {
         pthread_t thread;
         ThreadInfo info;
-        info.name = m_name + "_worker_" + std::to_string(i);
-        info.state = ThreadState::IDLE;
+        info.name = m_name + "_worker_" + std::to_string(i);  // 设置线程名称
+        info.state = ThreadState::IDLE;  // 初始状态为空闲
         
+        // 创建线程参数
         ThreadArg* arg = new ThreadArg{this, i};
         
+        // 创建线程，如果失败则清理并返回错误
         if (pthread_create(&thread, nullptr, workerThreadFunction, arg) != 0) {
             LOGE("Failed to create worker thread %zu", i);
             delete arg;
             return false;
         }
         
+        // 保存线程信息
         m_workerThreads.push_back(thread);
         info.threadId = thread;
         m_threadInfo.push_back(info);
@@ -142,16 +168,19 @@ bool zThread::startThreadPool(size_t threadCount) {
     return true;
 }
 
+// 停止线程池
 void zThread::stopThreadPool(bool waitForCompletion) {
+    // 如果线程池已经停止，直接返回
     if (!m_running) {
         return;
     }
     
-    m_running = false;
+    m_running = false;  // 设置停止标志
     
-    // 通知所有等待的线程
+    // 通知所有等待的线程，让它们退出循环
     pthread_cond_broadcast(&m_taskQueueCV);
     
+    // 如果需要等待任务完成，则等待所有工作线程结束
     if (waitForCompletion) {
         // 等待所有任务完成
         for (auto& thread : m_workerThreads) {
@@ -159,30 +188,42 @@ void zThread::stopThreadPool(bool waitForCompletion) {
         }
     }
     
-    // 清理线程信息
+    // 清理线程信息 - 将所有线程状态设置为已终止
     for (auto& info : m_threadInfo) {
         info.state = ThreadState::TERMINATED;
     }
     
+    // 清空线程列表
     m_workerThreads.clear();
     m_threadInfo.clear();
     
     LOGI("Thread pool stopped");
 }
 
+// 检查线程池是否正在运行
 bool zThread::isThreadPoolRunning() const {
     return m_running;
 }
 
+// 获取活跃线程数量
 size_t zThread::getActiveThreadCount() const {
-    return m_activeThreads;
+    // 返回工作线程的数量
+    return m_workerThreads.size();
 }
 
+// 获取正在执行任务的线程数量
 size_t zThread::getExecutingTaskCount() {
-    // 返回实际正在执行任务的线程数
-    return m_activeThreads;
+    // 统计状态为RUNNING的线程数
+    size_t executingCount = 0;
+    for (const auto& info : m_threadInfo) {
+        if (info.state == ThreadState::RUNNING) {
+            executingCount++;
+        }
+    }
+    return executingCount;
 }
 
+// 获取活跃任务数量
 size_t zThread::getActiveTaskCount() {
     // 使用互斥锁读取活跃任务数量
     pthread_mutex_lock(&m_activeTasksMutex);
@@ -191,6 +232,7 @@ size_t zThread::getActiveTaskCount() {
     return activeTasksCount;
 }
 
+// 获取待处理任务总数
 size_t zThread::getPendingTaskCount() {
     // 使用互斥锁读取任务队列大小
     pthread_mutex_lock(&m_taskQueueMutex);
@@ -206,6 +248,7 @@ size_t zThread::getPendingTaskCount() {
     return queueCount + activeTasksCount;
 }
 
+// 获取队列中的任务数量
 size_t zThread::getQueuedTaskCount() {
     // 使用互斥锁读取任务队列大小
     pthread_mutex_lock(&m_taskQueueMutex);
@@ -214,6 +257,7 @@ size_t zThread::getQueuedTaskCount() {
     return queueCount;
 }
 
+// 检查任务是否活跃
 bool zThread::isTaskActive(const string& taskId) {
     pthread_mutex_lock(&m_activeTasksMutex);
     bool exists = (m_activeTasks.find(taskId) != m_activeTasks.end());
@@ -221,67 +265,85 @@ bool zThread::isTaskActive(const string& taskId) {
     return exists;
 }
 
-// 任务管理实现
+// 任务管理实现 - 提交普通任务
 bool zThread::submitTask(void (*func)(void*), void* arg, TaskPriority priority, const string& taskId) {
+    // 检查线程池是否正在运行
     if (!m_running) {
         LOGW("Thread pool is not running");
         return false;
     }
     
+    // 生成任务ID，如果未提供则自动生成
     string actualTaskId = taskId.empty() ? generateTaskId() : taskId;
-    Task task;
-    task.func = func;
-    task.arg = arg;
-    task.priority = priority;
-    task.taskId = actualTaskId;
     
+    // 创建任务对象
+    Task task;
+    task.func = func;           // 任务函数指针
+    task.arg = arg;             // 任务参数
+    task.priority = priority;    // 任务优先级
+    task.taskId = actualTaskId; // 任务ID
+    
+    // 将任务添加到队列
     pthread_mutex_lock(&m_taskQueueMutex);
     m_taskQueue.push_back(task);
     
-    // 添加到活跃任务列表
+    // 添加到活跃任务列表，用于跟踪任务状态
     pthread_mutex_lock(&m_activeTasksMutex);
     m_activeTasks[actualTaskId] = task;
     pthread_mutex_unlock(&m_activeTasksMutex);
     
     pthread_mutex_unlock(&m_taskQueueMutex);
+    
+    // 通知等待的工作线程有新任务
     pthread_cond_signal(&m_taskQueueCV);
     
+    // 记录任务提交日志
     logThreadEvent("Task submitted: " + actualTaskId, pthread_self());
     return true;
 }
 
+// 提交延迟任务 - 在指定延迟后执行
 bool zThread::submitDelayedTask(void (*func)(void*), void* arg, int delayMs, const string& taskId) {
-    // 创建延迟任务包装器
-    DelayedTaskWrapper* wrapper = new DelayedTaskWrapper(func, arg, delayMs);
-    
-    return submitTask(delayedTaskWrapper, wrapper, TaskPriority::NORMAL, taskId);
-}
-
-bool zThread::submitPeriodicTask(void (*func)(void*), void* arg, int intervalMs, const string& taskId) {
+    // 生成任务ID，如果未提供则自动生成
     string actualTaskId = taskId.empty() ? generateTaskId() : taskId;
     
-    // 创建周期性任务包装器
+    // 创建延迟任务包装器，包含原始函数、参数和延迟时间
+    DelayedTaskWrapper* wrapper = new DelayedTaskWrapper(func, arg, delayMs);
+    
+    // 将包装器作为普通任务提交，使用生成的任务ID
+    return submitTask(delayedTaskWrapper, wrapper, TaskPriority::NORMAL, actualTaskId);
+}
+
+// 提交周期性任务 - 按指定间隔重复执行
+bool zThread::submitPeriodicTask(void (*func)(void*), void* arg, int intervalMs, const string& taskId) {
+    // 生成任务ID，如果未提供则自动生成
+    string actualTaskId = taskId.empty() ? generateTaskId() : taskId;
+    
+    // 创建周期性任务包装器，包含原始函数、参数、间隔时间和线程管理器指针
     PeriodicTaskWrapper* wrapper = new PeriodicTaskWrapper(func, arg, intervalMs, actualTaskId, this);
     
+    // 将包装器作为普通任务提交
     return submitTask(periodicTaskWrapper, wrapper, TaskPriority::NORMAL, actualTaskId);
 }
 
+// 取消任务 - 从活跃任务列表或队列中移除指定任务
 bool zThread::cancelTask(const string& taskId) {
+    // 首先检查活跃任务列表中是否有该任务
     pthread_mutex_lock(&m_activeTasksMutex);
     auto it = m_activeTasks.find(taskId);
     if (it != m_activeTasks.end()) {
-        m_activeTasks.erase(it);
+        m_activeTasks.erase(it);  // 从活跃任务列表中移除
         logThreadEvent("Task cancelled: " + taskId, pthread_self());
         pthread_mutex_unlock(&m_activeTasksMutex);
         return true;
     }
     pthread_mutex_unlock(&m_activeTasksMutex);
     
-    // 检查任务队列中是否有该任务
+    // 如果活跃任务列表中没有，检查任务队列中是否有该任务
     pthread_mutex_lock(&m_taskQueueMutex);
     for (auto it = m_taskQueue.begin(); it != m_taskQueue.end(); ++it) {
         if (it->taskId == taskId) {
-            m_taskQueue.erase(it);
+            m_taskQueue.erase(it);  // 从队列中移除
             logThreadEvent("Task cancelled from queue: " + taskId, pthread_self());
             pthread_mutex_unlock(&m_taskQueueMutex);
             return true;
@@ -289,7 +351,7 @@ bool zThread::cancelTask(const string& taskId) {
     }
     pthread_mutex_unlock(&m_taskQueueMutex);
     
-    return false;
+    return false;  // 任务不存在，取消失败
 }
 
 bool zThread::waitForAllTasks(int timeoutMs) {
@@ -300,14 +362,14 @@ bool zThread::waitForAllTasks(int timeoutMs) {
     
     while (true) {
         size_t pendingCount = getPendingTaskCount();
-        size_t activeCount = getActiveThreadCount();
         size_t queuedCount = getQueuedTaskCount();
+        size_t activeCount = getActiveTaskCount();
         size_t executingCount = getExecutingTaskCount();
         
-        // LOGI("waitForAllTasks: pending=%zu, active=%zu, queued=%zu, executing=%zu",
-        //     pendingCount, activeCount, queuedCount, executingCount);
+        // LOGI("waitForAllTasks: pending=%zu, queued=%zu, active=%zu, executing=%zu",
+        //     pendingCount, queuedCount, activeCount, executingCount);
         
-        if (pendingCount == 0 && activeCount == 0) {
+        if (pendingCount == 0 && executingCount == 0) {
             LOGI("waitForAllTasks: All tasks completed successfully");
             return true;
         }
@@ -519,27 +581,29 @@ void zThread::logThreadEvent(const string& event, pthread_t threadId) const {
     LOGI("%s", message.c_str());
 }
 
-// 包装器函数实现
+// 延迟任务包装器函数实现 - 在指定延迟后执行原始任务
 void delayedTaskWrapper(void* arg) {
+    // 将参数转换为延迟任务包装器
     DelayedTaskWrapper* wrapper = static_cast<DelayedTaskWrapper*>(arg);
     
     LOGI("DelayedTaskWrapper: Starting delay for %d ms", wrapper->delayMs);
     
-    // 延迟执行
+    // 设置延迟时间结构体
     struct timespec ts;
-    ts.tv_sec = wrapper->delayMs / 1000;
-    ts.tv_nsec = (wrapper->delayMs % 1000) * 1000000;
+    ts.tv_sec = wrapper->delayMs / 1000;        // 秒数部分
+    ts.tv_nsec = (wrapper->delayMs % 1000) * 1000000;  // 纳秒部分
     
     LOGI("DelayedTaskWrapper: Sleeping for %ld seconds and %ld nanoseconds", ts.tv_sec, ts.tv_nsec);
     
-    // 使用循环确保完整的延迟时间
+    // 使用循环确保完整的延迟时间，处理被信号中断的情况
     struct timespec remaining;
     int sleepResult;
     while ((sleepResult = nanosleep(&ts, &remaining)) == -1 && errno == EINTR) {
         LOGI("DelayedTaskWrapper: nanosleep interrupted, remaining: %ld.%09ld", remaining.tv_sec, remaining.tv_nsec);
-        ts = remaining;
+        ts = remaining;  // 继续剩余的时间
     }
     
+    // 检查睡眠是否成功完成
     if (sleepResult == -1) {
         LOGE("DelayedTaskWrapper: nanosleep failed with errno %d", errno);
     } else {
@@ -549,13 +613,13 @@ void delayedTaskWrapper(void* arg) {
     // 执行原始任务
     if (wrapper->originalFunc) {
         LOGI("DelayedTaskWrapper: Executing original task");
-        wrapper->originalFunc(wrapper->originalArg);
+        wrapper->originalFunc(wrapper->originalArg);  // 调用原始任务函数
         LOGI("DelayedTaskWrapper: Original task completed");
     } else {
         LOGE("DelayedTaskWrapper: Original function is null");
     }
     
-    // 清理包装器
+    // 清理包装器内存
     delete wrapper;
     LOGI("DelayedTaskWrapper: Cleanup completed");
 }
@@ -580,9 +644,9 @@ void periodicTaskWrapper(void* arg) {
         cycleCount++;
         LOGI("PeriodicTaskWrapper: Cycle %d - checking if task is still active", cycleCount);
         
-        // 检查任务是否被取消
+        // 检查任务是否仍然在活跃任务列表中
         if (!threadManager->isTaskActive(wrapper->taskId)) {
-            LOGI("PeriodicTaskWrapper: Task %s was cancelled, exiting", wrapper->taskId.c_str());
+            LOGI("PeriodicTaskWrapper: Task %s was cancelled or completed, exiting", wrapper->taskId.c_str());
             break;
         }
         
