@@ -11,71 +11,11 @@
 #include "zStdUtil.h"
 #include <shared_mutex>
 #include <pthread.h>
-#include <sys/time.h>
+#include "zChildThread.h"
 
 // 前向声明
 class zThread;
-
-// 线程状态枚举
-enum class ThreadState {
-    IDLE,       // 空闲
-    RUNNING,    // 运行中
-    TERMINATED  // 已终止
-};
-
-// 任务优先级枚举
-enum class TaskPriority {
-    LOW = 0,
-    NORMAL = 1,
-    HIGH = 2
-};
-
-// 任务结构体
-struct Task {
-    void (*func)(void*);  // 任务函数指针
-    void* arg;            // 任务参数
-    TaskPriority priority; // 任务优先级
-    string taskId;        // 任务ID
-    struct timeval createTime; // 创建时间
-    
-    Task() : func(nullptr), arg(nullptr), priority(TaskPriority::NORMAL) {
-        gettimeofday(&createTime, nullptr);
-    }
-};
-
-// 线程信息结构体
-struct ThreadInfo {
-    pthread_t threadId;           // 线程ID
-    string name;                  // 线程名称
-    ThreadState state;            // 线程状态
-    struct timeval lastActiveTime; // 最后活跃时间
-    
-    ThreadInfo() : threadId(0), state(ThreadState::IDLE) {
-        gettimeofday(&lastActiveTime, nullptr);
-    }
-};
-
-// 延迟任务包装器
-struct DelayedTaskWrapper {
-    void (*originalFunc)(void*);
-    void* originalArg;
-    int delayMs;
-    
-    DelayedTaskWrapper(void (*func)(void*), void* arg, int delay) 
-        : originalFunc(func), originalArg(arg), delayMs(delay) {}
-};
-
-// 周期性任务包装器
-struct PeriodicTaskWrapper {
-    void (*originalFunc)(void*);
-    void* originalArg;
-    int intervalMs;
-    string taskId;
-    zThread* threadManager;
-    
-    PeriodicTaskWrapper(void (*func)(void*), void* arg, int interval, const string& id, zThread* manager)
-        : originalFunc(func), originalArg(arg), intervalMs(interval), taskId(id), threadManager(manager) {}
-};
+class zChildThread;
 
 /**
  * 线程管理类
@@ -108,11 +48,8 @@ private:
     // 活跃线程数
     size_t m_activeThreads;
     
-    // 工作线程列表
-    vector<pthread_t> m_workerThreads;
-    
-    // 线程信息列表
-    vector<ThreadInfo> m_threadInfo;
+    // 工作线程对象列表（使用 zChildThread）
+    vector<zChildThread*> m_workerThreads;
     
     // 任务队列
     vector<Task> m_taskQueue;
@@ -135,8 +72,8 @@ private:
     // 信号量列表
     vector<int*> m_semaphores;
     
-    // 任务队列互斥锁
-    pthread_mutex_t m_taskQueueMutex;
+    // 任务队列读写锁（提升并发性能）
+    mutable std::shared_mutex m_taskQueueMutex;
     
     // 任务队列条件变量
     pthread_cond_t m_taskQueueCV;
@@ -147,14 +84,8 @@ private:
     // 消息队列条件变量
     pthread_cond_t m_messageQueueCV;
     
-    // 活跃任务互斥锁
-    pthread_mutex_t m_activeTasksMutex;
-    
-    // 任务队列读锁（用于统计）
-    mutable std::shared_mutex m_taskQueueReadMutex;
-    
-    // 活跃任务读锁（用于统计）
-    mutable std::shared_mutex m_activeTasksReadMutex;
+    // 活跃任务读写锁（提升并发性能）
+    mutable std::shared_mutex m_activeTasksMutex;
     
     // 私有方法
     void processTask(Task* task);
@@ -199,6 +130,59 @@ public:
     
     // 任务检查方法
     bool isTaskActive(const string& taskId);
+    
+    // 工作线程管理方法
+    /**
+     * 获取指定索引的工作线程
+     * @param index 线程索引
+     * @return 工作线程指针，如果索引无效则返回nullptr
+     */
+    zChildThread* getWorkerThread(size_t index);
+    
+    /**
+     * 获取所有工作线程
+     * @return 工作线程列表
+     */
+    const vector<zChildThread*>& getWorkerThreads() const { return m_workerThreads; }
+    
+    /**
+     * 获取最空闲的工作线程（任务队列最小的线程）
+     * @return 最空闲的工作线程指针
+     */
+    zChildThread* getLeastBusyWorker();
+    
+    /**
+     * 获取工作线程数量
+     * @return 工作线程数量
+     */
+    size_t getWorkerThreadCount() const { return m_workerThreads.size(); }
+    
+    // 高性能队列操作方法（使用读写锁）
+    /**
+     * 安全地从队列获取下一个任务
+     * @param outTask 输出参数，存储获取的任务
+     * @return 是否成功获取任务
+     */
+    bool getNextTask(Task& outTask);
+    
+    /**
+     * 安全地向队列添加任务
+     * @param task 要添加的任务
+     */
+    void addTaskToQueue(const Task& task);
+    
+    /**
+     * 安全地从活跃任务列表中移除任务
+     * @param taskId 要移除的任务ID
+     * @return 是否成功移除
+     */
+    bool removeActiveTask(const string& taskId);
+    
+    /**
+     * 安全地向活跃任务列表添加任务
+     * @param task 要添加的任务
+     */
+    void addActiveTask(const Task& task);
     
     // 线程同步
     /**
@@ -305,6 +289,22 @@ public:
      * 线程让出CPU
      */
     static void yield();
+    
+    // 静态回调函数（用于 zChildThread 解耦）
+    /**
+     * 任务完成回调函数
+     * @param taskId 完成的任务ID
+     * @param userData 用户数据（zThread指针）
+     */
+    static void onTaskCompleted(const string& taskId, void* userData);
+    
+    /**
+     * 任务提供者回调函数（用于工作窃取）
+     * @param outTask 输出任务
+     * @param userData 用户数据（zThread指针）
+     * @return 是否成功提供任务
+     */
+    static bool provideTask(Task& outTask, void* userData);
 };
 
 // 包装器函数声明
