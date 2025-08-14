@@ -28,7 +28,7 @@ template<typename T>
 class ThreadSafeQueue {
 private:
     mutable std::shared_mutex m_mutex;
-    std::queue<T> m_queue;
+    queue<T> m_queue;
     std::atomic<size_t> m_size{0};  // 原子的大小计数器，避免频繁加锁
     
     // 用于阻塞等待的条件变量（可选）
@@ -118,7 +118,7 @@ public:
     template<typename Predicate>
     size_t remove_if(Predicate predicate) {
         std::unique_lock<std::shared_mutex> lock(m_mutex);
-        std::queue<T> tempQueue;
+        queue<T> tempQueue;
         size_t removedCount = 0;
         
         // 遍历队列，保留不符合条件的元素
@@ -185,7 +185,7 @@ template<typename K, typename V>
 class ThreadSafeMap {
 private:
     mutable std::shared_mutex m_mutex;
-    std::unordered_map<K, V> m_map;
+    map<K, V> m_map;
     std::atomic<size_t> m_size{0};
 
 public:

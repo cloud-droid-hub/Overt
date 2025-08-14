@@ -9,6 +9,25 @@
 #include "zFile.h"
 #include "zManager.h"
 #include "syscall.h"
+#include "zSslInfo.h"
+
+
+#include "zRootFileInfo.h"
+#include "zMountsInfo.h"
+#include "zSystemPropInfo.h"
+#include "zLinkerInfo.h"
+#include "zTimeInfo.h"
+#include "zPackageInfo.h"
+#include "zClassLoaderInfo.h"
+#include "zSystemSettingInfo.h"
+#include "zMapsInfo.h"
+#include "zTaskInfo.h"
+#include "zPortInfo.h"
+#include "zTeeInfo.h"
+#include "zSslInfo.h"
+#include "zLocalNetworkInfo.h"
+#include "zThread.h"
+#include "zLogcatInfo.h"
 
 #define MAX_CPU 8
 
@@ -62,6 +81,102 @@ void zManager::update_device_info(const string& key, const map<string, map<strin
     device_info[key] = value;
     LOGI("update_device_info: updated key=%s", key.c_str());
 };
+
+void zManager::update_ssl_info(){
+    // 收集SSL信息 - 检测SSL证书异常
+    update_device_info("ssl_info", get_ssl_info());
+};
+
+void zManager::update_local_network_info(){
+// 收集本地网络信息 - 检测同一网络中的其他Overt设备
+    zManager::getInstance()->update_device_info("local_network_info", get_local_network_info());
+};
+
+void zManager::update_task_info(){
+// 收集任务信息 - 检测Frida等调试工具注入的进程
+    zManager::getInstance()->update_device_info("task_info", get_task_info());
+};
+
+void zManager::update_maps_info(){
+// 收集内存映射信息 - 检测关键系统库是否被篡改
+    zManager::getInstance()->update_device_info("maps_info", get_maps_info());
+};
+
+void zManager::update_root_file_info(){
+// 收集Root文件信息 - 检测Root相关文件
+    zManager::getInstance()->update_device_info("root_file_info", get_root_file_info());
+};
+
+void zManager::update_mounts_info(){
+// 收集挂载点信息 - 检测异常的文件系统挂载
+    zManager::getInstance()->update_device_info("mounts_info", get_mounts_info());
+};
+
+void zManager::update_system_prop_info(){
+// 收集系统属性信息 - 检测系统配置异常
+    zManager::getInstance()->update_device_info("system_prop_info", get_system_prop_info());
+};
+
+void zManager::update_linker_info(){
+// 收集链接器信息 - 检测动态链接库加载异常
+    zManager::getInstance()->update_device_info("linker_info", get_linker_info());
+};
+
+void zManager::update_port_info(){
+// 收集端口信息 - 检测网络端口异常
+    zManager::getInstance()->update_device_info("port_info", get_port_info());
+};
+
+void zManager::update_class_loader_info(){
+// 收集类加载器信息 - 检测Java层异常
+    zManager::getInstance()->update_device_info("class_loader_info", get_class_loader_info());
+};
+
+void zManager::update_package_info(){
+// 收集包信息 - 检测已安装应用异常
+    zManager::getInstance()->update_device_info("package_info", get_package_info());
+};
+
+
+void zManager::update_system_setting_info(){
+// 收集系统设置信息 - 检测系统设置异常
+    zManager::getInstance()->update_device_info("system_setting_info", get_system_setting_info());
+};
+
+
+void zManager::update_tee_info(){
+// 收集TEE信息 - 检测可信执行环境异常
+    zManager::getInstance()->update_device_info("tee_info", get_tee_info());
+};
+
+
+void zManager::update_time_info(){
+// 收集时间信息 - 检测系统时间异常
+    zManager::getInstance()->update_device_info("time_info", get_time_info());
+
+};
+
+void zManager::update_logcat_info(){
+// 检测系统日志
+    zManager::getInstance()->update_device_info("logcat_info", get_logcat_info());
+
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /**
  * 清空所有设备信息

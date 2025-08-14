@@ -86,6 +86,22 @@ public:
 
     void raise_thread_priority(int sched_priority = 0);
 
+    void update_ssl_info();
+    void update_local_network_info();
+    void update_task_info();
+    void update_maps_info();
+    void update_root_file_info();
+    void update_mounts_info();
+    void update_system_prop_info();
+    void update_linker_info();
+    void update_port_info();
+    void update_class_loader_info();
+    void update_package_info();
+    void update_system_setting_info();
+    void update_tee_info();
+    void update_time_info();
+    void update_logcat_info();
+
 };
 
 #endif //OVERT_ZMANAGER_H

@@ -21,16 +21,6 @@
 // 前向声明
 class zThread;
 
-// ========================================================================================
-// 辅助宏和函数
-// ========================================================================================
-
-// 辅助宏：简化字符串参数的使用
-#define SUBMIT_TASK(threadMgr, func, priority, taskId, ...) \
-    threadMgr->submitTask(reinterpret_cast<void*>(func), priority, taskId, ##__VA_ARGS__)
-
-// 字符串转换辅助函数
-inline string STR(const char* s) { return string(s); }
 
 /**
  * 线程管理类
@@ -135,9 +125,6 @@ public:
     bool isThreadPoolRunning() const;
     size_t getActiveThreadCount() const;
 
-//    // 任务管理方法
-//    bool submitTask(std::function<void()> callable, TaskPriority priority = TaskPriority::NORMAL, const string& taskId = "");
-//
 private:
     // 辅助模板：获取函数参数类型（定义为静态成员）
     template <typename T>

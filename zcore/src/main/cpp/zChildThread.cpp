@@ -7,11 +7,8 @@
 #include <sys/time.h>
 #include <sys/syscall.h>
 #include "zChildThread.h"
-
-// Android gettid 函数
-#ifdef __ANDROID__
 #include <sys/types.h>
-#endif
+
 
 // 构造函数
 zChildThread::zChildThread(size_t index, const string& name, 
