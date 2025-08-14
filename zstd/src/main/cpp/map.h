@@ -168,11 +168,11 @@ namespace nonstd {
     public:
         // Iterator class
         class iterator {
-        private:
+        public:
             Node* current;
             const map* container;
 
-        public:
+
             iterator(Node* node, const map* cont) : current(node), container(cont) {}
 
             pair<K, V>& operator*() {
@@ -283,12 +283,12 @@ namespace nonstd {
         // Copy constructor
         map(const map& other) : root(nullptr), size_(0) {
             LOGV("[map] nonstd::map: copy constructor from map with size=%zu", other.size_);
-            
+
             // Copy all elements from other map
             for (const auto& item : other) {
                 insert(item);
             }
-            
+
             LOGV("[map] nonstd::map: copy constructor completed, new size=%zu", size_);
         }
 
@@ -312,7 +312,7 @@ namespace nonstd {
                 clear(root);
                 root = nullptr;
                 size_ = 0;
-                
+
                 // Copy all elements from other map
                 for (const auto& item : other) {
                     insert(item);
@@ -403,7 +403,7 @@ namespace nonstd {
         // Modifiers
         pair<iterator, bool> insert(const pair<K, V>& value) {
             LOGV("[map] nonstd::map: insert, key=..., value=...");
-            
+
             // Check if key already exists
             Node* existing_node = findNode(value.first);
             if (existing_node) {
@@ -415,7 +415,7 @@ namespace nonstd {
             // Insert new node
             Node* new_node = insertNode(value.first, value.second);
             LOGV("[map] nonstd::map: insert - new element inserted");
-            
+
             return make_pair(iterator(new_node, this), true);
         }
 
@@ -442,9 +442,96 @@ namespace nonstd {
             return make_pair(iterator(new_node, this), true);
         }
 
+        void erase(iterator pos) {
+            LOGV("[map] nonstd::map: erase by iterator");
+            if (pos.current && pos.current != nullptr) {
+                // 找到要删除的节点
+                Node* nodeToDelete = pos.current;
+
+                // 简化实现：先按key删除（重用现有逻辑）
+                erase(nodeToDelete->key);
+            }
+        }
+
         void erase(const K& key) {
             LOGV("[map] nonstd::map: erase, key=...");
-            // Simplified implementation
+
+            Node* nodeToDelete = findNode(key);
+            if (!nodeToDelete) {
+                LOGV("[map] nonstd::map: erase - key not found");
+                return; // 键不存在，直接返回
+            }
+
+            LOGV("[map] nonstd::map: erase - found node to delete");
+
+            // 处理删除逻辑
+            if (!nodeToDelete->left && !nodeToDelete->right) {
+                // 情况1: 叶子节点（没有子节点）
+                LOGV("[map] nonstd::map: erase - deleting leaf node");
+                if (nodeToDelete->parent) {
+                    if (nodeToDelete->parent->left == nodeToDelete) {
+                        nodeToDelete->parent->left = nullptr;
+                    } else {
+                        nodeToDelete->parent->right = nullptr;
+                    }
+                } else {
+                    // 删除的是根节点
+                    root = nullptr;
+                }
+                delete nodeToDelete;
+
+            } else if (!nodeToDelete->left || !nodeToDelete->right) {
+                // 情况2: 只有一个子节点
+                LOGV("[map] nonstd::map: erase - deleting node with one child");
+                Node* child = nodeToDelete->left ? nodeToDelete->left : nodeToDelete->right;
+
+                if (nodeToDelete->parent) {
+                    if (nodeToDelete->parent->left == nodeToDelete) {
+                        nodeToDelete->parent->left = child;
+                    } else {
+                        nodeToDelete->parent->right = child;
+                    }
+                    child->parent = nodeToDelete->parent;
+                } else {
+                    // 删除的是根节点
+                    root = child;
+                    child->parent = nullptr;
+                }
+                delete nodeToDelete;
+
+            } else {
+                // 情况3: 有两个子节点
+                LOGV("[map] nonstd::map: erase - deleting node with two children");
+
+                // 找到后继节点（右子树中的最小节点）
+                Node* successorNode = minimum(nodeToDelete->right);
+
+                // 用后继节点的值替换要删除节点的值
+                nodeToDelete->key = successorNode->key;
+                nodeToDelete->value = successorNode->value;
+
+                // 递归删除后继节点（后继节点最多只有一个右子节点）
+                // 由于后继节点最多只有右子节点，可以简化处理
+                if (successorNode->right) {
+                    if (successorNode->parent->left == successorNode) {
+                        successorNode->parent->left = successorNode->right;
+                    } else {
+                        successorNode->parent->right = successorNode->right;
+                    }
+                    successorNode->right->parent = successorNode->parent;
+                } else {
+                    // 后继节点是叶子节点
+                    if (successorNode->parent->left == successorNode) {
+                        successorNode->parent->left = nullptr;
+                    } else {
+                        successorNode->parent->right = nullptr;
+                    }
+                }
+                delete successorNode;
+            }
+
+            size_--;
+            LOGV("[map] nonstd::map: erase completed, new size=%zu", size_);
         }
 
         void clear() {
@@ -498,4 +585,4 @@ namespace nonstd {
 
 
 
-#endif // zMap_H 
+#endif // zMap_H

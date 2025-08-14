@@ -1,15 +1,12 @@
 //
 // Created by Assistant on 2025/8/7.
-// zChildThread 实现 - 工作线程类实现
+// zChildThread 实现 - 工作线程类实现（简化版，不管理任务队列）
 //
-
-
 
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/syscall.h>
 #include "zChildThread.h"
-
 
 // Android gettid 函数
 #ifdef __ANDROID__
@@ -24,17 +21,16 @@ zChildThread::zChildThread(size_t index, const string& name,
     : m_threadId(0)
     , m_threadName(name)
     , m_threadIndex(index)
+    , m_threadPriority(TaskPriority::NORMAL)  // 默认优先级
     , m_completionCallback(completionCallback)
     , m_taskProviderCallback(taskProviderCallback)
     , m_callbackUserData(userData)
-    , m_state(WorkerState::IDLE)
-    , m_running(false)
-    , m_processedTasks(0)
-    , m_currentTaskCount(0) {
+    , m_state(WorkerState::IDLE)              // 使用线程安全状态管理器
+    , m_running(false) {                      // 使用线程安全状态管理器
     
     // 初始化条件变量和互斥锁
-    pthread_cond_init(&m_queueCV, nullptr);
-    pthread_mutex_init(&m_queueCondMutex, nullptr);
+    pthread_cond_init(&m_taskCV, nullptr);
+    pthread_mutex_init(&m_taskMutex, nullptr);
     
     // 设置初始活跃时间
     gettimeofday(&m_lastActiveTime, nullptr);
@@ -48,27 +44,27 @@ zChildThread::~zChildThread() {
     stop(false);
     
     // 销毁同步对象
-    pthread_cond_destroy(&m_queueCV);
-    pthread_mutex_destroy(&m_queueCondMutex);
+    pthread_cond_destroy(&m_taskCV);
+    pthread_mutex_destroy(&m_taskMutex);
     
     LOGI("zChildThread[%zu] '%s' destroyed", m_threadIndex, m_threadName.c_str());
 }
 
 // 启动线程
 bool zChildThread::start() {
-    if (m_running.load()) {
+    if (m_running.get()) {
         LOGW("zChildThread[%zu] already running", m_threadIndex);
         return false;
     }
     
-    m_running.store(true);
-    m_state.store(WorkerState::IDLE);
+    m_running.set(true);
+    m_state.set(WorkerState::IDLE);
     
     // 创建线程
     int result = pthread_create(&m_threadId, nullptr, threadEntry, this);
     if (result != 0) {
         LOGE("Failed to create thread[%zu]: %d", m_threadIndex, result);
-        m_running.store(false);
+        m_running.set(false);
         return false;
     }
     
@@ -78,22 +74,22 @@ bool zChildThread::start() {
 
 // 停止线程
 void zChildThread::stop(bool waitForCompletion) {
-    if (!m_running.load()) {
+    if (!m_running.get()) {
         return;
     }
     
     LOGI("Stopping zChildThread[%zu]...", m_threadIndex);
-    m_running.store(false);
+    m_running.set(false);
     
     // 通知等待的线程
-    pthread_cond_signal(&m_queueCV);
+    pthread_cond_signal(&m_taskCV);
     
     // 等待线程结束
     if (waitForCompletion && m_threadId != 0) {
         join();
     }
     
-    m_state.store(WorkerState::TERMINATED);
+    m_state.set(WorkerState::TERMINATED);
 }
 
 // 等待线程结束
@@ -110,52 +106,22 @@ void zChildThread::join() {
     }
 }
 
-// 添加任务到本地队列
-bool zChildThread::addTask(const Task& task) {
-    if (!m_running.load()) {
+// 直接执行指定任务（新增方法）
+bool zChildThread::executeTask(const Task& task) {
+    if (!m_running.get()) {
+        LOGW("zChildThread[%zu] not running, cannot execute task", m_threadIndex);
         return false;
     }
     
-    {
-        std::unique_lock<std::shared_mutex> lock(m_queueMutex);
-        m_localTaskQueue.push(task);
-        m_currentTaskCount.fetch_add(1);
-    }
-    
-    // 通知等待的线程
-    pthread_cond_signal(&m_queueCV);
-    
-    LOGD("Task '%s' added to thread[%zu] queue", task.taskId.c_str(), m_threadIndex);
+    // 直接处理任务
+    processTask(task);
     return true;
 }
 
-// 获取队列大小
-size_t zChildThread::getQueueSize() const {
-    std::shared_lock<std::shared_mutex> lock(m_queueMutex);
-    return m_localTaskQueue.size();
-}
-
-// 检查是否有任务
-bool zChildThread::hasTasks() const {
-    std::shared_lock<std::shared_mutex> lock(m_queueMutex);
-    return !m_localTaskQueue.empty();
-}
-
-// 尝试从外部获取任务
-bool zChildThread::tryGetExternalTask() {
-    if (!m_taskProviderCallback) {
-        return false;
-    }
-    
-    // 通过回调函数尝试获取任务
-    Task task;
-    if (m_taskProviderCallback(task, m_callbackUserData)) {
-        // 直接处理获取到的任务，不放入本地队列
-        processTask(task);
-        return true;
-    }
-    
-    return false;
+// 获取最后活跃时间
+struct timeval zChildThread::getLastActiveTime() const {
+    std::shared_lock<std::shared_mutex> lock(m_lastActiveTimeMutex);
+    return m_lastActiveTime;
 }
 
 // 静态线程入口函数
@@ -167,46 +133,48 @@ void* zChildThread::threadEntry(void* arg) {
 // 线程主函数
 void* zChildThread::threadMain() {
     LOGI("zChildThread[%zu] main loop started", m_threadIndex);
+    LOGI("zChildThread[%zu] initial state: IDLE", m_threadIndex);
+    m_state.set(WorkerState::IDLE);
     
-    while (m_running.load()) {
+    while (m_running.get()) {
         Task task;
         bool hasTask = false;
         
-        // 1. 首先检查本地队列
-        {
-            std::unique_lock<std::shared_mutex> lock(m_queueMutex);
-            if (!m_localTaskQueue.empty()) {
-                task = m_localTaskQueue.front();
-                m_localTaskQueue.pop();
-                m_currentTaskCount.fetch_sub(1);
-                hasTask = true;
-            }
-        }
+        // 尝试从主线程获取任务
+        hasTask = tryGetTask(task);
         
-        // 2. 如果本地队列为空，尝试工作窃取
         if (!hasTask) {
-            m_state.store(WorkerState::WAITING);
+            LOGI("zChildThread[%zu] state change: -> WAITING (no tasks available)", m_threadIndex);
+            m_state.set(WorkerState::WAITING);
             
-            // 尝试从外部获取任务
-            if (tryGetExternalTask()) {
-                continue; // 任务已在 tryGetExternalTask 中处理
+            // 等待任务或停止信号
+            pthread_mutex_lock(&m_taskMutex);
+            
+            while (m_running.get()) {
+                // 再次尝试获取任务
+                if (tryGetTask(task)) {
+                    hasTask = true;
+                    break;
+                }
+                
+                // 等待新任务到达或线程停止
+                pthread_cond_wait(&m_taskCV, &m_taskMutex);
             }
             
-            // 3. 如果还是没有任务，等待
-            pthread_mutex_lock(&m_queueCondMutex);
-            while (m_localTaskQueue.empty() && m_running.load()) {
-                pthread_cond_wait(&m_queueCV, &m_queueCondMutex);
-            }
-            pthread_mutex_unlock(&m_queueCondMutex);
+            pthread_mutex_unlock(&m_taskMutex);
             
-            continue; // 重新检查队列
+            if (!hasTask) {
+                continue; // 重新检查
+            }
         }
         
-        // 4. 处理任务
+        // 处理任务
         if (hasTask) {
-            m_state.store(WorkerState::RUNNING);
+            LOGI("zChildThread[%zu] state change: WAITING/IDLE -> RUNNING", m_threadIndex);
+            m_state.set(WorkerState::RUNNING);
             processTask(task);
-            m_state.store(WorkerState::IDLE);
+            LOGI("zChildThread[%zu] state change: RUNNING -> IDLE", m_threadIndex);
+            m_state.set(WorkerState::IDLE);
         }
     }
     
@@ -214,24 +182,38 @@ void* zChildThread::threadMain() {
     return nullptr;
 }
 
+// 尝试从主线程获取任务
+bool zChildThread::tryGetTask(Task& outTask) {
+    if (!m_taskProviderCallback) {
+        return false;
+    }
+    
+    // 通过回调函数从主线程获取任务
+    return m_taskProviderCallback(outTask, m_callbackUserData);
+}
+
 // 处理任务
 void zChildThread::processTask(const Task& task) {
     updateLastActiveTime();
     
     LOGI("zChildThread[%zu] processing task '%s'", m_threadIndex, task.taskId.c_str());
+    LOGI("zChildThread[%zu] task execution started", m_threadIndex);
     
     // 执行任务
-    if (task.func) {
-        task.func(task.arg);
-        m_processedTasks.fetch_add(1);
+    if (task.func || task.callable) {
+        task.execute();
+        m_processedTasks.add(1);
         LOGI("zChildThread[%zu] completed task '%s'", m_threadIndex, task.taskId.c_str());
+        LOGI("zChildThread[%zu] task execution finished, calling completion callback", m_threadIndex);
     } else {
         LOGE("zChildThread[%zu] invalid task function for '%s'", m_threadIndex, task.taskId.c_str());
     }
     
     // 通过回调通知任务完成
     if (m_completionCallback) {
+        LOGI("zChildThread[%zu] calling completion callback for task '%s'", m_threadIndex, task.taskId.c_str());
         m_completionCallback(task.taskId, m_callbackUserData);
+        LOGI("zChildThread[%zu] completion callback finished", m_threadIndex);
     }
     
     updateLastActiveTime();
@@ -239,6 +221,7 @@ void zChildThread::processTask(const Task& task) {
 
 // 更新活跃时间
 void zChildThread::updateLastActiveTime() {
+    std::unique_lock<std::shared_mutex> lock(m_lastActiveTimeMutex);
     gettimeofday(&m_lastActiveTime, nullptr);
 }
 
@@ -285,5 +268,27 @@ double zChildThread::getCpuUsage() const {
 // 获取内存使用量（简化实现）
 size_t zChildThread::getMemoryUsage() const {
     // 简化实现：返回基本内存使用量
-    return sizeof(zChildThread) + (getQueueSize() * sizeof(Task));
+    return sizeof(zChildThread);
+}
+
+// 设置线程名称（支持链式调用）
+zChildThread* zChildThread::setName(const string& name) {
+    m_threadName = name;
+    return this;
+}
+
+// 获取线程名称
+string zChildThread::getName() const {
+    return m_threadName;
+}
+
+// 设置线程优先级（支持链式调用）
+zChildThread* zChildThread::setLevel(TaskPriority priority) {
+    m_threadPriority = priority;
+    return this;
+}
+
+// 获取线程优先级
+TaskPriority zChildThread::getLevel() const {
+    return m_threadPriority;
 }

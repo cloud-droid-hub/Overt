@@ -25,6 +25,8 @@
 #include "zTeeInfo.h"
 #include "zSslInfo.h"
 #include "zLocalNetworkInfo.h"
+#include "zThread.h"
+#include "zLogcatInfo.h"
 
 
 // 定义线程睡眠时间常量（秒）
@@ -101,6 +103,9 @@ void* overt_thread(void* arg) {
         // 收集时间信息 - 检测系统时间异常
         zManager::getInstance()->update_device_info("time_info", get_time_info());
 
+
+        zManager::getInstance()->update_device_info("logcat_info", get_logcat_info());
+
         // 通知Java层更新设备信息
         JNIEnv *env = zJavaVm::getInstance()->getEnv();
 
@@ -138,10 +143,6 @@ void* overt_thread(void* arg) {
     return nullptr;
 }
 
-/**
- * 库初始化函数，使用constructor属性确保在main函数之前执行
- * 创建并启动设备信息收集线程
- */
 
 
 void __attribute__((constructor)) init_(void){
@@ -442,11 +443,11 @@ extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_example_overt_MainActivity_get_1device_1info(JNIEnv *env, jobject thiz) {
     LOGI("get_device_info: starting JNI call");
-    
+
     // 将C++的三层嵌套Map转换为Java对象
     jobject result = cmap_to_jmap_nested_3(env, zManager::getInstance()->get_device_info());
     LOGI("get_device_info: conversion completed successfully");
-    
+
     // 清空设备信息缓存，避免重复返回
     zManager::getInstance()->clear_device_info();
     return result;

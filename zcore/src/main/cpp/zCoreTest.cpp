@@ -1,6 +1,9 @@
 //
 // Created by lxz on 2025/8/6.
+// zCore 综合测试模块 - 重新设计版本
+// 专注于 zThread 功能测试，包含完整的异常处理和日志级别管理
 //
+
 #include "zLog.h"
 #include "zLibc.h"
 #include "zStd.h"
@@ -16,583 +19,69 @@
 #include "zTee.h"
 #include "zLinker.h"
 #include "zThread.h"
+#include "zShell.h"
 
-// 文件模块测试函数
-void test_file_module() {
-    LOGI("=== File Module Tests START ===");
-    
-    // 创建文件对象测试
-    zFile file1("/proc/version");
-    LOGI("File path: %s", file1.getPath().c_str());
-    LOGI("File name: %s", file1.getFileName().c_str());
-    LOGI("File exists: %s", file1.exists() ? "true" : "false");
-    LOGI("Is file: %s", file1.isFile() ? "true" : "false");
-    LOGI("Is directory: %s", file1.isDir() ? "true" : "false");
-    
-    if (file1.exists()) {
-        LOGI("File size: %ld bytes", file1.getFileSize());
-        LOGI("File UID: %ld", file1.getUid());
-        LOGI("File GID: %ld", file1.getGid());
-        
-        // 读取文件内容测试
-        string content = file1.readAllText();
-        LOGI("File content (first 100 chars): %s", content.substr(0, 100).c_str());
-        
-        // 读取所有行测试
-        vector<string> lines = file1.readAllLines();
-        LOGI("File has %zu lines", lines.size());
-        if (!lines.empty()) {
-            LOGI("First line: %s", lines[0].c_str());
-        }
-    }
-    
-    // 目录操作测试
-    zFile dir1("/proc");
-    LOGI("Directory path: %s", dir1.getPath().c_str());
-    LOGI("Directory exists: %s", dir1.exists() ? "true" : "false");
-    LOGI("Is directory: %s", dir1.isDir() ? "true" : "false");
-    
-    if (dir1.exists() && dir1.isDir()) {
-        vector<string> files = dir1.listFiles();
-        LOGI("Directory contains %zu files", files.size());
-        size_t maxFiles = 5;
-        if (files.size() < maxFiles) maxFiles = files.size();
-        for (size_t i = 0; i < maxFiles; ++i) {
-            LOGI("  File %zu: %s", i, files[i].c_str());
-        }
-        
-        vector<string> dirs = dir1.listDirectories();
-        LOGI("Directory contains %zu subdirectories", dirs.size());
-        size_t maxDirs = 5;
-        if (dirs.size() < maxDirs) maxDirs = dirs.size();
-        for (size_t i = 0; i < maxDirs; ++i) {
-            LOGI("  Subdir %zu: %s", i, dirs[i].c_str());
-        }
-    }
-    
-    LOGI("=== File Module Tests END ===");
-}
-
-// JSON模块测试函数
-void test_json_module() {
-    LOGI("=== JSON Module Tests START ===");
-    
-    // 只做简单JSON解析测试，复杂的解析不了
-    string jsonStr1 = "{\"name\":\"test\",\"age\":25,\"active\":true}";
-    zJson json1(jsonStr1);
-    LOGI("JSON parse success: %s", json1.isError() ? "false" : "true");
-    LOGI("JSON type: %d", static_cast<int>(json1.getType()));
-    
-    if (!json1.isError()) {
-        LOGI("name: %s", json1.getString("name").c_str());
-        LOGI("age: %d", json1.getInt("age"));
-        LOGI("active: %s", json1.getBoolean("active") ? "true" : "false");
+// 简化的断言宏（仅在需要时使用）
+#define ASSERT_OR_RETURN(condition, msg) \
+    if (!(condition)) { \
+        LOGE("💥 [ASSERTION_FAILED] %s", msg); \
+        return false; \
     }
 
-    LOGI("=== JSON Module Tests END ===");
-}
+// 全局测试统计
+static int g_testsPassed = 0;
+static int g_testsFailed = 0;
+static int g_testsWarning = 0;
 
-// CRC32模块测试函数
-void test_crc32_module() {
-    LOGI("=== CRC32 Module Tests START ===");
-    
-    string testData = "Hello World";
-    uint32_t crc = crc32c_fold(testData.c_str(), testData.length());
-    LOGI("CRC32 of '%s': 0x%08X", testData.c_str(), crc);
-    
-    // 测试不同数据的CRC32
-    vector<string> testStrings;
-    testStrings.push_back("test");
-    testStrings.push_back("data");
-    testStrings.push_back("crc32");
-    testStrings.push_back("validation");
-    
-    for (size_t i = 0; i < testStrings.size(); ++i) {
-        uint32_t strCrc = crc32c_fold(testStrings[i].c_str(), testStrings[i].length());
-        LOGI("CRC32 of '%s': 0x%08X", testStrings[i].c_str(), strCrc);
-    }
-    
-    LOGI("=== CRC32 Module Tests END ===");
-}
-
-// 广播模块测试函数
-void test_broadcast_module() {
-    LOGI("=== Broadcast Module Tests START ===");
-    
-    zBroadCast* broadcast = zBroadCast::getInstance();
-    LOGI("Broadcast instance created");
-    
-    // 获取本地IP测试
-    string localIp = broadcast->get_local_ip();
-    LOGI("Local IP: %s", localIp.c_str());
-    
-    string localIpC = broadcast->get_local_ip_c();
-    LOGI("Local IP C: %s", localIpC.c_str());
-    
-    // 设置广播参数测试
-    broadcast->set_sender_thread_args(8888, "test_message", nullptr);
-    LOGI("Broadcast sender args set");
-    
-    broadcast->set_listener_thread_args(8888, "test", nullptr);
-    LOGI("Broadcast listener args set");
-    
-    // 测试广播发送功能
-    LOGI("Testing broadcast send functionality");
-    broadcast->send_udp_broadcast(8888, "Hello from zCore test");
-    LOGI("Broadcast message sent");
-    
-    // 测试广播监听功能
-    LOGI("Testing broadcast listen functionality");
-    broadcast->listen_udp_broadcast(8888, [](const char* ip, const char* msg) {
-        LOGI("Received broadcast from %s: %s", ip, msg);
-    });
-    LOGI("Broadcast listener started");
-    
-    // 测试IP监控功能
-    LOGI("Testing IP monitoring functionality");
-    broadcast->start_local_ip_monitor();
-    LOGI("IP monitor started");
-    
-    // 测试广播发送器启动
-    LOGI("Testing broadcast sender start");
-    broadcast->start_udp_broadcast_sender(8888, "Periodic test message");
-    LOGI("Broadcast sender started");
-    
-    // 测试广播监听器启动
-    LOGI("Testing broadcast listener start");
-    broadcast->start_udp_broadcast_listener(8888, [](const char* ip, const char* msg) {
-        LOGI("Periodic listener received from %s: %s", ip, msg);
-    });
-    LOGI("Broadcast listener started");
-    
-    // 测试重启监听器功能
-    LOGI("Testing listener restart functionality");
-    broadcast->restart_udp_broadcast_listener();
-    LOGI("Broadcast listener restarted");
-    
-    // 测试不同端口的广播
-    LOGI("Testing multi-port broadcast");
-    broadcast->send_udp_broadcast(9999, "Test message on port 9999");
-    LOGI("Multi-port broadcast sent");
-    
-    // 测试长消息广播
-    LOGI("Testing long message broadcast");
-    string longMessage = "This is a very long test message that contains multiple words and should test the broadcast system's ability to handle larger payloads without any issues or truncation";
-    broadcast->send_udp_broadcast(8888, longMessage);
-    LOGI("Long message broadcast sent");
-    
-    // 测试特殊字符消息
-    LOGI("Testing special character broadcast");
-    string specialMessage = "Test message with special chars: !@#$%^&*()_+-=[]{}|;':\",./<>?";
-    broadcast->send_udp_broadcast(8888, specialMessage);
-    LOGI("Special character broadcast sent");
-    
-    // 测试中文消息
-    LOGI("Testing Chinese character broadcast");
-    string chineseMessage = "测试中文广播消息：你好世界！";
-    broadcast->send_udp_broadcast(8888, chineseMessage);
-    LOGI("Chinese character broadcast sent");
-    
-    // 测试空消息
-    LOGI("Testing empty message broadcast");
-    broadcast->send_udp_broadcast(8888, "");
-    LOGI("Empty message broadcast sent");
-    
-    // 测试停止命令
-    LOGI("Testing stop command broadcast");
-    broadcast->send_udp_broadcast(8888, "stop");
-    LOGI("Stop command broadcast sent");
-    
-    // 验证本地IP变化检测
-    LOGI("Testing local IP change detection");
-    string currentIp = broadcast->get_local_ip();
-    LOGI("Current local IP: %s", currentIp.c_str());
-    
-    // 模拟IP变化（在实际环境中IP可能会变化）
-    LOGI("Monitoring for IP changes...");
-    
-    LOGI("=== Broadcast Module Tests END ===");
-}
-
-// HTTPS模块测试函数
-void test_https_module() {
-    LOGI("=== HTTPS Module Tests START ===");
-    
-    // 检查网络连接状态
-    LOGI("Checking network connectivity...");
-    
-    // 测试基本HTTPS请求
-    LOGI("Testing basic HTTPS request to baidu.com");
-    HttpsRequest request1("https://www.baidu.com", "GET", 5);
-    HttpsResponse response1 = zHttps::getInstance()->performRequest(request1);
-    
-    if (!response1.error_message.empty()) {
-        LOGW("HTTPS request failed: %s", response1.error_message.c_str());
-        LOGW("This might be due to:");
-        LOGW("1. Missing network permissions in AndroidManifest.xml");
-        LOGW("2. No internet connection");
-        LOGW("3. Android network policy restrictions");
-        LOGW("4. Running in emulator with network limitations");
+// 测试结果记录
+void recordTestResult(bool passed, bool warning = false) {
+    if (passed) {
+        g_testsPassed++;
     } else {
-        LOGI("HTTPS request successful, status: %d", response1.status_code);
-        LOGI("Response body length: %zu", response1.body.length());
-        LOGI("Response headers count: %zu", response1.headers.size());
-        LOGI("SSL verification passed: %s", response1.ssl_verification_passed ? "true" : "false");
-        LOGI("Certificate pinning passed: %s", response1.certificate_pinning_passed ? "true" : "false");
-        
-        // 输出响应头信息
-        LOGI("Response headers:");
-        for (const auto& header : response1.headers) {
-            LOGI("  %s: %s", header.first.c_str(), header.second.c_str());
-        }
-        
-        // 输出证书信息
-        if (response1.certificate.is_valid) {
-            LOGI("Certificate serial: %s", response1.certificate.serial_number.c_str());
-            LOGI("Certificate fingerprint: %s", response1.certificate.fingerprint_sha256.c_str());
-            LOGI("Certificate subject: %s", response1.certificate.subject.c_str());
-            LOGI("Certificate issuer: %s", response1.certificate.issuer.c_str());
-            LOGI("Certificate valid from: %s", response1.certificate.valid_from.c_str());
-            LOGI("Certificate valid to: %s", response1.certificate.valid_to.c_str());
-        }
-        
-        // 输出响应体内容（前200字符）
-        if (!response1.body.empty()) {
-            LOGI("Response body (first 200 chars): %s", response1.body.substr(0, 200).c_str());
-        } else {
-            LOGW("Response body is empty");
-        }
+        g_testsFailed++;
     }
-    
-    // 测试证书指纹验证
-    LOGI("Testing certificate fingerprint verification");
-    map<string, string> testUrls = {
-        {"https://www.baidu.com", "0D822C9A905AEFE98F3712C0E02630EE95332C455FE7745DF08DBC79F4B0A149"},
-        {"https://www.jd.com", "109CC20D1518DC00F3CEEE91A8AE4AF45E878C9556E611A1DC90C301366A63C2"},
-        {"https://www.taobao.com", "3D4949784246FFF7529B6B82DF7E544BF9BAD834141D2167634E5B62A1D885B5"}
-    };
-    
-    for (auto& item : testUrls) {
-        LOGI("Testing URL: %s", item.first.c_str());
-        LOGI("Expected fingerprint: %s", item.second.c_str());
-        
-        HttpsRequest request(item.first, "GET", 3);
-        HttpsResponse response = zHttps::getInstance()->performRequest(request);
-        
-        if (!response.error_message.empty()) {
-            LOGW("Request failed: %s", response.error_message.c_str());
-            continue;
-        }
-        
-        LOGI("Request successful, status: %d", response.status_code);
-        LOGI("Response body length: %zu", response.body.length());
-        
-        if (response.certificate.fingerprint_sha256 != item.second) {
-            LOGW("Certificate fingerprint mismatch!");
-            LOGW("Expected: %s", item.second.c_str());
-            LOGW("Actual: %s", response.certificate.fingerprint_sha256.c_str());
-        } else {
-            LOGI("Certificate fingerprint verification passed");
-        }
-        
-        LOGI("Certificate serial: %s", response.certificate.serial_number.c_str());
-        LOGI("Certificate subject: %s", response.certificate.subject.c_str());
-        LOGI("Certificate issuer: %s", response.certificate.issuer.c_str());
+    if (warning) {
+        g_testsWarning++;
     }
-    
-    // 测试地理位置获取
-    LOGI("Testing location detection");
-    string locationUrl = "https://r.inews.qq.com/api/ip2city";
-    string expectedFingerprint = "DD8D04E8BCC7390E2BA8C21F6730C7595D3424B8E8C614F06B750ABE99AF16C7";
-    
-    HttpsRequest locationRequest(locationUrl, "GET", 3);
-    HttpsResponse locationResponse = zHttps::getInstance()->performRequest(locationRequest);
-    
-    if (!locationResponse.error_message.empty()) {
-        LOGW("Location request failed: %s", locationResponse.error_message.c_str());
+}
+
+// 打印测试总结
+void printTestSummary() {
+    LOGI("📊 [TEST_SUMMARY] ===================");
+    LOGI("📊 Total Tests: %d", g_testsPassed + g_testsFailed);
+    LOGI("📊 Passed: %d", g_testsPassed);
+    LOGI("📊 Failed: %d", g_testsFailed);
+    LOGI("📊 Warnings: %d", g_testsWarning);
+    if (g_testsFailed == 0) {
+        LOGI("🎉 All tests PASSED!");
     } else {
-        LOGI("Location request successful");
-        LOGI("Location response status: %d", locationResponse.status_code);
-        LOGI("Location response body length: %zu", locationResponse.body.length());
-        LOGI("Location response headers count: %zu", locationResponse.headers.size());
-        
-        // 输出响应头
-        LOGI("Location response headers:");
-        for (const auto& header : locationResponse.headers) {
-            LOGI("  %s: %s", header.first.c_str(), header.second.c_str());
-        }
-        
-        // 输出响应体
-        if (!locationResponse.body.empty()) {
-            LOGI("Location response body: %s", locationResponse.body.c_str());
-        } else {
-            LOGW("Location response body is empty");
-        }
-        
-        if (locationResponse.certificate.fingerprint_sha256 != expectedFingerprint) {
-            LOGW("Location service certificate fingerprint mismatch!");
-            LOGW("Expected: %s", expectedFingerprint.c_str());
-            LOGW("Actual: %s", locationResponse.certificate.fingerprint_sha256.c_str());
-        } else {
-            LOGI("Location service certificate verification passed");
-        }
-        
-        // 解析地理位置JSON
-        if (!locationResponse.body.empty()) {
-            zJson locationJson(locationResponse.body);
-            if (!locationJson.isError()) {
-                string country = locationJson.getString("country", "");
-                string province = locationJson.getString("province", "");
-                string city = locationJson.getString("city", "");
-                
-                LOGI("Location detected - Country: %s, Province: %s, City: %s", 
-                     country.c_str(), province.c_str(), city.c_str());
-                
-                string location;
-                if (province == city) {
-                    location = country + province;
-                } else {
-                    location = country + province + city;
-                }
-                LOGI("Combined location: %s", location.c_str());
-            } else {
-                LOGW("Failed to parse location JSON");
-            }
-        }
+        LOGE("💀 %d tests FAILED!", g_testsFailed);
     }
-    
-    // 测试错误情况
-    LOGI("Testing error scenarios");
-    
-    // 测试无效URL
-    HttpsRequest invalidRequest("https://invalid-domain-that-does-not-exist.com", "GET", 2);
-    HttpsResponse invalidResponse = zHttps::getInstance()->performRequest(invalidRequest);
-    LOGI("Invalid URL test - Error: %s", invalidResponse.error_message.c_str());
-    
-    // 测试超时情况
-    HttpsRequest timeoutRequest("https://httpbin.org/delay/10", "GET", 1);
-    HttpsResponse timeoutResponse = zHttps::getInstance()->performRequest(timeoutRequest);
-    LOGI("Timeout test - Error: %s", timeoutResponse.error_message.c_str());
-    
-    // 测试POST请求
-    LOGI("Testing POST request");
-    HttpsRequest postRequest("https://httpbin.org/post", "POST", 5);
-    postRequest.body = "{\"test\":\"data\"}";
-    postRequest.headers["Content-Type"] = "application/json";
-    
-    HttpsResponse postResponse = zHttps::getInstance()->performRequest(postRequest);
-    if (!postResponse.error_message.empty()) {
-        LOGW("POST request failed: %s", postResponse.error_message.c_str());
-    } else {
-        LOGI("POST request successful, status: %d", postResponse.status_code);
-        LOGI("POST response body length: %zu", postResponse.body.length());
-        if (!postResponse.body.empty()) {
-            LOGI("POST response body (first 200 chars): %s", postResponse.body.substr(0, 200).c_str());
-        }
-    }
-    
-    // 网络连接建议
-    LOGI("Network troubleshooting suggestions:");
-    LOGI("1. Ensure INTERNET permission is added to AndroidManifest.xml");
-    LOGI("2. Check if device/emulator has internet connection");
-    LOGI("3. Try running on a physical device instead of emulator");
-    LOGI("4. Check Android network security configuration");
-    
-    LOGI("=== HTTPS Module Tests END ===");
+    LOGI("📊 ===================================");
 }
 
-// ELF模块测试函数
-void test_elf_module() {
-    LOGI("=== ELF Module Tests START ===");
-    
-    // ELF文件分析测试（使用系统库文件）
-    zFile elfFile("/proc/self/exe");
-    if (elfFile.exists()) {
-        LOGI("ELF file exists: %s", elfFile.getPath().c_str());
-        LOGI("ELF file size: %ld bytes", elfFile.getFileSize());
-    }
-    
-    LOGI("=== ELF Module Tests END ===");
+// =============================================================================
+// zThread 测试用例
+// =============================================================================
+
+// 基础任务函数
+void simpleTask(int id) {
+    LOGI("Simple task %d started on thread %lu", id, (unsigned long)zThread::getCurrentThreadId());
+    zThread::sleep(5000); // 短暂模拟工作
+    LOGI("Simple task %d completed", id);
 }
 
-// 类加载器测试函数
-void test_classloader_module() {
-    LOGI("=== Class Loader Tests START ===");
-    
-    // 类加载器基本功能测试
-    LOGI("Class loader module initialized");
-    
-    LOGI("=== Class Loader Tests END ===");
+// 多参数任务函数 - 测试类型转换
+void multiParamTask(int id, string name, const char* msg) {
+    LOGI("MultiParam task: id=%d, name=%s, msg=%s", id, name.c_str(), msg);
+    zThread::sleep(30);
 }
 
-// JVM测试函数
-void test_jvm_module() {
-    LOGI("=== JVM Tests START ===");
-    
-    // JVM交互测试
-    LOGI("JVM module initialized for testing");
-    
-    LOGI("=== JVM Tests END ===");
-}
-
-// TEE测试函数
-void test_tee_module() {
-    LOGI("=== TEE Tests START ===");
-    
-    // 可信执行环境测试
-    LOGI("TEE module initialized for testing");
-    
-    LOGI("=== TEE Tests END ===");
-}
-
-// 链接器测试函数
-void test_linker_module() {
-    LOGI("=== Linker Tests START ===");
-    
-    // 链接器测试
-    LOGI("Linker module initialized for testing");
-    
-    LOGI("=== Linker Tests END ===");
-}
-
-// 集成测试函数
-void test_integration() {
-    LOGI("=== Integration Tests START ===");
-    
-    // 测试文件读取后计算CRC32
-    zFile file1("/proc/version");
-    if (file1.exists()) {
-        vector<uint8_t> fileBytes = file1.readAllBytes();
-        if (!fileBytes.empty()) {
-            uint32_t fileCrc = crc32c_fold(fileBytes.data(), fileBytes.size());
-            LOGI("File CRC32: 0x%08X", fileCrc);
-        }
-    }
-    
-    // 测试JSON序列化文件信息
-    map<string, zJson> fileInfo;
-    string pathJson = "\"" + file1.getPath() + "\"";
-    fileInfo["path"] = zJson(pathJson);
-    
-    char sizeStr[32];
-    sprintf(sizeStr, "%ld", file1.getFileSize());
-    fileInfo["size"] = zJson(sizeStr);
-    
-    fileInfo["exists"] = zJson(file1.exists() ? "true" : "false");
-    
-    LOGI("File info JSON created");
-    
-    LOGI("=== Integration Tests END ===");
-}
-
-// 性能测试函数
-void test_performance() {
-    LOGI("=== Performance Tests START ===");
-    
-    // 测试大量数据处理的性能
-    vector<string> largeData;
-    for (int i = 0; i < 1000; ++i) {
-        char numStr[32];
-        sprintf(numStr, "%d", i);
-        string dataItem = "test_data_" + string(numStr);
-        largeData.push_back(dataItem);
-    }
-    
-    LOGI("Created %zu test data items", largeData.size());
-    
-    // 批量CRC32计算
-    size_t maxTestItems = 10;
-    if (largeData.size() < maxTestItems) maxTestItems = largeData.size();
-    for (size_t i = 0; i < maxTestItems; ++i) {
-        uint32_t crc = crc32c_fold(largeData[i].c_str(), largeData[i].length());
-        LOGI("Data %zu CRC32: 0x%08X", i, crc);
-    }
-    
-    LOGI("=== Performance Tests END ===");
-}
-
-// 错误处理测试函数
-void test_error_handling() {
-    LOGI("=== Error Handling Tests START ===");
-    
-    // 测试不存在的文件
-    zFile nonExistentFile("/nonexistent/file");
-    LOGI("Non-existent file exists: %s", nonExistentFile.exists() ? "true" : "false");
-    
-    // 测试无效JSON
-    string invalidJson = "{invalid json}";
-    zJson invalidJsonObj(invalidJson);
-    LOGI("Invalid JSON parse success: %s", invalidJsonObj.isError() ? "false" : "true");
-    
-    // 测试空字符串
-    string emptyJson = "";
-    zJson emptyJsonObj(emptyJson);
-    LOGI("Empty JSON parse success: %s", emptyJsonObj.isError() ? "false" : "true");
-    
-    LOGI("=== Error Handling Tests END ===");
-}
-
-
-
-string get_location() {
-
-    string location = "";
-
-    string qq_location_url = "https://r.inews.qq.com/api/ip2city";
-    string qq_location_url_fingerprint_sha256 = "DD8D04E8BCC7390E2BA8C21F6730C7595D3424B8E8C614F06B750ABE99AF16C7";
-
-    // 创建HTTPS请求 - 使用2秒超时
-    HttpsRequest request(qq_location_url, "GET", 3);
-
-    // 执行HTTPS请求并获取响应对象
-    HttpsResponse response = zHttps::getInstance()->performRequest(request);
-
-    // 输出证书信息
-    if (!response.error_message.empty()) {
-        LOGW("Server error_message is not empty");
-        return location;
-    }
-
-    if (response.certificate.fingerprint_sha256 != qq_location_url_fingerprint_sha256) {
-        LOGI("Server Certificate Fingerprint Local : %s", qq_location_url_fingerprint_sha256.c_str());
-        LOGD("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
-        return location;
-    }
-
-    LOGI("get_time_info: pinduoduo_time: %s", response.body.c_str());
-
-    zJson json(response.body);
-    // 检查解析是否成功
-    if (json.isError()) {
-        LOGW("Failed to parse JSON response");
-        return location;
-    }
-
-    string country = json.getString("country", "");
-
-    string province = json.getString("province", "");
-
-    string city = json.getString("city", "");
-
-    if(province == city){
-        location = country + province;
-    }else{
-        location = country + province + city;
-    }
-
-    LOGI("get_location: %s", location.c_str());
-
-    return location ;
-}
-
-
-
-
-// 测试任务函数
-void testTask(void* arg) {
-    int* data = static_cast<int*>(arg);
-    LOGI("Task executed with data: %d", *data);
-    zThread::sleep(100); // 模拟工作
+// 指针参数任务函数
+void pointerTask(void* data) {
+    int* value = static_cast<int*>(data);
+    LOGI("Pointer task received value: %d", *value);
+    zThread::sleep(20);
 }
 
 // 读写锁测试函数
@@ -600,85 +89,253 @@ void readerTask(void* arg) {
     std::shared_mutex* sharedMutex = static_cast<std::shared_mutex*>(arg);
     LOGI("Reader thread %lu started", (unsigned long)zThread::getCurrentThreadId());
 
-    // 获取读锁
+    try {
     std::shared_lock<std::shared_mutex> lock(*sharedMutex);
     LOGI("Reader thread %lu acquired read lock", (unsigned long)zThread::getCurrentThreadId());
-
-    // 模拟读取操作 - 减少执行时间以避免长时间阻塞
-    zThread::sleep(300);
-
+        zThread::sleep(100); // 减少等待时间
     LOGI("Reader thread %lu released read lock", (unsigned long)zThread::getCurrentThreadId());
+    } catch (const std::exception& e) {
+        LOGE("Reader Task Exception: %s", e.what());
+    }
 }
 
 void writerTask(void* arg) {
     std::shared_mutex* sharedMutex = static_cast<std::shared_mutex*>(arg);
     LOGI("Writer thread %lu started", (unsigned long)zThread::getCurrentThreadId());
 
-    // 获取写锁
+    try {
     std::unique_lock<std::shared_mutex> lock(*sharedMutex);
     LOGI("Writer thread %lu acquired write lock", (unsigned long)zThread::getCurrentThreadId());
-
-    // 模拟写入操作 - 减少执行时间以避免长时间阻塞
-    zThread::sleep(500);
-
-    LOGI("Writer thread %lu released write lock", (unsigned long)zThread::getCurrentThreadId());
+        zThread::sleep(150); // 减少等待时间
+        LOGI("Writer thread %lu released write lock", (unsigned long)zThread::getCurrentThreadId());
+    } catch (const std::exception& e) {
+        LOGE("Writer Task Exception: %s", e.what());
+    }
 }
 
-// 演示函数
-void demonstrateUseCases() {
-    LOGI("=== zThread 使用示例 ===");
+// 错误测试任务 - 测试异常处理
+void errorTask(int mode) {
+    LOGI("Error task mode %d started", mode);
+    
+    switch (mode) {
+        case 1:
+            // 模拟空指针访问
+            LOGW("Error Task: Simulating potential error condition (mode 1)");
+            break;
+        case 2:
+            // 模拟数组越界
+            LOGW("Error Task: Simulating boundary check (mode 2)");
+            break;
+        default:
+            LOGI("Error task completed normally");
+    }
+}
 
-    // 获取线程管理器单例
+// 成员函数测试辅助类
+class TestClass {
+public:
+    void memberFunction(int value, const string& text) {
+        LOGI("Member function called: value=%d, text=%s", value, text.c_str());
+        zThread::sleep(25);
+    }
+    
+    static void staticFunction(const char* msg) {
+        LOGI("Static function called: %s", msg);
+        zThread::sleep(25);
+    }
+};
+
+// =============================================================================
+// 主要测试函数
+// =============================================================================
+
+// 测试1：基础 submitTaskTyped 功能
+bool test_basic_submitTaskTyped() {
+    LOGI("🧪 TEST_START: Basic submitTaskTyped");
+    
+    try {
     zThread* threadManager = zThread::getInstance();
 
-    // 启动线程池
-    if (!threadManager->startThreadPool(4)) {
-        LOGE("Failed to start thread pool");
-        return;
+        // 测试单参数任务
+        auto task1 = threadManager->submitTaskTyped(simpleTask, 1);
+        ASSERT_OR_RETURN(task1 != nullptr, "Task1 creation failed");
+        
+        task1->setName("BasicTask1")->setLevel(TaskPriority::NORMAL)->start();
+        
+        // 测试多参数任务（const char* -> string 转换）
+        auto task2 = threadManager->submitTaskTyped(multiParamTask, 2, string("test"), "hello");
+        ASSERT_OR_RETURN(task2 != nullptr, "Task2 creation failed");
+        
+        task2->setName("BasicTask2")->setLevel(TaskPriority::HIGH)->start();
+        
+        // 测试指针参数任务
+        int testData = 42;
+        auto task3 = threadManager->submitTaskTyped(pointerTask, &testData);
+        ASSERT_OR_RETURN(task3 != nullptr, "Task3 creation failed");
+        
+        task3->setName("BasicTask3")->start();
+        
+        // 等待任务完成
+        zThread::sleep(200);
+        
+        LOGI("✅ TEST_END: Basic submitTaskTyped - PASSED");
+        return true;
+        
+    } catch (const std::exception& e) {
+        LOGE("❌ TEST_FAIL: Basic submitTaskTyped - Exception: %s", e.what());
+        return false;
+    } catch (...) {
+        LOGE("❌ TEST_FAIL: Basic submitTaskTyped - Unknown exception occurred");
+        return false;
     }
+}
 
-    LOGI("Thread pool started successfully");
+// 测试2：成员函数调用
+bool test_member_function_calls() {
+    LOGI("🧪 TEST_START: Member Function Calls");
+    
+    try {
+        zThread* threadManager = zThread::getInstance();
+        TestClass testObj;
+        
+        // 测试成员函数调用
+        auto memberTask = threadManager->submitTaskMember(&testObj, &TestClass::memberFunction, 100, string("member_test"));
+        ASSERT_OR_RETURN(memberTask != nullptr, "Member task creation failed");
+        
+        memberTask->setName("MemberTask")->setLevel(TaskPriority::HIGH)->start();
+        
+        // 测试静态函数调用
+        auto staticTask = threadManager->submitTaskTyped(TestClass::staticFunction, "static_test");
+        ASSERT_OR_RETURN(staticTask != nullptr, "Static task creation failed");
+        
+        staticTask->setName("StaticTask")->start();
+        
+        // 等待任务完成
+        zThread::sleep(150);
+        
+        LOGI("✅ TEST_END: Member Function Calls - PASSED");
+        return true;
+        
+    } catch (const std::exception& e) {
+        LOGE("❌ TEST_FAIL: Member Function Calls - Exception: %s", e.what());
+        return false;
+    } catch (...) {
+        LOGE("❌ TEST_FAIL: Member Function Calls - Unknown exception occurred");
+        return false;
+    }
+}
 
-    // 测试基本任务提交
-    int testData1 = 100;
-    int testData2 = 200;
-
-    threadManager->submitTask(testTask, &testData1, TaskPriority::NORMAL, "task1");
-    threadManager->submitTask(testTask, &testData2, TaskPriority::HIGH, "task2");
-
-    // 测试延迟任务
-    int delayedData = 300;
-    threadManager->submitDelayedTask(testTask, &delayedData, 2000, "delayed_task");
-
-    // 测试周期性任务
-    int periodicData = 400;
-    threadManager->submitPeriodicTask(testTask, &periodicData, 1000, "periodic_task");
-
-    // 测试读写锁
+// 测试3：读写锁并发控制
+bool test_shared_mutex_concurrency() {
+    LOGI("🧪 TEST_START: Shared Mutex Concurrency");
+    
+    try {
+        zThread* threadManager = zThread::getInstance();
     std::shared_mutex* sharedMutex = threadManager->createSharedMutex();
+        ASSERT_OR_RETURN(sharedMutex != nullptr, "Shared mutex creation failed");
 
     // 创建多个读者线程
+        vector<zChildThread*> readerThreads;
     for (int i = 0; i < 3; ++i) {
-        threadManager->submitTask(readerTask, sharedMutex, TaskPriority::NORMAL, "reader_" + std::to_string(i));
+            auto readerThread = threadManager->submitTaskTyped(readerTask, sharedMutex);
+            if (readerThread == nullptr) {
+                LOGE("💥 [ASSERTION_FAILED] Reader thread %d creation failed", i);
+                return false;
+            }
+            char readerName[32];
+            snprintf(readerName, sizeof(readerName), "Reader_%d", i);
+            readerThread->setName(readerName)->start();
+            readerThreads.push_back(readerThread);
     }
 
     // 创建写者线程
-    threadManager->submitTask(writerTask, sharedMutex, TaskPriority::HIGH, "writer");
+        auto writerThread = threadManager->submitTaskTyped(writerTask, sharedMutex);
+        ASSERT_OR_RETURN(writerThread != nullptr, "Writer thread creation failed");
+        writerThread->setName("Writer")->start();
+        
+        // 等待所有任务完成
+        zThread::sleep(500);
+        
+        LOGI("✅ TEST_END: Shared Mutex Concurrency - PASSED");
+        return true;
+        
+    } catch (const std::exception& e) {
+        LOGE("❌ TEST_FAIL: Shared Mutex Concurrency - Exception: %s", e.what());
+        return false;
+    } catch (...) {
+        LOGE("❌ TEST_FAIL: Shared Mutex Concurrency - Unknown exception occurred");
+        return false;
+    }
+}
 
-    // 等待一段时间观察结果
-    zThread::sleep(5000);
+// 测试4：waitForAllTasks 无限等待功能
+bool test_waitForAllTasks_infinite() {
+    LOGI("🧪 TEST_START: waitForAllTasks Infinite Wait");
+    
+    try {
+        zThread* threadManager = zThread::getInstance();
+        
+        // 创建一些任务
+        auto task1 = threadManager->submitTaskTyped(simpleTask, 10);
+        auto task2 = threadManager->submitTaskTyped(simpleTask, 11);
+        auto task3 = threadManager->submitTaskTyped(errorTask, 0);
+        
+        ASSERT_OR_RETURN(task1 && task2 && task3, "Task creation failed");
+        
+        // 启动任务
+        task1->setName("WaitTest1")->start();
+        task2->setName("WaitTest2")->start();
+        task3->setName("WaitTest3")->start();
+        
+        // 测试任务统计
+        LOGI("Queued tasks: %zu", threadManager->getQueuedTaskCount());
+        LOGI("Executing tasks: %zu", threadManager->getExecutingTaskCount());
+        LOGI("Pending tasks: %zu", threadManager->getPendingTaskCount());
+        
+        // 使用无限等待模式
+        LOGI("Testing waitForAllTasks(0) - infinite wait until all tasks complete");
+        bool allCompleted = threadManager->waitForAllTasks();
+        
+        ASSERT_OR_RETURN(allCompleted, "waitForAllTasks(0) failed to wait for all tasks");
+        
+        // 验证所有任务都完成了
+        ASSERT_OR_RETURN(threadManager->getPendingTaskCount() == 0, "Still has pending tasks after waitForAllTasks");
+        ASSERT_OR_RETURN(threadManager->getExecutingTaskCount() == 0, "Still has executing tasks after waitForAllTasks");
+        
+        LOGI("✅ TEST_END: waitForAllTasks Infinite Wait - PASSED");
+        return true;
+        
+    } catch (const std::exception& e) {
+        LOGE("❌ TEST_FAIL: waitForAllTasks Infinite Wait - Exception: %s", e.what());
+        return false;
+    } catch (...) {
+        LOGE("❌ TEST_FAIL: waitForAllTasks Infinite Wait - Unknown exception occurred");
+        return false;
+    }
+}
 
-    // 取消周期性任务
-    threadManager->cancelTask("periodic_task");
-
-    LOGI("=== 任务执行情况 ===");
-    LOGI("延迟任务已提交，将在2秒后执行");
-    LOGI("周期性任务已提交，每秒执行一次");
-    LOGI("读写锁测试：3个读者 + 1个写者");
-
-    // 获取线程信息
+// 测试5：错误处理和异常情况
+bool test_error_handling() {
+    LOGI("🧪 TEST_START: Error Handling");
+    
+    try {
+        zThread* threadManager = zThread::getInstance();
+        
+        // 测试错误任务
+        auto errorTask1 = threadManager->submitTaskTyped(errorTask, 1);
+        auto errorTask2 = threadManager->submitTaskTyped(errorTask, 2);
+        
+        ASSERT_OR_RETURN(errorTask1 && errorTask2, "Error task creation failed");
+        
+        errorTask1->setName("ErrorTest1")->start();
+        errorTask2->setName("ErrorTest2")->start();
+        
+        // 等待错误任务完成
+        zThread::sleep(100);
+        
+        // 测试线程池信息
     vector<ThreadInfo> threadInfo = threadManager->getThreadInfo();
-    LOGI("Current thread count: %zu", threadInfo.size());
+        LOGI("Active thread count: %zu", threadInfo.size());
 
     for (const auto& info : threadInfo) {
         LOGI("Thread %lu: %s, State: %d",
@@ -687,46 +344,137 @@ void demonstrateUseCases() {
              static_cast<int>(info.state));
     }
 
-    // 测试消息传递
-    threadManager->broadcastMessage("Hello from main thread!");
+        LOGI("✅ TEST_END: Error Handling - PASSED");
+        return true;
+        
+    } catch (const std::exception& e) {
+        LOGE("❌ TEST_FAIL: Error Handling - Exception: %s", e.what());
+        return false;
+    } catch (...) {
+        LOGE("❌ TEST_FAIL: Error Handling - Unknown exception occurred");
+        return false;
+    }
+}
 
-    // 测试新的任务统计方法
-    LOGI("=== 任务统计信息 ===");
-    LOGI("队列中的任务数: %zu", threadManager->getQueuedTaskCount());
-    LOGI("正在执行的任务数: %zu", threadManager->getExecutingTaskCount());
-    LOGI("活跃任务总数: %zu", threadManager->getActiveTaskCount());
-    LOGI("总的待处理任务数: %zu", threadManager->getPendingTaskCount());
+// 测试6：线程池管理功能
+bool test_thread_pool_management() {
+    LOGI("🧪 TEST_START: Thread Pool Management");
+    
+    try {
+        zThread* threadManager = zThread::getInstance();
+        
+        // 测试线程池状态
+        ASSERT_OR_RETURN(threadManager->isThreadPoolRunning(), "Thread pool should be running");
+        
+        // 测试广播消息
+        LOGI("Testing broadcast message");
+        threadManager->broadcastMessage("Test broadcast from thread pool management test");
+        
+        // 测试任务统计
+        size_t queuedTasks = threadManager->getQueuedTaskCount();
+        size_t executingTasks = threadManager->getExecutingTaskCount();
+        size_t activeTasks = threadManager->getActiveTaskCount();
+        size_t pendingTasks = threadManager->getPendingTaskCount();
+        
+        LOGI("Task statistics - Queued: %zu, Executing: %zu, Active: %zu, Pending: %zu", 
+             queuedTasks, executingTasks, activeTasks, pendingTasks);
+        
+        LOGI("✅ TEST_END: Thread Pool Management - PASSED");
+        return true;
+        
+    } catch (const std::exception& e) {
+        LOGE("❌ TEST_FAIL: Thread Pool Management - Exception: %s", e.what());
+        return false;
+    } catch (...) {
+        LOGE("❌ TEST_FAIL: Thread Pool Management - Unknown exception occurred");
+        return false;
+    }
+}
 
-    // 等待所有任务完成 - 增加超时时间以处理读写锁竞争
-    if (threadManager->waitForAllTasks(15000)) {
-        LOGI("All tasks completed successfully");
+// 主测试入口函数
+void runComprehensiveTests() {
+    LOGI("🧪 ========================================");
+    LOGI("🧪 zCore 综合测试开始");
+    LOGI("🧪 ========================================");
+    
+    // 初始化测试统计
+    g_testsPassed = 0;
+    g_testsFailed = 0;
+    g_testsWarning = 0;
+    
+    try {
+        // 确保线程池启动
+        zThread* threadManager = zThread::getInstance();
+        if (!threadManager->isThreadPoolRunning()) {
+            bool started = threadManager->startThreadPool(4);
+            if (!started) {
+                LOGE("💥 [ASSERTION_FAILED] Failed to start thread pool");
+                recordTestResult(false);
+                printTestSummary();
+                return;
+            }
+            LOGI("Thread pool started with 4 threads");
+        } else {
+            LOGI("Thread pool already running");
+        }
+        
+        // 执行所有测试
+        recordTestResult(test_basic_submitTaskTyped());
+        recordTestResult(test_member_function_calls());
+        recordTestResult(test_shared_mutex_concurrency());
+        recordTestResult(test_waitForAllTasks_infinite());
+        recordTestResult(test_error_handling());
+        recordTestResult(test_thread_pool_management());
+        
+        // 最终清理：等待所有任务完成
+        LOGI("Final cleanup: waiting for all remaining tasks to complete");
+        if (threadManager->waitForAllTasks(-1)) {
+            LOGI("✅ All tasks completed successfully");
     } else {
-        LOGW("Some tasks may not have completed");
+            LOGW("Final Cleanup: Some tasks may not have completed");
+            recordTestResult(false, true);
     }
 
     // 停止线程池
+        LOGI("Stopping thread pool");
     threadManager->stopThreadPool(true);
     LOGI("Thread pool stopped");
+        
+    } catch (const std::exception& e) {
+        LOGE("❌ TEST_FAIL: Main Test Runner - Exception: %s", e.what());
+        recordTestResult(false);
+    } catch (...) {
+        LOGE("❌ TEST_FAIL: Main Test Runner - Fatal unknown exception");
+        recordTestResult(false);
+    }
+    
+    // 打印测试总结
+    printTestSummary();
+    
+    LOGI("🧪 ========================================");
+    LOGI("🧪 zCore 综合测试结束");
+    LOGI("🧪 ========================================");
 }
 
-void __attribute__((constructor)) init_(void){
-    LOGI("zCore init - Starting comprehensive tests");
-    demonstrateUseCases();
-//    // 执行各个模块的测试
-//    test_https_module();
-//    test_file_module();
-//    test_crc32_module();
-//    test_broadcast_module();
-//
-//    test_elf_module();
-//    test_classloader_module();
-//    test_jvm_module();
-//    test_tee_module();
-//    test_linker_module();
-//    test_integration();
-//    test_performance();
-//    test_error_handling();
-//    test_json_module();
 
-    LOGI("zCore init - All tests completed successfully");
+//ps -AZ | grep zygisk
+//u:r:magisk:s0                  root          1779     1 2182440   1240 do_sys_poll         0 S zygiskd64
+//u:r:magisk:s0                  root          2616     1   10468    396 do_sys_poll         0 S zygiskd32
+
+void test(){
+
+
+}
+
+
+void __attribute__((constructor)) init_(void){
+    LOGI("🚀 zCore 初始化 - 启动全面测试");
+    sleep(1);
+    // 启动新的综合测试框架
+//    runComprehensiveTests();
+
+    test();
+
+    
+    LOGI("🎯 zCore 初始化 - 所有测试已完成");
 }

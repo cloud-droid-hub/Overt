@@ -29,6 +29,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zJson.cpp
         zThread.cpp
         zChildThread.cpp
+        zShell.cpp
 
         zCoreTest.cpp)
 

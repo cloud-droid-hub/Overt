@@ -70,6 +70,9 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zBroadCast.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zJson.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zFile.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zChildThread.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zThread.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zShell.cpp
 
 
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zRootFileInfo.cpp
@@ -86,6 +89,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zTeeInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSslInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLocalNetworkInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLogcatInfo.cpp
 
         zManager.cpp
 

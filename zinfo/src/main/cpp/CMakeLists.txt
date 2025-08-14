@@ -27,6 +27,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zBroadCast.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zJson.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zFile.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zShell.cpp
 
         zLocalNetworkInfo.cpp
         zRootFileInfo.cpp
@@ -42,6 +43,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zPortInfo.cpp
         zTeeInfo.cpp
         zSslInfo.cpp
+        zLogcatInfo.cpp
 
         zInfoTest.cpp)
 
