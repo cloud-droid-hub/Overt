@@ -9,6 +9,9 @@
 #include <asm-generic/mman.h>
 #include <sys/mman.h>
 #include <shared_mutex>
+#include <map>
+#include <mutex>
+#include <thread>
 
 #include "zLog.h"
 
@@ -38,8 +41,9 @@ private:
     // Java虚拟机指针
     JavaVM* jvm = nullptr;
     
-    // JNI环境指针
-    JNIEnv *env = nullptr;
+    // 线程ID到JNIEnv的映射表（线程安全）
+    std::map<int, JNIEnv*> thread_env_map;
+    mutable std::mutex env_map_mutex;
     
     // Android上下文对象（全局引用）
     jobject context = nullptr;
@@ -119,6 +123,12 @@ public:
      */
     jclass findClass(const char* className);
 
+    /**
+     * 清理当前线程的JNIEnv
+     * 在线程退出时调用，避免内存泄漏
+     */
+    void cleanupCurrentThreadEnv();
+    
     /**
      * 退出JVM
      * 通过内存操作使JVM退出，用于清理资源

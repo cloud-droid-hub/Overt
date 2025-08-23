@@ -9,6 +9,7 @@
 #include "zLog.h"
 #include "zLibc.h"
 #include "zJavaVm.h"
+#include "syscall.h"
 
 // 静态单例实例指针
 zJavaVm* zJavaVm::instance = nullptr;
@@ -61,22 +62,44 @@ JavaVM* zJavaVm::getJvm(){
 
 /**
  * 获取JNI环境指针
- * 将当前线程附加到JVM并获取JNI环境
+ * 将当前线程附加到JVM并获取JNI环境，支持多线程安全
  * @return JNIEnv指针，失败时返回nullptr
  */
 JNIEnv* zJavaVm::getEnv(){
-    LOGD("getEnv called");
+    LOGI("getEnv called");
     if(jvm == nullptr){
         LOGE("JVM is not initialized");
         return nullptr;
     }
 
-    // 将当前线程附加到JVM
-    if (jvm->AttachCurrentThread((JNIEnv **) &env, nullptr)!= JNI_OK) {
-        LOGE("Failed to get the environment");
+    // 获取当前线程ID
+
+    int tid = __syscall0(SYS_gettid);
+
+    // 先检查是否已经有当前线程的JNIEnv
+    {
+        std::lock_guard<std::mutex> lock(env_map_mutex);
+        auto it = thread_env_map.find(tid);
+        if (it != thread_env_map.end()) {
+            LOGI("getEnv: Found existing JNIEnv for thread %p", it->second);
+            return it->second;
+        }
+    }
+    
+    // 当前线程没有JNIEnv，需要创建新的
+    JNIEnv* env = nullptr;
+    if (jvm->AttachCurrentThread((JNIEnv **) &env, nullptr) != JNI_OK) {
+        LOGE("Failed to attach current thread to JVM");
         return nullptr;
     }
-
+    
+    // 将新的JNIEnv添加到映射表中
+    {
+        std::lock_guard<std::mutex> lock(env_map_mutex);
+        thread_env_map[tid] = env;
+        LOGI("getEnv: Created new JNIEnv %p for thread %d", env, tid);
+    }
+    
     return env;
 }
 
@@ -400,11 +423,50 @@ jclass zJavaVm::findClass(const char* className){
 }
 
 /**
+ * 清理当前线程的JNIEnv
+ * 在线程退出时调用，避免内存泄漏
+ */
+void zJavaVm::cleanupCurrentThreadEnv(){
+    LOGD("cleanupCurrentThreadEnv called");
+    if(jvm == nullptr){
+        LOGD("cleanupCurrentThreadEnv: JVM is not initialized");
+        return;
+    }
+    
+    // 获取当前线程ID
+    int tid = __syscall0(SYS_gettid);
+    
+    // 从映射表中移除当前线程的JNIEnv
+    {
+        std::lock_guard<std::mutex> lock(env_map_mutex);
+        auto it = thread_env_map.find(tid);
+        if (it != thread_env_map.end()) {
+            LOGI("cleanupCurrentThreadEnv: Cleaning up JNIEnv %p for thread %d", it->second, tid);
+            thread_env_map.erase(it);
+        }
+    }
+    
+    // 从JVM中分离当前线程
+    jvm->DetachCurrentThread();
+    LOGI("cleanupCurrentThreadEnv: Thread detached from JVM");
+}
+
+/**
  * 退出JVM
  * 通过内存操作使JVM退出，用于清理资源
  */
 void zJavaVm::exit(){
     LOGD("exit called");
+    
+    // 清理所有线程的JNIEnv
+    {
+        std::lock_guard<std::mutex> lock(env_map_mutex);
+        for (auto& pair : thread_env_map) {
+            LOGI("exit: Cleaning up JNIEnv %p for thread %d", pair.second, pair.first);
+        }
+        thread_env_map.clear();
+    }
+    
     // 修改内存页权限为可读写执行
     mprotect((void *) PAGE_START((long) jvm), PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC);
 
