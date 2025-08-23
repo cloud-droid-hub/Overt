@@ -126,8 +126,8 @@ void zElf::parse_program_header_table() {
             LOGD("load_segment_virtual_offset %llu", load_segment_virtual_offset);
         }
         
-        // 查找可执行且可读的加载段（代码段）
-        if (program_header_table[i].p_type== PT_LOAD && program_header_table[i].p_flags == (PF_X | PF_R)) {
+        // 查找可执行且可读的加载段（代码段） 有的版本代码段是 PF_X | PF_R  有的只是  PF_X
+        if (program_header_table[i].p_type== PT_LOAD && (program_header_table[i].p_flags == (PF_X | PF_R) || program_header_table[i].p_flags == PF_X)) {
             loadable_rx_segment = &(program_header_table[i]);
             LOGD("loadable_rx_segment %p", loadable_rx_segment);
         }
@@ -457,6 +457,7 @@ char *zElf::parse_elf_file_(char *elf_path) {
  * @return 代码段的CRC32校验和
  */
 uint64_t zElf::get_text_segment_crc(){
+    LOGE("loadable_rx_segment is called");
     char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
 
     void* code_mem_ptr = (void*)(base_addr + loadable_rx_segment->p_vaddr);
@@ -495,6 +496,7 @@ uint64_t zElf::get_elf_header_crc(){
  * @return 程序头表的CRC32校验和
  */
 uint64_t zElf::get_program_header_crc(){
+
     char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
 
     void* code_mem_ptr = (void*)(base_addr + elf_header_size);

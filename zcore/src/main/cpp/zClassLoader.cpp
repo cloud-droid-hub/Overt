@@ -265,11 +265,12 @@ static jobject newLocalRef(JNIEnv *env, void *object) {
  * @param env JNI环境指针
  * @param object 局部引用对象
  */
+
 static void deleteLocalRef(JNIEnv *env, jobject object) {
     static void (*DeleteLocalRef)(JNIEnv *, jobject) = nullptr;
     if (DeleteLocalRef == nullptr) {
         // 从libart.so中获取DeleteLocalRef函数指针
-        DeleteLocalRef = (void (*)(JNIEnv *, jobject)) zLinker::getInstance()->find_lib("libart.so").find_symbol("_ZN3art9JavaVMExt14DeleteLocalRefEP8_jobject");
+        DeleteLocalRef = (void (*)(JNIEnv *, jobject)) zLinker::getInstance()->find_lib("libart.so").find_symbol("_ZN3art9JNIEnvExt14DeleteLocalRefEP8_jobject");
     }
     if (DeleteLocalRef != nullptr) {
         DeleteLocalRef(env, object);

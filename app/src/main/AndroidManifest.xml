@@ -19,7 +19,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Overt"
         android:name=".MainApplication"
-        tools:targetApi="31">
+        tools:targetApi="26">
         <activity
             android:name=".MainActivity"
             android:exported="true">

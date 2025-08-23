@@ -27,6 +27,8 @@
     using nonstd::map;
     using nonstd::queue;
     using nonstd::pair;
+    using nonstd::to_string;
+
 #else
 
 // 当使用 std 命名空间时，包含标准库头文件
@@ -43,6 +45,7 @@ using std::vector;
 using std::queue;
 using std::map;
 using std::pair;
+using std::to_string;
 
 
 #endif

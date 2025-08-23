@@ -10,6 +10,7 @@ import androidx.cardview.widget.CardView;
 import androidx.core.content.ContextCompat;
 import androidx.core.widget.NestedScrollView;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -18,12 +19,13 @@ import java.util.Map;
  * 只负责创建可滚动的卡片容器，不包含标题
  */
 public class InfoCardContainer {
-    private static final String TAG = "InfoCardContainer";
+    private static final String TAG = "overt_" + InfoCardContainer.class.getSimpleName();
     
     private Context context;
     private NestedScrollView scrollView;
     private LinearLayout container;
-    private List<InfoCard> cards;
+    private Map<String, InfoCard> cards;
+    private Map<String, CardView> cardViewMap; // 标题到CardView的映射缓存
     
     // 卡片间距
     private int cardMarginTop = 4;
@@ -38,7 +40,8 @@ public class InfoCardContainer {
      */
     public InfoCardContainer(Context context, Map<String, Map<String, Map<String, String>>> cardData) {
         this.context = context;
-        this.cards = new ArrayList<>();
+        this.cards = new HashMap<>();
+        this.cardViewMap = new HashMap<>();
         
         // 创建滚动容器
         createContainer();
@@ -125,7 +128,96 @@ public class InfoCardContainer {
             Map<String, Map<String, String>> info = entry.getValue();
             
             InfoCard card = new InfoCard(context, title, info);
-            cards.add(card);
+            cards.put(title, card);
+        }
+    }
+
+
+    /**
+     * 更新指定title的卡片
+     * 如果卡片不存在，会自动创建新卡片
+     * @param title 卡片标题
+     * @param cardData 新的卡片数据
+     */
+    public void updateCard(String title, Map<String, Map<String, String>> cardData) {
+        updateCard(title, cardData, true);
+    }
+    
+    /**
+     * 更新指定title的卡片
+     * @param title 卡片标题
+     * @param cardData 新的卡片数据
+     * @param createIfNotExists 如果卡片不存在是否自动创建
+     */
+    public void updateCard(String title, Map<String, Map<String, String>> cardData, boolean createIfNotExists) {
+        if (title == null || cardData == null || container == null) return;
+        
+        Log.d(TAG, "Updating card with title: " + title + ", createIfNotExists: " + createIfNotExists);
+        
+        // 检查卡片是否存在
+        if (!cards.containsKey(title)) {
+            if (createIfNotExists) {
+                Log.i(TAG, "Card with title '" + title + "' not found, creating new card");
+                // 如果卡片不存在，创建新卡片
+                addCard(title, cardData);
+            } else {
+                Log.w(TAG, "Card with title '" + title + "' not found, cannot update");
+            }
+            return;
+        }
+        
+        // 获取现有的CardView
+        CardView existingCardView = cardViewMap.get(title);
+        if (existingCardView == null) {
+            if (createIfNotExists) {
+                Log.w(TAG, "CardView for title '" + title + "' not found in cache, recreating card");
+                // 如果CardView不存在，重新创建卡片
+                cards.remove(title);
+                addCard(title, cardData);
+            } else {
+                Log.w(TAG, "CardView for title '" + title + "' not found in cache");
+            }
+            return;
+        }
+        
+        // 创建新卡片
+        InfoCard newCard = new InfoCard(context, title, cardData);
+        
+        // 更新Map中的卡片
+        cards.put(title, newCard);
+        
+        // 获取新卡片的CardView
+        CardView newCardView = newCard.show();
+        
+        // 设置相同的布局参数
+        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        cardParams.setMargins(cardMarginStart, cardMarginTop, cardMarginEnd, cardMarginBottom);
+        newCardView.setLayoutParams(cardParams);
+        
+        // 找到现有CardView在容器中的位置
+        int index = container.indexOfChild(existingCardView);
+        if (index != -1) {
+            // 替换容器中的视图
+            container.removeViewAt(index);
+            container.addView(newCardView, index);
+            
+            // 更新CardView映射缓存
+            cardViewMap.put(title, newCardView);
+            
+            Log.d(TAG, "Successfully updated card: " + title + " at index: " + index);
+        } else {
+            if (createIfNotExists) {
+                Log.w(TAG, "Could not find CardView in container for card: " + title + ", recreating card");
+                // 如果找不到CardView，重新创建卡片
+                cards.remove(title);
+                cardViewMap.remove(title);
+                addCard(title, cardData);
+            } else {
+                Log.w(TAG, "Could not find CardView in container for card: " + title);
+            }
         }
     }
 
@@ -136,7 +228,7 @@ public class InfoCardContainer {
         if (container == null) return;
         
         int totalHeight = 0;
-        for (InfoCard card : cards) {
+        for (InfoCard card : cards.values()) {
             CardView cardView = card.show();
             
             // 设置卡片间距
@@ -146,6 +238,9 @@ public class InfoCardContainer {
             );
             cardParams.setMargins(cardMarginStart, cardMarginTop, cardMarginEnd, cardMarginBottom);
             cardView.setLayoutParams(cardParams);
+            
+            // 添加到CardView映射缓存
+            cardViewMap.put(card.getTitle(), cardView);
             
             // 添加卡片到容器
             container.addView(cardView);
@@ -177,7 +272,7 @@ public class InfoCardContainer {
         scrollView.setBackgroundColor(getBackgroundColor());
         
         // 刷新所有卡片
-        for (InfoCard card : cards) {
+        for (InfoCard card : cards.values()) {
             card.refreshBorder();
             card.refreshTextColors();
         }
@@ -192,15 +287,34 @@ public class InfoCardContainer {
     }
 
     /**
-     * 获取指定索引的卡片
-     * @param index 卡片索引
+     * 根据标题获取卡片
+     * @param title 卡片标题
      * @return InfoCard对象
      */
-    public InfoCard getCard(int index) {
-        if (index >= 0 && index < cards.size()) {
-            return cards.get(index);
+    public InfoCard getCard(String title) {
+        return cards.get(title);
+    }
+    
+    /**
+     * 根据标题获取CardView
+     * @param title 卡片标题
+     * @return CardView对象
+     */
+    public CardView getCardView(String title) {
+        return cardViewMap.get(title);
+    }
+    
+    /**
+     * 获取卡片在容器中的位置索引
+     * @param title 卡片标题
+     * @return 位置索引，-1表示未找到
+     */
+    public int getCardIndex(String title) {
+        CardView cardView = cardViewMap.get(title);
+        if (cardView != null && container != null) {
+            return container.indexOfChild(cardView);
         }
-        return null;
+        return -1;
     }
 
     /**
@@ -208,7 +322,89 @@ public class InfoCardContainer {
      * @return 卡片列表
      */
     public List<InfoCard> getAllCards() {
-        return new ArrayList<>(cards);
+        return new ArrayList<>(cards.values());
+    }
+    
+    /**
+     * 获取所有卡片标题
+     * @return 标题列表
+     */
+    public List<String> getAllCardTitles() {
+        return new ArrayList<>(cards.keySet());
+    }
+    
+    /**
+     * 检查指定标题的卡片是否存在
+     * @param title 卡片标题
+     * @return true表示存在，false表示不存在
+     */
+    public boolean hasCard(String title) {
+        return cards.containsKey(title);
+    }
+    
+    /**
+     * 移除指定标题的卡片
+     * @param title 卡片标题
+     * @return true表示成功移除，false表示卡片不存在
+     */
+    public boolean removeCard(String title) {
+        if (!cards.containsKey(title)) {
+            return false;
+        }
+        
+        // 从CardView映射缓存中获取CardView
+        CardView cardView = cardViewMap.get(title);
+        if (cardView != null) {
+            // 从容器中移除视图
+            if (container != null) {
+                container.removeView(cardView);
+            }
+        }
+        
+        // 从Map中移除
+        cards.remove(title);
+        cardViewMap.remove(title);
+        
+        Log.d(TAG, "Removed card: " + title);
+        return true;
+    }
+    
+    /**
+     * 添加单个卡片
+     * @param title 卡片标题
+     * @param cardData 卡片数据
+     * @return true表示成功添加，false表示卡片已存在
+     */
+    public boolean addCard(String title, Map<String, Map<String, String>> cardData) {
+        if (cards.containsKey(title)) {
+            Log.w(TAG, "Card with title '" + title + "' already exists");
+            return false;
+        }
+        
+        InfoCard card = new InfoCard(context, title, cardData);
+        cards.put(title, card);
+        
+        // 显示卡片
+        CardView cardView = card.show();
+        
+        // 设置卡片间距
+        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        cardParams.setMargins(cardMarginStart, cardMarginTop, cardMarginEnd, cardMarginBottom);
+        cardView.setLayoutParams(cardParams);
+        
+        // 添加到CardView映射缓存
+        cardViewMap.put(title, cardView);
+        
+        // 添加卡片到容器
+        if (container != null) {
+            container.addView(cardView);
+        }
+        
+        Log.d(TAG, "Added new card: " + title);
+        return true;
     }
     
     /**
@@ -223,6 +419,7 @@ public class InfoCardContainer {
         // 清除现有卡片
         container.removeAllViews();
         cards.clear();
+        cardViewMap.clear();
         
         // 添加新卡片数据
         addAllCards(newCardData);

@@ -5,23 +5,23 @@ import android.content.Context;
 import android.util.Log;
 
 public class MainApplication extends Application {
-
+    private static final String TAG = "overt_" + MainApplication.class.getSimpleName();
     static {
-        Log.e("lxz", "MainApplication static System.loadLibrary overt");
+        Log.e(TAG, "MainApplication static System.loadLibrary overt");
         System.loadLibrary("overt"); // 注意不能在 attachBaseContext 中加载，否则会卡住
     }
 
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
-        Log.e("lxz", "MainApplication attachBaseContext");
+        Log.e(TAG, "MainApplication attachBaseContext");
 
     }
 
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.e("lxz", "MainApplication onCreate");
+        Log.e(TAG, "MainApplication onCreate");
 
     }
 }

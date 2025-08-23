@@ -54,16 +54,16 @@ map<string, map<string, string>> get_linker_info(){
     // 遍历关键系统库，检查其CRC校验和
     for(int i = 0; i < so_list.size(); ++i) {
         string so_path = so_list[i];
-        
+
         // 提取库文件名（去掉路径部分）
         string so_name = so_path.substr(so_path.rfind('/') + 1);
-        
+
         // 只检查.so文件
         if(string_end_with(so_name.c_str(), ".so")){
             // 调用CRC校验和检查函数
             int ret = zLinker::check_lib_crc(so_name.c_str());
             LOGD("check_lib_crc %s %d", so_name.c_str(), ret);
-            
+
             // 如果CRC校验失败，标记为风险
             if (ret!= 0){
                 LOGW("CRC check failed for library: %s", so_name.c_str());

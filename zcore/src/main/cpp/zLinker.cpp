@@ -150,10 +150,13 @@ bool zLinker::check_lib_crc(const char* so_name){
     
     // 获取共享库的zElf对象（文件版本）
     zElf elf_lib_file = zLinker::getInstance()->find_lib(so_name);
+    LOGI("zElf elf_lib_file = zLinker::getInstance()->find_lib(so_name);");
+
     // 计算文件版本的CRC校验和（ELF头 + 程序头 + 代码段）
     uint64_t elf_lib_file_crc = elf_lib_file.get_elf_header_crc() + 
                                 elf_lib_file.get_program_header_crc() + 
                                 elf_lib_file.get_text_segment_crc();
+    LOGI("check_lib_hash elf_lib_file: %p crc: %lu", elf_lib_file.elf_file_ptr, elf_lib_file_crc);
 
     // 获取共享库的内存版本zElf对象
     zElf elf_lib_mem = zElf((void*)zLinker::get_maps_base(so_name));
@@ -162,7 +165,7 @@ bool zLinker::check_lib_crc(const char* so_name){
                                elf_lib_mem.get_program_header_crc() + 
                                elf_lib_mem.get_text_segment_crc();
 
-    LOGI("check_lib_hash elf_lib_file: %p crc: %lu", elf_lib_file.elf_file_ptr, elf_lib_file_crc);
+
     LOGI("check_lib_hash elf_lib_mem: %p crc: %lu", elf_lib_mem.elf_mem_ptr, elf_lib_mem_crc);
 
     // 比较文件版本和内存版本的CRC校验和

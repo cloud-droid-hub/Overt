@@ -90,6 +90,8 @@ namespace nonstd {
         // Access the underlying C-string
         const char* c_str() const;
 
+
+
         // Iterators for range-based for loop support
         class iterator {
         private:
@@ -202,6 +204,8 @@ namespace nonstd {
         string& append(const char* s);
 
     };
+
+    string to_string(int value);
 #endif
 } // namespace nonstd
 

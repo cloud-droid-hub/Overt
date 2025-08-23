@@ -27,7 +27,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zTee.cpp
         zBroadCast.cpp
         zJson.cpp
-        zThread.cpp
+        zTask.cpp
+        zThreadPool.cpp
         zChildThread.cpp
         zShell.cpp
 

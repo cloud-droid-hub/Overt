@@ -1077,6 +1077,33 @@ namespace nonstd {
         while (s[n] != '\0') ++n;   // 手动求长度
         return append(s, n);
     }
+
+
+    string to_string(int value) {
+        int base = 10;
+        if (base < 2 || base > 36) {
+            throw std::invalid_argument("Invalid base. Base must be between 2 and 36.");
+        }
+
+        string result;
+        bool isNegative = (value < 0 && base == 10);
+
+        // 使用更宽的类型防止 INT_MIN 溢出
+        unsigned int uValue = (value < 0) ? static_cast<unsigned int>(-(long long)value) : static_cast<unsigned int>(value);
+
+        do {
+            int remainder = uValue % base;
+            char digit = (remainder < 10) ? ('0' + remainder) : ('a' + remainder - 10);
+            result = digit + result;
+            uValue /= base;
+        } while (uValue);
+
+        if (isNegative) {
+            result = "-" + result;
+        }
+
+        return result;
+    }
 #endif
 } // namespace nonstd
 

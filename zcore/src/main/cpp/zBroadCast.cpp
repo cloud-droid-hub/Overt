@@ -83,7 +83,7 @@ string get_local_ip() {
         return ip;
     } else {
         LOGW("No valid local IP address found");
-        return NULL;
+        return "";
     }
 }
 

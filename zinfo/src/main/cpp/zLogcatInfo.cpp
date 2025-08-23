@@ -18,6 +18,8 @@ map<string, map<string, string>> get_logcat_info(){
 
         string pid_str = itoa(i, 10);
 
+
+
         string pid_path_str = "/proc/" + pid_str;
         string cmd_str = "logcat -d -v time | grep avc | grep u:r:su:s0 | grep " + pid_str;
 

@@ -26,8 +26,9 @@
 #include "zTeeInfo.h"
 #include "zSslInfo.h"
 #include "zLocalNetworkInfo.h"
-#include "zThread.h"
+#include "zThreadPool.h"
 #include "zLogcatInfo.h"
+#include "zJavaVm.h"
 
 #define MAX_CPU 8
 
@@ -82,101 +83,196 @@ void zManager::update_device_info(const string& key, const map<string, map<strin
     LOGI("update_device_info: updated key=%s", key.c_str());
 };
 
+const map<string, map<string, string>> zManager::get_info(const string& key){
+    LOGD("get_info called, key=%s", key.c_str());
+    // 使用独占写锁，确保更新操作的原子性
+    std::unique_lock<std::shared_mutex> lock(device_info_mtx_);
+    map<string, map<string, string>> info = device_info[key];
+    LOGI("update_device_info: updated key=%s", key.c_str());
+    return info;
+};
+
+void zManager::add_tasks(){
+
+    map<string, void(zManager::*)()> map_function = {
+            {"maps_info", &zManager::update_maps_info},
+            {"task_info", &zManager::update_task_info},
+            {"tee_info", &zManager::update_tee_info},
+            {"class_loader_info", &zManager::update_class_loader_info},
+            {"linker_info", &zManager::update_linker_info},
+            {"mounts_info", &zManager::update_mounts_info},
+            {"package_info", &zManager::update_package_info},
+            {"system_setting_info", &zManager::update_system_setting_info},
+            {"class_loader_info", &zManager::update_class_loader_info},
+            {"root_file_info", &zManager::update_root_file_info},
+            {"port_info", &zManager::update_port_info},
+            {"time_info", &zManager::update_time_info},
+            {"ssl_info", &zManager::update_ssl_info},
+            {"local_network_info", &zManager::update_local_network_info},
+            {"logcat_info", &zManager::update_logcat_info},
+    };
+
+    while (true){
+        for(auto item : map_function){
+            if(!zThreadPool::getInstance()->hasTaskName(item.first)){
+                zThreadPool::getInstance()->addTask(item.first, zManager::getInstance(), item.second);
+            }
+        }
+        sleep(time_interval);
+    }
+};
+
 void zManager::update_ssl_info(){
     // 收集SSL信息 - 检测SSL证书异常
     update_device_info("ssl_info", get_ssl_info());
+    notice_java("ssl_info");
 };
 
 void zManager::update_local_network_info(){
 // 收集本地网络信息 - 检测同一网络中的其他Overt设备
     zManager::getInstance()->update_device_info("local_network_info", get_local_network_info());
+    notice_java("local_network_info");
 };
 
 void zManager::update_task_info(){
 // 收集任务信息 - 检测Frida等调试工具注入的进程
     zManager::getInstance()->update_device_info("task_info", get_task_info());
+    notice_java("task_info");
 };
 
 void zManager::update_maps_info(){
 // 收集内存映射信息 - 检测关键系统库是否被篡改
     zManager::getInstance()->update_device_info("maps_info", get_maps_info());
+    notice_java("maps_info");
 };
 
 void zManager::update_root_file_info(){
 // 收集Root文件信息 - 检测Root相关文件
     zManager::getInstance()->update_device_info("root_file_info", get_root_file_info());
+    notice_java("root_file_info");
 };
 
 void zManager::update_mounts_info(){
 // 收集挂载点信息 - 检测异常的文件系统挂载
     zManager::getInstance()->update_device_info("mounts_info", get_mounts_info());
+    notice_java("mounts_info");
 };
 
 void zManager::update_system_prop_info(){
 // 收集系统属性信息 - 检测系统配置异常
     zManager::getInstance()->update_device_info("system_prop_info", get_system_prop_info());
+    notice_java("system_prop_info");
 };
 
 void zManager::update_linker_info(){
 // 收集链接器信息 - 检测动态链接库加载异常
     zManager::getInstance()->update_device_info("linker_info", get_linker_info());
+    notice_java("linker_info");
 };
 
 void zManager::update_port_info(){
-// 收集端口信息 - 检测网络端口异常
+    LOGI("update_port_info: starting port info collection");
     zManager::getInstance()->update_device_info("port_info", get_port_info());
+    notice_java("port_info");
 };
 
 void zManager::update_class_loader_info(){
 // 收集类加载器信息 - 检测Java层异常
     zManager::getInstance()->update_device_info("class_loader_info", get_class_loader_info());
+    notice_java("class_loader_info");
 };
 
 void zManager::update_package_info(){
 // 收集包信息 - 检测已安装应用异常
     zManager::getInstance()->update_device_info("package_info", get_package_info());
+    notice_java("package_info");
 };
 
 
 void zManager::update_system_setting_info(){
 // 收集系统设置信息 - 检测系统设置异常
     zManager::getInstance()->update_device_info("system_setting_info", get_system_setting_info());
+    notice_java("system_setting_info");
 };
 
 
 void zManager::update_tee_info(){
 // 收集TEE信息 - 检测可信执行环境异常
-    zManager::getInstance()->update_device_info("tee_info", get_tee_info());
+    update_device_info("tee_info", get_tee_info());
+    notice_java("tee_info");
 };
 
 
 void zManager::update_time_info(){
 // 收集时间信息 - 检测系统时间异常
     zManager::getInstance()->update_device_info("time_info", get_time_info());
-
+    notice_java("time_info");
 };
 
 void zManager::update_logcat_info(){
 // 检测系统日志
     zManager::getInstance()->update_device_info("logcat_info", get_logcat_info());
-
+    notice_java("logcat_info");
 };
 
+void zManager::notice_java(string title){
+    LOGE("notice_java: %s", title.c_str());
+    JNIEnv *env = zJavaVm::getInstance()->getEnv();
 
+    if(env == nullptr){
+        LOGE("notice_java: env is null");
+        return;
+    }
 
+    // 查找MainActivity类
+    jclass activity_class = zJavaVm::getInstance()->findClass("com/example/overt/MainActivity");
+    if (activity_class == nullptr) {
+        LOGE("notice_java: activity_class is null");
+        return;
+    }
 
+    // 获取Java层的回调方法ID
+    jmethodID method_id = env->GetStaticMethodID(activity_class, "onCardInfoUpdated", "(Ljava/lang/String;Ljava/util/Map;)V");
+    if (method_id == nullptr){
+        LOGE("notice_java: method_id onCardInfoUpdated is null");
+        return;
+    }
 
+    // 使用读锁安全地获取设备信息
+    map<string, map<string, string>> card_data = get_info(title);
 
+    // 创建Java字符串
+    jstring title_jstr = env->NewStringUTF(title.c_str());
+    if (title_jstr == nullptr) {
+        LOGE("notice_java: Failed to create title string");
+        return;
+    }
 
+    // 转换数据为Java Map
+    jobject map = cmap_to_jmap_nested(env, card_data);
+    if (map == nullptr) {
+        LOGE("notice_java: Failed to convert data to Java Map");
+        env->DeleteLocalRef(title_jstr);
+        return;
+    }
 
+    // 调用Java层方法通知信息更新完成
+    LOGI("notice_java: calling onCardInfoUpdated for title: %s", title.c_str());
+    env->CallStaticVoidMethod(activity_class, method_id, title_jstr, map);
 
+    // 检查是否抛出异常
+    if (env->ExceptionCheck()) {
+        LOGE("notice_java: Exception occurred during Java method call");
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+    }
 
+    // 清理局部引用
+    env->DeleteLocalRef(title_jstr);
+    env->DeleteLocalRef(map);
 
-
-
-
-
-
+    LOGI("notice_java: completed successfully for title: %s", title.c_str());
+}
 
 /**
  * 清空所有设备信息
@@ -190,8 +286,6 @@ void zManager::clear_device_info(){
     device_info.clear();
     LOGI("clear_device_info");
 };
-
-
 
 vector<int> zManager::get_big_core_list() {
     LOGI("get_big_core_list called");
