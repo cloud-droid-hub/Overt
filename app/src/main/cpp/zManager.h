@@ -32,7 +32,18 @@ private:
     // 单例实例指针
     static zManager* instance;
 
-    int time_interval = 10;
+    int time_interval = 10;  // 任务执行间隔（秒）
+    
+    // 任务执行状态管理
+    struct TaskStatus {
+        time_t last_execution = 0;  // 最后执行时间
+        bool is_running = false;    // 是否正在运行
+        int execution_count = 0;    // 执行次数
+        time_t last_success = 0;    // 最后成功执行时间
+    };
+    
+    map<string, TaskStatus> task_status_map;  // 任务状态映射
+    mutable std::mutex task_status_mutex;     // 任务状态互斥锁
 
     // 设备信息存储结构：类别 -> 项目 -> 属性 -> 值
     // 例如：{"task_info" -> {"进程名" -> {"risk" -> "error", "explain" -> "检测到Frida"}}}
@@ -47,14 +58,49 @@ public:
      * @return zDevice单例指针
      */
     static zManager* getInstance() {
+        // 双重检查锁定模式：先检查，避免不必要的锁开销
         if (instance == nullptr) {
-            instance = new zManager();
+            static std::mutex instance_mutex;
+            std::lock_guard<std::mutex> lock(instance_mutex);
+            
+            // 再次检查，防止多线程竞争
+            if (instance == nullptr) {
+                try {
+                    instance = new zManager();
+                    LOGI("zManager: Created new singleton instance");
+                } catch (const std::exception& e) {
+                    LOGE("zManager: Failed to create singleton instance: %s", e.what());
+                    return nullptr;
+                } catch (...) {
+                    LOGE("zManager: Failed to create singleton instance with unknown error");
+                    return nullptr;
+                }
+            }
         }
         return instance;
     }
 
     // 析构函数
     ~zManager();
+    
+    // 清理单例实例（主要用于测试或程序退出时）
+    static void cleanup() {
+        // 使用与 getInstance() 相同的互斥锁
+        static std::mutex instance_mutex;
+        std::lock_guard<std::mutex> lock(instance_mutex);
+        
+        if (instance != nullptr) {
+            try {
+                delete instance;
+                instance = nullptr;
+                LOGI("zManager: Singleton instance cleaned up");
+            } catch (const std::exception& e) {
+                LOGE("zManager: Exception during cleanup: %s", e.what());
+            } catch (...) {
+                LOGE("zManager: Unknown exception during cleanup");
+            }
+        }
+    }
 
     /**
      * 获取所有设备信息
@@ -107,8 +153,8 @@ public:
     void update_time_info();
     void update_logcat_info();
     void notice_java(string title);
-    void add_tasks();
-
+    void round_tasks();
+    
     // 将 map<string, string> 转换为 Java Map<String, String>
     jobject cmap_to_jmap(JNIEnv *env, const map<string, string>& cmap){
         LOGD("cmap_to_jmap called, map size: %zu", cmap.size());

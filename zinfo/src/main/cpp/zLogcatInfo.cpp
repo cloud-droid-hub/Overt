@@ -18,17 +18,15 @@ map<string, map<string, string>> get_logcat_info(){
 
         string pid_str = itoa(i, 10);
 
-
-
         string pid_path_str = "/proc/" + pid_str;
-        string cmd_str = "logcat -d -v time | grep avc | grep u:r:su:s0 | grep " + pid_str;
+        string cmd_str = "logcat -d | grep avc | grep u:r:su:s0 | grep " + pid_str;
 
         struct stat st;
         stat(pid_path_str.c_str(), &st);
         string ret = runShell(cmd_str);
 
         if(strstr(ret.c_str(), "u:r:su:s0")){
-            LOGE("find zygiskd pid %d", i);
+            LOGE("find zygiskd in logcat %s", ret.c_str());
             info[ret.c_str()]["risk"] = "error";
             info[ret.c_str()]["explain"] = "u:r:su:s0 find in logcat";
             break;

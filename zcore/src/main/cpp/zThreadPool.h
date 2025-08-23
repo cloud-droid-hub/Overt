@@ -12,7 +12,7 @@
 #include "zStd.h"
 #include "zStdUtil.h"
 #include "zChildThread.h"
-
+#include <shared_mutex>
 
 class zThreadPool {
 private:
@@ -53,6 +53,27 @@ public:
      * 析构函数
      */
     ~zThreadPool();
+    
+    /**
+     * 清理单例实例（主要用于测试或程序退出时）
+     */
+    static void cleanup() {
+        // 使用与 getInstance() 相同的互斥锁
+        static std::mutex instance_mutex;
+        std::lock_guard<std::mutex> lock(instance_mutex);
+        
+        if (instance != nullptr) {
+            try {
+                delete instance;
+                instance = nullptr;
+                LOGI("zThreadPool: Singleton instance cleaned up");
+            } catch (const std::exception& e) {
+                LOGE("zThreadPool: Exception during cleanup: %s", e.what());
+            } catch (...) {
+                LOGE("zThreadPool: Unknown exception during cleanup");
+            }
+        }
+    }
 
     bool startThreadPool(size_t threadCount = 4);
 
@@ -162,10 +183,13 @@ public:
 
     bool hasTaskName(string taskName){
         // 使用任务队列锁保护队列操作
+        LOGE("hasTaskName is called");
         pthread_mutex_lock(&m_taskQueueMutex);
         bool hasTask = false;
-        for(zTask* task : m_tasks){
-            if (taskName == task->getTaskName()){
+
+        for(zChildThread* m_workerThread : m_workerThreads){
+            LOGE("m_workerThread->getThreadName() %s", m_workerThread->getName().c_str());
+            if (m_workerThread->getTaskName() == taskName){
                 hasTask = true;
                 break;
             }

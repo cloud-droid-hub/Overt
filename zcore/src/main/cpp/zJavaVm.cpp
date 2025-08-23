@@ -45,18 +45,10 @@ zJavaVm::zJavaVm() {
     LOGI("JVM initialized successfully");
 }
 
-/**
- * 获取zJavaVm单例实例
- * 采用懒加载模式，首次调用时创建实例
- * @return zJavaVm单例指针
- */
-zJavaVm* zJavaVm::getInstance() {
-    LOGD("getInstance called");
-    if (instance == nullptr) {
-        instance = new zJavaVm();
-    }
-    return instance;
-}
+
+
+
+
 
 /**
  * 获取Java虚拟机指针

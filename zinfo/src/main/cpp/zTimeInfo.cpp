@@ -157,11 +157,9 @@ long get_remote_current_time(){
   string pinduoduo_time_url = "https://api.pinduoduo.com/api/server/_stm";
   string pinduoduo_time_fingerprint_sha256 = "604D2DE1AD32FF364041831DE23CBFC2C48AD5DEF8E665103691B6472D07D4D0";
 
-  // 创建HTTPS请求 - 使用2秒超时
+  zHttps https_client(5);
   HttpsRequest request(pinduoduo_time_url, "GET", 3);
-
-  // 执行HTTPS请求并获取响应对象
-  HttpsResponse response = zHttps::getInstance()->performRequest(request);
+  HttpsResponse response = https_client.performRequest(request);
 
   // 输出证书信息
   if (!response.error_message.empty()) {

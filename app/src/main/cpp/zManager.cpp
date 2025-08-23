@@ -1,7 +1,7 @@
 //
 // Created by lxz on 2025/7/10.
 //
-#include <linux/resource.h>
+
 #include <sys/resource.h>
 #include "zLog.h"
 #include "zLibc.h"
@@ -92,9 +92,12 @@ const map<string, map<string, string>> zManager::get_info(const string& key){
     return info;
 };
 
-void zManager::add_tasks(){
 
-    map<string, void(zManager::*)()> map_function = {
+void zManager::round_tasks(){
+    LOGI("add_tasks: starting periodic task management loop");
+    sleep(3);
+    // 定义所有需要周期性执行的任务
+    map<string, void(zManager::*)()> periodic_tasks = {
             {"maps_info", &zManager::update_maps_info},
             {"task_info", &zManager::update_task_info},
             {"tee_info", &zManager::update_tee_info},
@@ -103,7 +106,6 @@ void zManager::add_tasks(){
             {"mounts_info", &zManager::update_mounts_info},
             {"package_info", &zManager::update_package_info},
             {"system_setting_info", &zManager::update_system_setting_info},
-            {"class_loader_info", &zManager::update_class_loader_info},
             {"root_file_info", &zManager::update_root_file_info},
             {"port_info", &zManager::update_port_info},
             {"time_info", &zManager::update_time_info},
@@ -112,14 +114,30 @@ void zManager::add_tasks(){
             {"logcat_info", &zManager::update_logcat_info},
     };
 
-    while (true){
-        for(auto item : map_function){
-            if(!zThreadPool::getInstance()->hasTaskName(item.first)){
-                zThreadPool::getInstance()->addTask(item.first, zManager::getInstance(), item.second);
+    LOGI("add_tasks: initialized %zu periodic tasks", periodic_tasks.size());
+    
+    while (true) {
+        try {
+            // 检查每个任务是否需要执行
+            for(const auto& task : periodic_tasks) {
+                const string& task_name = task.first;
+                if(!zThreadPool::getInstance()->hasTaskName(task_name)){
+                     zThreadPool::getInstance()->addTask(task_name, zManager::getInstance(), task.second);
+                }
             }
+            // 等待一段时间后再次检查
+            LOGD("add_tasks: waiting %d seconds before next cycle", time_interval);
+            sleep(time_interval*1);
+        } catch (const std::exception& e) {
+            LOGE("add_tasks: exception occurred: %s", e.what());
+            sleep(5); // 发生异常时短暂等待
+        } catch (...) {
+            LOGE("add_tasks: unknown exception occurred");
+            sleep(5); // 发生异常时短暂等待
         }
-        sleep(time_interval);
     }
+    
+    LOGI("add_tasks: periodic task management loop stopped");
 };
 
 void zManager::update_ssl_info(){
@@ -216,7 +234,14 @@ void zManager::update_logcat_info(){
 };
 
 void zManager::notice_java(string title){
-    LOGE("notice_java: %s", title.c_str());
+    LOGI("notice_java: %s", title.c_str());
+
+    // 添加线程安全保护
+    static std::mutex notice_java_mutex;
+    std::lock_guard<std::mutex> lock(notice_java_mutex);
+
+    LOGI("notice_java: lock by %s ", title.c_str());
+
     JNIEnv *env = zJavaVm::getInstance()->getEnv();
 
     if(env == nullptr){

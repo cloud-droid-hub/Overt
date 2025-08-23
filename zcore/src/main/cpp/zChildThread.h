@@ -135,6 +135,11 @@ public:
     zChildThread* setName(const string& name);
     string getName() const;
 
+    string getTaskName(){
+        if (!isTaskRunning()) return "";
+        return m_task->getTaskName();
+    }
+
 
 private:
     // 私有方法

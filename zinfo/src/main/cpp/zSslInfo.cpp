@@ -15,11 +15,10 @@ string get_location() {
   string qq_location_url = "https://r.inews.qq.com/api/ip2city";
   string qq_location_url_fingerprint_sha256 = "DD8D04E8BCC7390E2BA8C21F6730C7595D3424B8E8C614F06B750ABE99AF16C7";
 
-  // 创建HTTPS请求 - 使用2秒超时
-  HttpsRequest request(qq_location_url, "GET", 3);
+    zHttps https_client(5);
+    HttpsRequest request(qq_location_url, "GET", 3);
+    HttpsResponse response = https_client.performRequest(request);
 
-  // 执行HTTPS请求并获取响应对象
-  HttpsResponse response = zHttps::getInstance()->performRequest(request);
 
   // 输出证书信息
   if (!response.error_message.empty()) {
@@ -54,7 +53,7 @@ string get_location() {
       location = country + province + city;
   }
 
-          LOGI("get_location: %s", location.c_str());
+  LOGI("get_location: %s", location.c_str());
 
   return location ;
 }
@@ -72,11 +71,14 @@ map<string, map<string, string>> get_ssl_info(){
     for (auto& item : url_info) {
         LOGI("=== Testing URL: %s ===", item.first.c_str());
 
-        // 创建HTTPS请求 - 使用2秒超时
-        HttpsRequest request(item.first, "GET", 3);
+//        // 创建HTTPS请求 - 使用3秒超时
+//        HttpsRequest request(item.first, "GET", 3);
+//        // 执行HTTPS请求并获取响应对象
+//        HttpsResponse response = zHttps::getInstance()->performRequest(request);
 
-        // 执行HTTPS请求并获取响应对象
-        HttpsResponse response = zHttps::getInstance()->performRequest(request);
+        zHttps https_client(5);
+        HttpsRequest request(item.first, "GET", 3);
+        HttpsResponse response = https_client.performRequest(request);
 
         // 输出证书信息
         if (!response.error_message.empty()) {

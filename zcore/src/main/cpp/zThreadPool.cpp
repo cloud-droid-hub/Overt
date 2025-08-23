@@ -32,11 +32,34 @@ zThreadPool::zThreadPool() : m_name("zThread"), m_maxThreads(8), m_running(false
  * @return zThread单例指针
  */
 zThreadPool* zThreadPool::getInstance() {
-    // 检查实例是否已存在，如果不存在则创建新实例
+    // 双重检查锁定模式：先检查，避免不必要的锁开销
     if (instance == nullptr) {
-        instance = new zThreadPool();
-        // 只在首次创建时启动线程池
-        instance->startThreadPool(8);
+        static std::mutex instance_mutex;
+        std::lock_guard<std::mutex> lock(instance_mutex);
+        
+        // 再次检查，防止多线程竞争
+        if (instance == nullptr) {
+            try {
+                instance = new zThreadPool();
+                // 只在首次创建时启动线程池
+                bool success = instance->startThreadPool(8);
+                if (success) {
+                    LOGI("zThreadPool: Created new singleton instance and started thread pool");
+                } else {
+                    LOGE("zThreadPool: Failed to start thread pool after creating instance");
+                    // 如果启动失败，清理实例
+                    delete instance;
+                    instance = nullptr;
+                    return nullptr;
+                }
+            } catch (const std::exception& e) {
+                LOGE("zThreadPool: Failed to create singleton instance: %s", e.what());
+                return nullptr;
+            } catch (...) {
+                LOGE("zThreadPool: Failed to create singleton instance with unknown error");
+                return nullptr;
+            }
+        }
     }
     return instance;
 }
