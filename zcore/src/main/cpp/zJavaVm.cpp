@@ -3,6 +3,7 @@
 //
 
 #include <jni.h>
+#include <mutex>
 
 #include "zElf.h"
 #include "zLinker.h"
@@ -11,8 +12,31 @@
 #include "zJavaVm.h"
 #include "syscall.h"
 
+
 // 静态单例实例指针
 zJavaVm* zJavaVm::instance = nullptr;
+
+/**
+ * 获取单例实例
+ * 采用线程安全的懒加载模式，首次调用时创建实例
+ * @return zJavaVm单例指针
+ */
+zJavaVm* zJavaVm::getInstance() {
+    // 使用 std::call_once 确保线程安全的单例初始化
+    static std::once_flag init_flag;
+    std::call_once(init_flag, []() {
+        try {
+            instance = new zJavaVm();
+            LOGI("zJavaVm: Created singleton instance");
+        } catch (const std::exception& e) {
+            LOGE("zJavaVm: Failed to create singleton instance: %s", e.what());
+        } catch (...) {
+            LOGE("zJavaVm: Failed to create singleton instance with unknown error");
+        }
+    });
+    
+    return instance;
+}
 
 /**
  * zJavaVm构造函数
@@ -47,10 +71,6 @@ zJavaVm::zJavaVm() {
 }
 
 
-
-
-
-
 /**
  * 获取Java虚拟机指针
  * @return JavaVM指针
@@ -66,14 +86,13 @@ JavaVM* zJavaVm::getJvm(){
  * @return JNIEnv指针，失败时返回nullptr
  */
 JNIEnv* zJavaVm::getEnv(){
-    LOGI("getEnv called");
+    LOGI("getEnv is called");
     if(jvm == nullptr){
         LOGE("JVM is not initialized");
         return nullptr;
     }
 
     // 获取当前线程ID
-
     int tid = __syscall0(SYS_gettid);
 
     // 先检查是否已经有当前线程的JNIEnv
@@ -453,7 +472,7 @@ void zJavaVm::cleanupCurrentThreadEnv(){
 
 /**
  * 退出JVM
- * 通过内存操作使JVM退出，用于清理资源
+ * 通过内存操作使JVM产生不易于排查的崩溃退出（我就是故意这么干的！ (￣▽￣) ）
  */
 void zJavaVm::exit(){
     LOGD("exit called");

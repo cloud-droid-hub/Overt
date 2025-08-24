@@ -53,15 +53,9 @@ private:
 public:
     /**
      * 获取单例实例
-     * 采用懒加载模式，首次调用时创建实例
      * @return zLinker单例指针
      */
-    static zLinker* getInstance() {
-        if (instance == nullptr) {
-            instance = new zLinker();
-        }
-        return instance;
-    }
+    static zLinker* getInstance();
 
     // soinfo链表头指针
     soinfo* soinfo_head;

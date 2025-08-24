@@ -9,9 +9,32 @@
 #include "zLog.h"
 #include "zFile.h"
 #include "zLinker.h"
+#include <mutex>
 
 // 静态单例实例指针
 zLinker* zLinker::instance = nullptr;
+
+/**
+ * 获取单例实例
+ * 采用线程安全的懒加载模式，首次调用时创建实例
+ * @return zLinker单例指针
+ */
+zLinker* zLinker::getInstance() {
+    // 使用 std::call_once 确保线程安全的单例初始化
+    static std::once_flag init_flag;
+    std::call_once(init_flag, []() {
+        try {
+            instance = new zLinker();
+            LOGI("zLinker: Created singleton instance");
+        } catch (const std::exception& e) {
+            LOGE("zLinker: Failed to create singleton instance: %s", e.what());
+        } catch (...) {
+            LOGE("zLinker: Failed to create singleton instance with unknown error");
+        }
+    });
+    
+    return instance;
+}
 
 /**
  * zLinker构造函数

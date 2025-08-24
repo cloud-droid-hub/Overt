@@ -60,7 +60,7 @@ string HttpsRequest::buildRequest() const {
     // 只有在非默认端口时才添加端口号
     if (port != 443) {
         request += ":";
-        request += itoa(port, 10);
+        request += to_string(port);
     }
     request += "\r\n";
     // 添加一些标准的HTTP头部
@@ -72,8 +72,7 @@ string HttpsRequest::buildRequest() const {
     }
     if (!body.empty()) {
         request += "Content-Length: ";
-//        request += std::to_string(body.length()).c_str();
-        request += itoa(body.length(), 10);
+        request += to_string(body.length());
         request += "\r\n";
     }
     request += "\r\n";

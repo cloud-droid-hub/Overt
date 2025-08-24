@@ -26,6 +26,7 @@
 void __attribute__((constructor)) init_(void){
     LOGI("init_ start");
 
+    // 懒汉模式：首次调用时自动初始化
     zThreadPool::getInstance()->addTask("round_tasks", zManager::getInstance(), &zManager::round_tasks);
 
     LOGI("init_ over");

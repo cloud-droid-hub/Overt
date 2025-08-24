@@ -32,15 +32,9 @@ private:
 public:
     /**
      * 获取单例实例
-     * 采用懒加载模式，首次调用时创建实例
      * @return zClassLoader单例指针
      */
-    static zClassLoader* getInstance() {
-        if (instance == nullptr) {
-            instance = new zClassLoader();
-        }
-        return instance;
-    }
+    static zClassLoader* getInstance();
 
     // 析构函数
     ~zClassLoader();

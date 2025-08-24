@@ -59,29 +59,7 @@ public:
      * 获取单例实例
      * @return zJavaVm单例指针
      */
-
-    static zJavaVm* getInstance() {
-        // 双重检查锁定模式：先检查，避免不必要的锁开销
-        if (instance == nullptr) {
-            static std::mutex instance_mutex;
-            std::lock_guard<std::mutex> lock(instance_mutex);
-
-            // 再次检查，防止多线程竞争
-            if (instance == nullptr) {
-                try {
-                    instance = new zJavaVm();
-                    LOGI("zJavaVm: Created new singleton instance");
-                } catch (const std::exception& e) {
-                    LOGE("zJavaVm: Failed to create singleton instance: %s", e.what());
-                    return nullptr;
-                } catch (...) {
-                    LOGE("zJavaVm: Failed to create singleton instance with unknown error");
-                    return nullptr;
-                }
-            }
-        }
-        return instance;
-    }
+    static zJavaVm* getInstance();
     /**
      * 初始化JVM管理器
      * 只能在主线程调用

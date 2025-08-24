@@ -55,52 +55,15 @@ private:
 public:
     /**
      * 获取单例实例
-     * @return zDevice单例指针
+     * @return zManager单例指针
      */
-    static zManager* getInstance() {
-        // 双重检查锁定模式：先检查，避免不必要的锁开销
-        if (instance == nullptr) {
-            static std::mutex instance_mutex;
-            std::lock_guard<std::mutex> lock(instance_mutex);
-            
-            // 再次检查，防止多线程竞争
-            if (instance == nullptr) {
-                try {
-                    instance = new zManager();
-                    LOGI("zManager: Created new singleton instance");
-                } catch (const std::exception& e) {
-                    LOGE("zManager: Failed to create singleton instance: %s", e.what());
-                    return nullptr;
-                } catch (...) {
-                    LOGE("zManager: Failed to create singleton instance with unknown error");
-                    return nullptr;
-                }
-            }
-        }
-        return instance;
-    }
+    static zManager* getInstance();
 
     // 析构函数
     ~zManager();
     
     // 清理单例实例（主要用于测试或程序退出时）
-    static void cleanup() {
-        // 使用与 getInstance() 相同的互斥锁
-        static std::mutex instance_mutex;
-        std::lock_guard<std::mutex> lock(instance_mutex);
-        
-        if (instance != nullptr) {
-            try {
-                delete instance;
-                instance = nullptr;
-                LOGI("zManager: Singleton instance cleaned up");
-            } catch (const std::exception& e) {
-                LOGE("zManager: Exception during cleanup: %s", e.what());
-            } catch (...) {
-                LOGE("zManager: Unknown exception during cleanup");
-            }
-        }
-    }
+    static void cleanup();
 
     /**
      * 获取所有设备信息
@@ -139,10 +102,8 @@ public:
 
     void update_ssl_info();
     void update_local_network_info();
-    void update_task_info();
-    void update_maps_info();
+    void update_proc_info();
     void update_root_file_info();
-    void update_mounts_info();
     void update_system_prop_info();
     void update_linker_info();
     void update_port_info();

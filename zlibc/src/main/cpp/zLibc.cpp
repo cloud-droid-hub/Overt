@@ -233,7 +233,7 @@ void* zlibc_realloc(void* ptr, size_t size) {
 // ==================== 文件操作函数 ====================
 
 int zlibc_open(const char* pathname, int flags, ...) {
-    LOGE("zlibc_open called: pathname='%s', flags=0x%x", pathname ? pathname : "NULL", flags);
+    LOGD("zlibc_open called: pathname='%s', flags=0x%x", pathname ? pathname : "NULL", flags);
 
     if (!pathname) {
         LOGV("open: NULL pathname");
@@ -470,7 +470,7 @@ int zlibc_kill(pid_t pid, int sig) {
 // ==================== 其他常用函数 ====================
 
 int zlibc_atoi(const char *nptr) {
-    LOGE("zlibc_atoi called: nptr='%s'", nptr ? nptr : "NULL");
+    LOGD("zlibc_atoi called: nptr='%s'", nptr ? nptr : "NULL");
 
     if (!nptr) {
         LOGV("atoi: NULL pointer, returning 0");
@@ -500,7 +500,7 @@ int zlibc_atoi(const char *nptr) {
     }
 
     result *= sign;
-    LOGE("atoi: result=%d", result);
+    LOGD("atoi: result=%d", result);
     return result;
 }
 

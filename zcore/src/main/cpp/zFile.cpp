@@ -21,8 +21,18 @@
  * 默认构造函数
  * 初始化空的文件路径
  */
-zFile::zFile(const char *string) : m_path("") {
+zFile::zFile(const char *string) : m_path(string) {
     LOGD("Default constructor called");
+    if(m_path.empty()) {
+        LOGD("Constructed with empty path");
+        return;
+    }
+
+    // 设置文件属性（文件/目录）
+    setAttribute();
+
+    // 设置文件描述符
+    setFd();
 }
 
 /**
@@ -90,7 +100,7 @@ void zFile::setFd(){
     m_fd = open(m_path.c_str(), flag, O_CREAT);
 
     if (m_fd < 0) {
-        LOGE("setFd failed for %s: %s (errno=%d)", m_path.c_str(), isDir() ? "directory" : "file", errno);
+        LOGW("setFd failed for %s: %s (errno=%d)", m_path.c_str(), isDir() ? "directory" : "file", errno);
     }else{
         LOGI("setFd succeed for %s, fd=%d", m_path.c_str(), m_fd);
     }

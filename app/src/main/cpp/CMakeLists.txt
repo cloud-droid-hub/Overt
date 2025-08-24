@@ -77,15 +77,13 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
 
 
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zRootFileInfo.cpp
-        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zMountsInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zProcInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSystemPropInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLinkerInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zTimeInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zPackageInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zClassLoaderInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSystemSettingInfo.cpp
-        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zMapsInfo.cpp
-        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zTaskInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zPortInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zTeeInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSslInfo.cpp

@@ -17,11 +17,33 @@
 #include "zLibcUtil.h"
 #include "zStdUtil.h"
 #include "zBroadCast.h"
-
+#include <mutex>
 
 #define BROAD_CAST_SLEEP_TIME 3
 
 zBroadCast* zBroadCast::instance = nullptr;
+
+/**
+ * 获取单例实例
+ * 采用线程安全的懒加载模式，首次调用时创建实例
+ * @return zBroadCast单例指针
+ */
+zBroadCast* zBroadCast::getInstance() {
+    // 使用 std::call_once 确保线程安全的单例初始化
+    static std::once_flag init_flag;
+    std::call_once(init_flag, []() {
+        try {
+            instance = new zBroadCast();
+            LOGI("zBroadCast: Created singleton instance");
+        } catch (const std::exception& e) {
+            LOGE("zBroadCast: Failed to create singleton instance: %s", e.what());
+        } catch (...) {
+            LOGE("zBroadCast: Failed to create singleton instance with unknown error");
+        }
+    });
+    
+    return instance;
+}
 
 // 构造函数实现
 zBroadCast::zBroadCast() {
@@ -207,7 +229,7 @@ void zBroadCast::send_udp_broadcast(int port, string message) {
     LOGD("UDP socket %d closed", sock);
 }
 void zBroadCast::send_udp_broadcast() {
-    LOGE("send_udp_broadcast is called");
+    LOGI("send_udp_broadcast is called");
     send_udp_broadcast(sender_thread_args.port, sender_thread_args.msg.c_str());
 }
 void zBroadCast::start_udp_broadcast_sender(int port, string msg) {
@@ -317,7 +339,7 @@ void zBroadCast::listen_udp_broadcast(int port, void (*on_receive)(const char* i
     LOGI("UDP listener socket %d closed", sock);
 }
 void zBroadCast::listen_udp_broadcast() {
-    LOGE("listen_udp_broadcast is called");
+    LOGI("listen_udp_broadcast is called");
     listen_udp_broadcast(listener_thread_args.port, listener_thread_args.on_receive);
 }
 void zBroadCast::start_udp_broadcast_listener(int port, void (*on_receive)(const char* ip, const char* msg)) {

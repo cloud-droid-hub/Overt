@@ -16,9 +16,32 @@
 #include "zStd.h"
 #include "zStdUtil.h"
 #include "zClassLoader.h"
+#include <mutex>
 
 // 静态单例实例指针
 zClassLoader* zClassLoader::instance = nullptr;
+
+/**
+ * 获取单例实例
+ * 采用线程安全的懒加载模式，首次调用时创建实例
+ * @return zClassLoader单例指针
+ */
+zClassLoader* zClassLoader::getInstance() {
+    // 使用 std::call_once 确保线程安全的单例初始化
+    static std::once_flag init_flag;
+    std::call_once(init_flag, []() {
+        try {
+            instance = new zClassLoader();
+            LOGI("zClassLoader: Created singleton instance");
+        } catch (const std::exception& e) {
+            LOGE("zClassLoader: Failed to create singleton instance: %s", e.what());
+        } catch (...) {
+            LOGE("zClassLoader: Failed to create singleton instance with unknown error");
+        }
+    });
+    
+    return instance;
+}
 
 /**
  * 调试函数：打印Java对象的字符串表示
@@ -310,11 +333,11 @@ public:
             if (env_->IsInstanceOf(object, classLoader_)) {
                 // 获取类加载器名称
                 string classLoaderName = getClassName((JNIEnv *) env_, object);
-                LOGE("ClassLoaderVisitor classLoaderName %s", classLoaderName.c_str());
+                LOGD("ClassLoaderVisitor classLoaderName %s", classLoaderName.c_str());
                 
                 // 获取类加载器字符串表示
                 string classLoaderString = get_class_loader_string(env_, object);
-                LOGE("ClassLoaderVisitor %s", classLoaderString.c_str());
+                LOGD("ClassLoaderVisitor %s", classLoaderString.c_str());
                 
                 // 获取该类加载器加载的所有类名
                 vector<string> classLoaderClassNameList = getClassNameList((JNIEnv *) env_, object);
@@ -366,7 +389,7 @@ void zClassLoader::checkGlobalRef(JNIEnv *env, jclass clazz) {
 
     classNameList.insert(classNameList.end(), visitor.classNameList.begin(), visitor.classNameList.end());
 
-    LOGE("ClassLoaderVisitor classLoaderStringList size %zu", visitor.classLoaderStringList.size());
+    LOGI("ClassLoaderVisitor classLoaderStringList size %zu", visitor.classLoaderStringList.size());
 }
 
 /**
@@ -450,7 +473,7 @@ void zClassLoader::checkWeakGlobalRef(JNIEnv *env, jclass clazz) {
     // 将访问者收集的结果合并到全局列表
     classLoaderStringList.insert(classLoaderStringList.end(), visitor.classLoaderStringList.begin(), visitor.classLoaderStringList.end());
     classNameList.insert(classNameList.end(), visitor.classNameList.begin(), visitor.classNameList.end());
-    LOGE("WeakClassLoaderVisitor classLoaderStringList size %zu", visitor.classLoaderStringList.size());
+    LOGI("WeakClassLoaderVisitor classLoaderStringList size %zu", visitor.classLoaderStringList.size());
 }
 
 /**
@@ -460,7 +483,6 @@ void zClassLoader::checkWeakGlobalRef(JNIEnv *env, jclass clazz) {
  */
 void zClassLoader::traverseClassLoader(JNIEnv* env) {
     LOGD("traverseClassLoader called");
-    __android_log_print(6, "lxz", "checkClassloader11");
 
     if (env == nullptr){
         LOGE("traverseClassLoader env is null");
@@ -477,7 +499,7 @@ void zClassLoader::traverseClassLoader(JNIEnv* env) {
         return;
     }
 
-    LOGE("traverseClassLoader start");
+    LOGI("traverseClassLoader start");
 
     // 获取BaseDexClassLoader类
     jclass clazz = env->FindClass("dalvik/system/BaseDexClassLoader");
@@ -491,14 +513,14 @@ void zClassLoader::traverseClassLoader(JNIEnv* env) {
     }
 
     // 检查全局引用中的类加载器
-    LOGE("traverseClassLoader checkGlobalRef");
+    LOGI("traverseClassLoader checkGlobalRef");
     checkGlobalRef(env, clazz);
 
     // 检查弱全局引用中的类加载器
-    LOGE("traverseClassLoader checkWeakGlobalRef");
+    LOGI("traverseClassLoader checkWeakGlobalRef");
     checkWeakGlobalRef(env, clazz);
 
-    LOGE("traverseClassLoader end");
+    LOGI("traverseClassLoader end");
     env->DeleteLocalRef(clazz);
 }
 

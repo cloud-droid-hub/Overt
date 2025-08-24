@@ -13,6 +13,8 @@
 #include "zStdUtil.h"
 #include "zChildThread.h"
 #include <shared_mutex>
+#include <mutex>
+#include <memory>
 
 class zThreadPool {
 private:
@@ -40,7 +42,7 @@ private:
     vector<zChildThread*> m_workerThreads;
 
     // 添加互斥锁来保护任务队列
-    static pthread_mutex_t m_taskQueueMutex;
+    static std::mutex m_taskQueueMutex;
 
 public:
     /**
@@ -58,10 +60,6 @@ public:
      * 清理单例实例（主要用于测试或程序退出时）
      */
     static void cleanup() {
-        // 使用与 getInstance() 相同的互斥锁
-        static std::mutex instance_mutex;
-        std::lock_guard<std::mutex> lock(instance_mutex);
-        
         if (instance != nullptr) {
             try {
                 delete instance;
@@ -165,13 +163,13 @@ public:
             return false;
         }
 
-        // 加锁保护任务队列
-        pthread_mutex_lock(&m_taskQueueMutex);
-        m_tasks.push_back(task);
-        LOGI("zThread: Default task '%s' (ID: %s) added to queue, current queue size: %zu",
-             task->getTaskName().c_str(), task->getTaskId().c_str(), m_tasks.size());
-        pthread_mutex_unlock(&m_taskQueueMutex);
-
+        // 使用 RAII 锁保护任务队列
+        {
+            std::lock_guard<std::mutex> lock(m_taskQueueMutex);
+            m_tasks.push_back(task);
+            LOGI("zThread: Default task '%s' (ID: %s) added to queue, current queue size: %zu",
+                 task->getTaskName().c_str(), task->getTaskId().c_str(), m_tasks.size());
+        }
         // 尝试运行任务（在锁外调用，避免死锁）
         tryRunTask();
         return true;
@@ -181,20 +179,20 @@ public:
 
     void tryRunTask();
 
+    // 检查线程池中是否存在该名称的任务
     bool hasTaskName(string taskName){
-        // 使用任务队列锁保护队列操作
-        LOGE("hasTaskName is called");
-        pthread_mutex_lock(&m_taskQueueMutex);
+        // 使用 RAII 锁保护队列操作
+        LOGD("hasTaskName is called");
+        std::lock_guard<std::mutex> lock(m_taskQueueMutex);
         bool hasTask = false;
 
         for(zChildThread* m_workerThread : m_workerThreads){
-            LOGE("m_workerThread->getThreadName() %s", m_workerThread->getName().c_str());
+            LOGD("m_workerThread->getThreadName() %s", m_workerThread->getName().c_str());
             if (m_workerThread->getTaskName() == taskName){
                 hasTask = true;
                 break;
             }
         }
-        pthread_mutex_unlock(&m_taskQueueMutex);
         return hasTask;
     }
 };

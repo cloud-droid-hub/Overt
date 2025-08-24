@@ -457,8 +457,13 @@ char *zElf::parse_elf_file_(char *elf_path) {
  * @return 代码段的CRC32校验和
  */
 uint64_t zElf::get_text_segment_crc(){
-    LOGE("loadable_rx_segment is called");
+    LOGI("loadable_rx_segment is called");
     char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
+
+    if(loadable_rx_segment == nullptr){
+        LOGE("loadable_rx_segment == nullptr");
+        return 0;
+    }
 
     void* code_mem_ptr = (void*)(base_addr + loadable_rx_segment->p_vaddr);
     Elf64_Xword code_mem_size = loadable_rx_segment->p_memsz;

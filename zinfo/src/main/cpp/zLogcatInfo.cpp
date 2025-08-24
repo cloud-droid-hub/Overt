@@ -13,7 +13,7 @@ map<string, map<string, string>> get_logcat_info(){
     map<string, map<string, string>> info;
     for(int i = 1500; i < 2000; i++){
         if(i % 10 == 0){
-            LOGE("test pid %d", i);
+            LOGD("get_logcat_info pid %d", i);
         }
 
         string pid_str = itoa(i, 10);

@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <functional>
+#include <mutex>
+#include <condition_variable>
 
 #include "zLog.h"
 #include "zLibc.h"
@@ -34,8 +36,8 @@ private:
     size_t m_threadIndex;           // 线程索引
 
     // 线程同步
-    void* m_taskCV;                 // 任务条件变量
-    void* m_taskMutex;              // 任务互斥锁
+    std::unique_ptr<std::condition_variable> m_taskCV;  // 任务条件变量
+    std::unique_ptr<std::mutex> m_taskMutex;            // 任务互斥锁
     
     // 执行函数
     void (*m_executeFunc)(void*);         // 执行函数指针
@@ -110,9 +112,7 @@ public:
             (obj->*memberFunc)(convert_argument<FuncArgs>(args)...); // 智能转换参数并调用成员函数
         };
         // 立即唤醒线程执行任务
-        pthread_mutex_lock((pthread_mutex_t*)m_taskMutex);
-        pthread_cond_signal((pthread_cond_t*)m_taskCV);
-        pthread_mutex_unlock((pthread_mutex_t*)m_taskMutex);
+        m_taskCV->notify_one();
         LOGI("zChildThread[%zu] awakened to execute new function", m_threadIndex);
         return true;
     }

@@ -7,9 +7,6 @@
 
 #include "zLog.h"
 
-
-
-
 namespace nonstd {
     // 使用typedef避免宏替换
     template<typename T>
@@ -417,6 +414,18 @@ namespace nonstd {
             LOGV("[map] nonstd::map: insert - new element inserted");
 
             return make_pair(iterator(new_node, this), true);
+        }
+
+        // Range insert method - insert elements from iterator range
+        template<typename InputIt>
+        void insert(InputIt first, InputIt last) {
+            LOGV("[map] nonstd::map: range insert called");
+            
+            for (InputIt it = first; it != last; ++it) {
+                insert(*it);
+            }
+            
+            LOGV("[map] nonstd::map: range insert completed, size=%zu", size_);
         }
 
         // Emplace method - construct element in place

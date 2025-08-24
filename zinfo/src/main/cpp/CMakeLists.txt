@@ -31,15 +31,14 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
 
         zLocalNetworkInfo.cpp
         zRootFileInfo.cpp
-        zMountsInfo.cpp
         zSystemPropInfo.cpp
         zLinkerInfo.cpp
         zTimeInfo.cpp
         zPackageInfo.cpp
         zClassLoaderInfo.cpp
         zSystemSettingInfo.cpp
-        zMapsInfo.cpp
-        zTaskInfo.cpp
+
+        zProcInfo.cpp
         zPortInfo.cpp
         zTeeInfo.cpp
         zSslInfo.cpp

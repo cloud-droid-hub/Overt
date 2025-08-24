@@ -11,17 +11,14 @@
 #include "syscall.h"
 #include "zSslInfo.h"
 
-
 #include "zRootFileInfo.h"
-#include "zMountsInfo.h"
+#include "zProcInfo.h"
 #include "zSystemPropInfo.h"
 #include "zLinkerInfo.h"
 #include "zTimeInfo.h"
 #include "zPackageInfo.h"
 #include "zClassLoaderInfo.h"
 #include "zSystemSettingInfo.h"
-#include "zMapsInfo.h"
-#include "zTaskInfo.h"
 #include "zPortInfo.h"
 #include "zTeeInfo.h"
 #include "zSslInfo.h"
@@ -29,6 +26,7 @@
 #include "zThreadPool.h"
 #include "zLogcatInfo.h"
 #include "zJavaVm.h"
+#include <mutex>
 
 #define MAX_CPU 8
 
@@ -37,6 +35,45 @@ zManager* zManager::instance = nullptr;
 
 // 设备信息存储Map初始化
 map<string, map<string, map<string, string>>> zManager::device_info;
+
+/**
+ * 获取单例实例
+ * 采用线程安全的懒加载模式，首次调用时创建实例
+ * @return zManager单例指针
+ */
+zManager* zManager::getInstance() {
+    // 使用 std::call_once 确保线程安全的单例初始化
+    static std::once_flag init_flag;
+    std::call_once(init_flag, []() {
+        try {
+            instance = new zManager();
+            LOGI("zManager: Created singleton instance");
+        } catch (const std::exception& e) {
+            LOGE("zManager: Failed to create singleton instance: %s", e.what());
+        } catch (...) {
+            LOGE("zManager: Failed to create singleton instance with unknown error");
+        }
+    });
+    
+    return instance;
+}
+
+/**
+ * 清理单例实例（主要用于测试或程序退出时）
+ */
+void zManager::cleanup() {
+    if (instance != nullptr) {
+        try {
+            delete instance;
+            instance = nullptr;
+            LOGI("zManager: Singleton instance cleaned up");
+        } catch (const std::exception& e) {
+            LOGE("zManager: Exception during cleanup: %s", e.what());
+        } catch (...) {
+            LOGE("zManager: Unknown exception during cleanup");
+        }
+    }
+}
 
 /**
  * 构造函数实现
@@ -98,14 +135,13 @@ void zManager::round_tasks(){
     sleep(3);
     // 定义所有需要周期性执行的任务
     map<string, void(zManager::*)()> periodic_tasks = {
-            {"maps_info", &zManager::update_maps_info},
-            {"task_info", &zManager::update_task_info},
+            {"proc_info", &zManager::update_proc_info},
             {"tee_info", &zManager::update_tee_info},
             {"class_loader_info", &zManager::update_class_loader_info},
             {"linker_info", &zManager::update_linker_info},
-            {"mounts_info", &zManager::update_mounts_info},
             {"package_info", &zManager::update_package_info},
             {"system_setting_info", &zManager::update_system_setting_info},
+            {"system_prop_info", &zManager::update_system_prop_info},
             {"root_file_info", &zManager::update_root_file_info},
             {"port_info", &zManager::update_port_info},
             {"time_info", &zManager::update_time_info},
@@ -152,16 +188,10 @@ void zManager::update_local_network_info(){
     notice_java("local_network_info");
 };
 
-void zManager::update_task_info(){
+void zManager::update_proc_info(){
 // 收集任务信息 - 检测Frida等调试工具注入的进程
-    zManager::getInstance()->update_device_info("task_info", get_task_info());
-    notice_java("task_info");
-};
-
-void zManager::update_maps_info(){
-// 收集内存映射信息 - 检测关键系统库是否被篡改
-    zManager::getInstance()->update_device_info("maps_info", get_maps_info());
-    notice_java("maps_info");
+    zManager::getInstance()->update_device_info("proc_info", get_proc_info());
+    notice_java("proc_info");
 };
 
 void zManager::update_root_file_info(){
@@ -170,11 +200,6 @@ void zManager::update_root_file_info(){
     notice_java("root_file_info");
 };
 
-void zManager::update_mounts_info(){
-// 收集挂载点信息 - 检测异常的文件系统挂载
-    zManager::getInstance()->update_device_info("mounts_info", get_mounts_info());
-    notice_java("mounts_info");
-};
 
 void zManager::update_system_prop_info(){
 // 收集系统属性信息 - 检测系统配置异常

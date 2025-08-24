@@ -58,12 +58,7 @@ public:
 
 
 
-    static zBroadCast* getInstance() {
-        if (instance == nullptr) {
-            instance = new zBroadCast();
-        }
-        return instance;
-    }
+    static zBroadCast* getInstance();
 
     ~zBroadCast();
 

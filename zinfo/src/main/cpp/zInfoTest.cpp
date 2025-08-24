@@ -12,10 +12,7 @@
 #include "zBroadCast.h"
 
 #include "zLocalNetworkInfo.h"
-#include "zTaskInfo.h"
-#include "zMapsInfo.h"
 #include "zRootFileInfo.h"
-#include "zMountsInfo.h"
 #include "zSystemPropInfo.h"
 #include "zLinkerInfo.h"
 #include "zPortInfo.h"
@@ -25,6 +22,7 @@
 #include "zTeeInfo.h"
 #include "zTimeInfo.h"
 #include "zSslInfo.h"
+#include "zProcInfo.h"
 
 void __attribute__((constructor)) init_(void){
     LOGI("zCore init - Starting comprehensive tests");
@@ -45,13 +43,13 @@ void __attribute__((constructor)) init_(void){
 //    get_root_file_info();
 //
 //    // 收集挂载点信息 - 检测异常的文件系统挂载
-//    get_mounts_info();
+    get_proc_info();
 //
 //    // 收集系统属性信息 - 检测系统配置异常
 //    get_system_prop_info();
 
     // 收集链接器信息 - 检测动态链接库加载异常
-    get_linker_info();
+//    get_linker_info();
 //
 //    // 收集端口信息 - 检测网络端口异常
 //    get_port_info();
