@@ -96,6 +96,11 @@ void test_file_functions() {
     // 测试 open (创建文件)
     int fd = open(test_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd >= 0) {
+        // 检查文件描述符是否在标准范围内（0-2）
+        if (fd <= 2) {
+            LOGE("test_file_functions: WARNING - File descriptor %d is in standard range (0-2) for file %s", fd, test_file);
+            LOGE("test_file_functions: This may cause issues with Android's unique_fd management");
+        }
         LOGI("open('%s') = %d", test_file, fd);
 
         // 测试 write
@@ -109,6 +114,11 @@ void test_file_functions() {
         // 测试 open (读取文件)
         fd = open(test_file, O_RDONLY);
         if (fd >= 0) {
+            // 检查文件描述符是否在标准范围内（0-2）
+            if (fd <= 2) {
+                LOGE("test_file_functions: WARNING - File descriptor %d is in standard range (0-2) for file %s", fd, test_file);
+                LOGE("test_file_functions: This may cause issues with Android's unique_fd management");
+            }
             LOGI("open('%s') for reading = %d", test_file, fd);
 
             // 测试 read
@@ -128,7 +138,13 @@ void test_file_functions() {
             off_t lseek_result = lseek(fd, 0, SEEK_SET);
             LOGI("lseek result = %ld", (long)lseek_result);
 
-            close(fd);
+            // 避免关闭标准文件描述符（0-2）
+            if (fd > 2) {
+                close(fd);
+            } else {
+                LOGE("test_file_functions: WARNING - Skipping close of standard file descriptor %d (stdin/stdout/stderr)", fd);
+                LOGE("test_file_functions: This prevents conflict with Android's unique_fd management");
+            }
         }
 
         // 测试 access

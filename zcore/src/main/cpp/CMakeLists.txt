@@ -28,10 +28,9 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zBroadCast.cpp
         zJson.cpp
         zTask.cpp
+        zThread.cpp
         zThreadPool.cpp
-        zChildThread.cpp
         zShell.cpp
-
         zCoreTest.cpp)
 
 # 添加mbedtls库

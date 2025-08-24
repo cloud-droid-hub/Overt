@@ -7,9 +7,7 @@
 
 #include <linux/elf.h>
 #include <stddef.h>
-
 #include "zStd.h"
-
 
 class zElf {
 public:
@@ -20,7 +18,7 @@ public:
     };
 
     LINK_VIEW link_view = UNKNOWN_VIEW;
-//    char* base_addr = nullptr;
+
     char* elf_mem_ptr = nullptr;
     char* elf_file_ptr = nullptr;
     string real_path = "";
@@ -70,9 +68,8 @@ public:
     char* gnu_hash_table = nullptr;
     void parse_dynamic_table();
 
-//    char* file_ptr = nullptr;
     size_t elf_file_size = 0;
-    int elf_file_fd = 0;
+    int elf_file_fd = -1;
     char* parse_elf_file(char* elf_path);
 
     static char* parse_elf_file_(char* elf_path);

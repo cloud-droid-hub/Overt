@@ -71,7 +71,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zJson.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zFile.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zTask.cpp
-        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zChildThread.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zThread.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zThreadPool.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zShell.cpp
 

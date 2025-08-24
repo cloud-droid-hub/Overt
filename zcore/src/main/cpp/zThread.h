@@ -1,10 +1,10 @@
 //
 // Created by Assistant on 2025/8/7.
-// zChildThread - 最小轻量级工作线程类
+// zThread - 最小轻量级工作线程类
 //
 
-#ifndef OVERT_ZCHILDTHREAD_H
-#define OVERT_ZCHILDTHREAD_H
+#ifndef OVERT_ZTHREAD_H
+#define OVERT_ZTHREAD_H
 
 #include <time.h>
 #include <errno.h>
@@ -28,7 +28,7 @@ class zTask;
  * 最小轻量级工作线程类
  * 提供简单的循环等待机制，支持外部线程通过互斥锁和条件变量控制
  */
-class zChildThread {
+class zThread {
 private:
     // 线程基本信息
     void* m_threadId;               // 线程ID
@@ -60,13 +60,13 @@ public:
      * @param index 线程索引
      * @param name 线程名称
      */
-    zChildThread();
-    zChildThread(size_t index, const string& name);
+    zThread();
+    zThread(size_t index, const string& name);
     
     /**
      * 析构函数
      */
-    ~zChildThread();
+    ~zThread();
     
     // 线程生命周期管理
     bool start();                    // 启动线程
@@ -88,13 +88,13 @@ public:
     bool setExecuteFunction(Obj* obj, RetType (Obj::*memberFunc)(FuncArgs...), Args&&... args) {
         // 检查线程是否正在运行
         if (!m_isThreadRunning) {
-            LOGW("zChildThread[%zu] thread is not running", m_threadIndex);
+            LOGW("zThread[%zu] thread is not running", m_threadIndex);
             return false;
         }
 
         // 检查是否正在执行任务
         if (m_isTaskRunning) {
-            LOGW("zChildThread[%zu] task is already executing, cannot add new task", m_threadIndex);
+            LOGW("zThread[%zu] task is already executing, cannot add new task", m_threadIndex);
             return false;
         }
 
@@ -113,7 +113,7 @@ public:
         };
         // 立即唤醒线程执行任务
         m_taskCV->notify_one();
-        LOGI("zChildThread[%zu] awakened to execute new function", m_threadIndex);
+        LOGI("zThread[%zu] awakened to execute new function", m_threadIndex);
         return true;
     }
 
@@ -132,7 +132,7 @@ public:
     size_t getThreadIndex() const { return m_threadIndex; }
     
     // 设置方法
-    zChildThread* setName(const string& name);
+    zThread* setName(const string& name);
     string getName() const;
 
     string getTaskName(){
@@ -147,4 +147,4 @@ private:
     void* threadMain();                   // 线程主函数
 };
 
-#endif //OVERT_ZCHILDTHREAD_H
+#endif //OVERT_ZTHREAD_H

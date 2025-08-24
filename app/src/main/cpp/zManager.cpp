@@ -132,7 +132,6 @@ const map<string, map<string, string>> zManager::get_info(const string& key){
 
 void zManager::round_tasks(){
     LOGI("add_tasks: starting periodic task management loop");
-    sleep(3);
     // 定义所有需要周期性执行的任务
     map<string, void(zManager::*)()> periodic_tasks = {
             {"proc_info", &zManager::update_proc_info},
@@ -144,10 +143,20 @@ void zManager::round_tasks(){
             {"system_prop_info", &zManager::update_system_prop_info},
             {"root_file_info", &zManager::update_root_file_info},
             {"port_info", &zManager::update_port_info},
+
             {"time_info", &zManager::update_time_info},
             {"ssl_info", &zManager::update_ssl_info},
             {"local_network_info", &zManager::update_local_network_info},
             {"logcat_info", &zManager::update_logcat_info},
+
+//            {"test_info1", &zManager::update_test_info},
+//            {"test_info2", &zManager::update_test_info},
+//            {"test_info3", &zManager::update_test_info},
+//            {"test_info4", &zManager::update_test_info},
+//            {"test_info5", &zManager::update_test_info},
+//            {"test_info6", &zManager::update_test_info},
+//            {"test_info7", &zManager::update_test_info},
+
     };
 
     LOGI("add_tasks: initialized %zu periodic tasks", periodic_tasks.size());
@@ -174,6 +183,12 @@ void zManager::round_tasks(){
     }
     
     LOGI("add_tasks: periodic task management loop stopped");
+};
+
+void zManager::update_test_info(){
+    // 收集SSL信息 - 检测SSL证书异常
+    sleep(100);
+    notice_java("test_info");
 };
 
 void zManager::update_ssl_info(){

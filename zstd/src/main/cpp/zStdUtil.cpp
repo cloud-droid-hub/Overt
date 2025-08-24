@@ -34,6 +34,13 @@ vector<string> get_file_lines(string path){
     if (fd == -1) {
         return file_lines;
     }
+    
+    // 检查文件描述符是否在标准范围内（0-2）
+    if (fd <= 2) {
+        LOGE("get_file_lines: WARNING - File descriptor %d is in standard range (0-2) for file %s", fd, path.c_str());
+        LOGE("get_file_lines: This may cause issues with Android's unique_fd management");
+    }
+    
     while (true) {
         string line = get_line(fd);
         if (line.size() == 0) {
@@ -41,7 +48,15 @@ vector<string> get_file_lines(string path){
         }
         file_lines.push_back(line);
     }
-    close(fd);
+    
+    // 避免关闭标准文件描述符（0-2）
+    if (fd > 2) {
+        close(fd);
+    } else {
+        LOGE("get_file_lines: WARNING - Skipping close of standard file descriptor %d (stdin/stdout/stderr)", fd);
+        LOGE("get_file_lines: This prevents conflict with Android's unique_fd management");
+    }
+    
     return file_lines;
 }
 

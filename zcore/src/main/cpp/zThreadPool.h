@@ -11,7 +11,7 @@
 #include "zLibcUtil.h"
 #include "zStd.h"
 #include "zStdUtil.h"
-#include "zChildThread.h"
+#include "zThread.h"
 #include <shared_mutex>
 #include <mutex>
 #include <memory>
@@ -39,7 +39,7 @@ private:
     // 线程池运行状态
     bool m_running;
 
-    vector<zChildThread*> m_workerThreads;
+    vector<zThread*> m_workerThreads;
 
     // 添加互斥锁来保护任务队列
     static std::mutex m_taskQueueMutex;
@@ -186,7 +186,7 @@ public:
         std::lock_guard<std::mutex> lock(m_taskQueueMutex);
         bool hasTask = false;
 
-        for(zChildThread* m_workerThread : m_workerThreads){
+        for(zThread* m_workerThread : m_workerThreads){
             LOGD("m_workerThread->getThreadName() %s", m_workerThread->getName().c_str());
             if (m_workerThread->getTaskName() == taskName){
                 hasTask = true;

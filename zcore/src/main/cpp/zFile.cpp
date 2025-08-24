@@ -52,6 +52,11 @@ zFile::zFile(const string& path) : m_path(path) {
 
     // 设置文件描述符
     setFd();
+    
+    // 验证文件是否成功打开
+    if (m_fd < 0) {
+        LOGW("Failed to open file: %s", m_path.c_str());
+    }
 }
 
 /**
@@ -65,7 +70,8 @@ void zFile::setAttribute(){
     st_ret = stat(m_path.c_str(), &st);
 
     if (st_ret != 0) {
-        LOGD("stat failed for path: %s", m_path.c_str());
+        LOGD("stat failed for path: %s: %s", m_path.c_str(), strerror(errno));
+        earliest_time = 0;  // 重置时间戳
         return;
     }
 
@@ -82,9 +88,15 @@ void zFile::setFd(){
     LOGD("setFd called for path: %s", m_path.c_str());
     
     // 如果已有文件描述符，先关闭
-    if (m_fd >= 0) {
+    if (m_fd > 2) {
         LOGD("Closing previous fd: %d", m_fd);
-        close(m_fd);
+        if (close(m_fd) != 0) {
+            LOGW("Failed to close fd %d: %s", m_fd, strerror(errno));
+        }
+        m_fd = -1;
+    } else if (m_fd >= 0) {
+        LOGE("setFd: WARNING - Skipping close of standard file descriptor %d (stdin/stdout/stderr)", m_fd);
+        LOGE("setFd: This prevents conflict with Android's unique_fd management");
         m_fd = -1;
     }
 
@@ -101,7 +113,12 @@ void zFile::setFd(){
 
     if (m_fd < 0) {
         LOGW("setFd failed for %s: %s (errno=%d)", m_path.c_str(), isDir() ? "directory" : "file", errno);
-    }else{
+    } else {
+        // 检查文件描述符是否在标准范围内（0-2）
+        if (m_fd <= 2) {
+            LOGE("setFd: WARNING - File descriptor %d is in standard range (0-2) for %s", m_fd, m_path.c_str());
+            LOGE("setFd: This may cause issues with Android's unique_fd management");
+        }
         LOGI("setFd succeed for %s, fd=%d", m_path.c_str(), m_fd);
     }
 }
@@ -121,9 +138,16 @@ long zFile::getEarliestTime() const {
  */
 zFile::~zFile() {
     LOGD("Destructor called for path: %s", m_path.c_str());
-    if (m_fd >= 0) {
+    if (m_fd > 2) {
         LOGD("Closing fd in destructor: %d", m_fd);
-        close(m_fd);
+        if (close(m_fd) != 0) {
+            LOGW("Failed to close fd %d in destructor: %s", m_fd, strerror(errno));
+        }
+        m_fd = -1;
+    } else if (m_fd >= 0) {
+        LOGE("zFile::~zFile: WARNING - Skipping close of standard file descriptor %d (stdin/stdout/stderr)", m_fd);
+        LOGE("zFile::~zFile: This prevents conflict with Android's unique_fd management");
+        m_fd = -1;
     }
 }
 
@@ -407,6 +431,7 @@ string zFile::readLine() {
 vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
     LOGD("readBytes called with start_offset: %ld, size: %zu", start_offset, size);
     vector<uint8_t> data;
+    
     if (isDir() || m_fd < 0) {
         LOGD("readBytes: file is directory or fd invalid");
         return data;
@@ -414,29 +439,37 @@ vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
 
     // 保存当前位置
     off_t current_pos = lseek(m_fd, 0, SEEK_CUR);
-    LOGD("当前偏移: %ld", current_pos);
+    if (current_pos == -1) {
+        LOGW("Failed to get current position: %s", strerror(errno));
+        return data;
+    }
 
     // 移动到指定偏移位置
     if (start_offset > 0) {
-        lseek(m_fd, start_offset, SEEK_SET);
+        if (lseek(m_fd, start_offset, SEEK_SET) == -1) {
+            LOGW("Failed to seek to offset %ld: %s", start_offset, strerror(errno));
+            lseek(m_fd, current_pos, SEEK_SET);  // 恢复位置
+            return data;
+        }
     }
 
     if (size == 0) {
         // size 为 0，读取全部
-        LOGD("readBytes: size is 0, reading all content");
-
         char buffer[4096];
         ssize_t total_read = 0;
 
-        // 循环读取文件内容
         while (true) {
             ssize_t bytesRead = read(m_fd, buffer, sizeof(buffer));
-            if (bytesRead <= 0) break;
+            if (bytesRead < 0) {
+                LOGW("Read error: %s", strerror(errno));
+                break;
+            } else if (bytesRead == 0) {
+                // EOF
+                break;
+            }
 
             data.insert(data.end(), buffer, buffer + bytesRead);
             total_read += bytesRead;
-
-            LOGD("循环读取: 本次读取 %ld 字节, 总计 %ld 字节", bytesRead, total_read);
         }
 
         if (total_read == 0) {
@@ -447,22 +480,24 @@ vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
 
     } else {
         // size > 0，读取固定长度
-        LOGD("readBytes: reading %zu bytes", size);
         data.resize(size);
         ssize_t bytesRead = read(m_fd, data.data(), size);
         if (bytesRead < 0) {
-            perror("read");
+            LOGW("Read error: %s", strerror(errno));
             data.clear();
         } else if ((size_t)bytesRead < size) {
             data.resize(bytesRead);  // 只读到部分内容，缩小
-            LOGD("部分读取: 实际读取 %zd 字节", bytesRead);
+            LOGD("Partial read: actual read %zd bytes", bytesRead);
         } else {
             LOGI("readBytes: read %zu bytes successfully", size);
         }
     }
 
     // 恢复原始偏移
-    lseek(m_fd, current_pos, SEEK_SET);
+    if (lseek(m_fd, current_pos, SEEK_SET) == -1) {
+        LOGW("Failed to restore position: %s", strerror(errno));
+    }
+    
     return data;
 }
 

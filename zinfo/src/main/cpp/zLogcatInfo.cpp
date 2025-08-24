@@ -16,7 +16,7 @@ map<string, map<string, string>> get_logcat_info(){
             LOGD("get_logcat_info pid %d", i);
         }
 
-        string pid_str = itoa(i, 10);
+        string pid_str = to_string(i);
 
         string pid_path_str = "/proc/" + pid_str;
         string cmd_str = "logcat -d | grep avc | grep u:r:su:s0 | grep " + pid_str;

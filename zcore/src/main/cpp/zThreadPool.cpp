@@ -11,7 +11,7 @@
 #include <mutex>
 
 #include "zThreadPool.h"
-#include "zChildThread.h"
+#include "zThread.h"
 
 // 静态单例实例指针 - 用于实现单例模式
 zThreadPool* zThreadPool::instance = nullptr;
@@ -39,7 +39,7 @@ zThreadPool* zThreadPool::getInstance() {
         try {
             instance = new zThreadPool();
             // 启动线程池
-            bool success = instance->startThreadPool(8);
+            bool success = instance->startThreadPool(16);
             if (success) {
                 LOGI("zThreadPool: Created singleton instance and started thread pool");
             } else {
@@ -83,14 +83,14 @@ bool zThreadPool::startThreadPool(size_t threadCount) {
 
     m_running = true;  // 设置运行标志
 
-    // 创建 zChildThread 对象
+    // 创建 zThread 对象
     for (size_t i = 0; i < actualThreadCount; ++i) {
         string threadName = m_name + "_worker_" + to_string(i);
 
         LOGI("startThreadPool: Creating worker thread %zu with name '%s'", i, threadName.c_str());
 
         // 创建工作线程对象（使用回调函数实现解耦）
-        zChildThread* worker = new zChildThread(i, threadName);
+        zThread* worker = new zThread(i, threadName);
 
         // 使用 std::function 版本的重载函数，可以直接传递成员函数
         worker->setTaskCompletionCallback([this](string taskId, void* userData) {
@@ -168,7 +168,7 @@ void zThreadPool::tryRunTask(){
         bool foundAvailableWorker = false;
         
         for(size_t i = 0; i < this->m_workerThreads.size(); i++){
-            zChildThread* m_workerThread = m_workerThreads[i];
+            zThread* m_workerThread = m_workerThreads[i];
             
             // 检查工作线程是否可用（不在执行任务）
             if(m_workerThread->isTaskRunning()) {

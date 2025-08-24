@@ -1,12 +1,12 @@
 //
 // Created by Assistant on 2025/8/7.
-// zChildThread 实现 - 最小轻量级工作线程类
+// zThread 实现 - 最小轻量级工作线程类
 //
 
-#include "zChildThread.h"
+#include "zThread.h"
 
 // 构造函数
-zChildThread::zChildThread(size_t index, const string& name)
+zThread::zThread(size_t index, const string& name)
     : m_threadId(nullptr)
     , m_threadName(name)
     , m_threadIndex(index)
@@ -19,22 +19,22 @@ zChildThread::zChildThread(size_t index, const string& name)
     , m_isThreadRunning(false)
 {
     // std::mutex 和 std::condition_variable 会自动初始化
-    LOGI("zChildThread[%zu] '%s' created with RAII mutex and condition variable", m_threadIndex, m_threadName.c_str());
+    LOGI("zThread[%zu] '%s' created with RAII mutex and condition variable", m_threadIndex, m_threadName.c_str());
 }
 
 // 析构函数
-zChildThread::~zChildThread() {
+zThread::~zThread() {
     // 确保线程已停止
     stop();
     
     // std::unique_ptr 会自动清理资源
-    LOGI("zChildThread[%zu] '%s' destroyed", m_threadIndex, m_threadName.c_str());
+    LOGI("zThread[%zu] '%s' destroyed", m_threadIndex, m_threadName.c_str());
 }
 
 // 启动线程
-bool zChildThread::start() {
+bool zThread::start() {
     if (m_isThreadRunning) {
-        LOGW("zChildThread[%zu] already running", m_threadIndex);
+        LOGW("zThread[%zu] already running", m_threadIndex);
         return false;
     }
     
@@ -48,17 +48,17 @@ bool zChildThread::start() {
         return false;
     }
     
-    LOGI("zChildThread[%zu] started with ID %lu", m_threadIndex, (unsigned long)m_threadId);
+    LOGI("zThread[%zu] started with ID %lu", m_threadIndex, (unsigned long)m_threadId);
     return true;
 }
 
 // 停止线程
-void zChildThread::stop() {
+void zThread::stop() {
     if (!m_isThreadRunning) {
         return;
     }
     
-    LOGI("Stopping zChildThread[%zu]...", m_threadIndex);
+    LOGI("Stopping zThread[%zu]...", m_threadIndex);
     m_isThreadRunning = false;
     
     // 通知等待的线程
@@ -71,12 +71,12 @@ void zChildThread::stop() {
 }
 
 // 等待线程结束
-void zChildThread::join() {
+void zThread::join() {
     if (m_threadId != nullptr) {
         void* retval;
         int result = pthread_join(*(pthread_t*)&m_threadId, &retval);
         if (result == 0) {
-            LOGI("zChildThread[%zu] joined successfully", m_threadIndex);
+            LOGI("zThread[%zu] joined successfully", m_threadIndex);
         } else {
             LOGE("Failed to join thread[%zu]: %d", m_threadIndex, result);
         }
@@ -84,8 +84,8 @@ void zChildThread::join() {
     }
 }
 
-bool zChildThread::setExecuteFunction(std::function<void()> callable){
-    LOGI("zChildThread[%zu] setExecuteFunction called, isTaskRunning: %s", 
+bool zThread::setExecuteFunction(std::function<void()> callable){
+    LOGI("zThread[%zu] setExecuteFunction called, isTaskRunning: %s",
          m_threadIndex, m_isTaskRunning ? "true" : "false");
     
     // 使用 RAII 锁保护整个操作
@@ -94,13 +94,13 @@ bool zChildThread::setExecuteFunction(std::function<void()> callable){
         
         // 检查线程是否正在运行
         if (!m_isThreadRunning) {
-            LOGW("zChildThread[%zu] thread is not running", m_threadIndex);
+            LOGW("zThread[%zu] thread is not running", m_threadIndex);
             return false;
         }
 
         // 检查是否正在执行任务
         if (m_isTaskRunning) {
-            LOGW("zChildThread[%zu] task is already executing, cannot add new task", m_threadIndex);
+            LOGW("zThread[%zu] task is already executing, cannot add new task", m_threadIndex);
             return false;
         }
 
@@ -110,46 +110,46 @@ bool zChildThread::setExecuteFunction(std::function<void()> callable){
         this->m_executeFuncArg = nullptr;
         m_isTaskRunning = true; // 在锁保护下设置
 
-        LOGI("zChildThread[%zu] task set and marked as running, callable valid: %s", 
+        LOGI("zThread[%zu] task set and marked as running, callable valid: %s",
              m_threadIndex, (this->m_callable ? "true" : "false"));
     }
 
     // 唤醒线程执行任务
     m_taskCV->notify_one();
     
-    LOGI("zChildThread[%zu] awakened to execute new function", m_threadIndex);
+    LOGI("zThread[%zu] awakened to execute new function", m_threadIndex);
     return true;
 }
 
 // 设置执行函数并唤醒线程
-bool zChildThread::setExecuteFunction(void (*func)(void*), void* arg) {
+bool zThread::setExecuteFunction(void (*func)(void*), void* arg) {
     // 检查线程是否正在运行
     if (!m_isThreadRunning) {
-        LOGW("zChildThread[%zu] thread is not running", m_threadIndex);
+        LOGW("zThread[%zu] thread is not running", m_threadIndex);
         return false;
     }
     
     // 检查是否正在执行任务
     if (m_isTaskRunning) {
-        LOGW("zChildThread[%zu] task is already executing, cannot add new task", m_threadIndex);
+        LOGW("zThread[%zu] task is already executing, cannot add new task", m_threadIndex);
         return false;
     }
 
     this->m_callable = nullptr;
     this->m_executeFunc = func;
     this->m_executeFuncArg = arg;
-    LOGI("zChildThread[%zu] execute function set", m_threadIndex);
+    LOGI("zThread[%zu] execute function set", m_threadIndex);
     
     // 立即唤醒线程执行任务
     m_taskCV->notify_one();
-    LOGI("zChildThread[%zu] awakened to execute new function", m_threadIndex);
+    LOGI("zThread[%zu] awakened to execute new function", m_threadIndex);
     
     return true;
 }
 
 // 设置 zTask 对象并执行
-bool zChildThread::setExecuteTask(zTask* task) {
-    LOGI("zChildThread[%zu] setExecuteTask called with task '%s'", 
+bool zThread::setExecuteTask(zTask* task) {
+    LOGI("zThread[%zu] setExecuteTask called with task '%s'",
          m_threadIndex, task ? task->getTaskName().c_str() : "null");
     
     // 使用 RAII 锁保护整个操作
@@ -158,19 +158,19 @@ bool zChildThread::setExecuteTask(zTask* task) {
         
         // 检查线程是否正在运行
         if (!m_isThreadRunning) {
-            LOGW("zChildThread[%zu] thread is not running", m_threadIndex);
+            LOGW("zThread[%zu] thread is not running", m_threadIndex);
             return false;
         }
 
         // 检查是否正在执行任务
         if (m_isTaskRunning) {
-            LOGW("zChildThread[%zu] task is already executing, cannot add new task", m_threadIndex);
+            LOGW("zThread[%zu] task is already executing, cannot add new task", m_threadIndex);
             return false;
         }
 
         // 检查任务是否有效
         if (!task || !task->isValid()) {
-            LOGW("zChildThread[%zu] invalid task provided", m_threadIndex);
+            LOGW("zThread[%zu] invalid task provided", m_threadIndex);
             return false;
         }
 
@@ -181,38 +181,38 @@ bool zChildThread::setExecuteTask(zTask* task) {
         this->m_executeFuncArg = nullptr;
         m_isTaskRunning = true; // 在锁保护下设置
 
-        LOGI("zChildThread[%zu] task '%s' (ID: %s) set and marked as running", 
+        LOGI("zThread[%zu] task '%s' (ID: %s) set and marked as running",
              m_threadIndex, task->getTaskName().c_str(), task->getTaskId().c_str());
     }
 
     // 唤醒线程执行任务
     m_taskCV->notify_one();
     
-    LOGI("zChildThread[%zu] awakened to execute task '%s'", m_threadIndex, task->getTaskName().c_str());
+    LOGI("zThread[%zu] awakened to execute task '%s'", m_threadIndex, task->getTaskName().c_str());
     return true;
 }
 
 // 设置执行函数并唤醒线程
-void zChildThread::setTaskCompletionCallback(void (*taskCompletionCallback)(string taskId, void* userData)) {
+void zThread::setTaskCompletionCallback(void (*taskCompletionCallback)(string taskId, void* userData)) {
     this->m_taskCompletionCallback = taskCompletionCallback;
     this->m_taskCompletionCallbackFunc = nullptr; // 清除 std::function 版本
 }
 
 // std::function 版本的重载函数
-void zChildThread::setTaskCompletionCallback(std::function<void(string, void*)> callback) {
+void zThread::setTaskCompletionCallback(std::function<void(string, void*)> callback) {
     this->m_taskCompletionCallbackFunc = callback;
     this->m_taskCompletionCallback = nullptr; // 清除函数指针版本
 }
 
 // 静态线程入口函数
-void* zChildThread::threadEntry(void* arg) {
-    zChildThread* thread = static_cast<zChildThread*>(arg);
+void* zThread::threadEntry(void* arg) {
+    zThread* thread = static_cast<zThread*>(arg);
     return thread->threadMain();
 }
 
 // 线程主函数 - 简单的循环等待
-void* zChildThread::threadMain() {
-    LOGI("zChildThread[%zu] main loop started", m_threadIndex);
+void* zThread::threadMain() {
+    LOGI("zThread[%zu] main loop started", m_threadIndex);
     
     while (m_isThreadRunning) {
         // 等待外部线程的信号
@@ -226,19 +226,19 @@ void* zChildThread::threadMain() {
             
             // 检查是否有任务或线程应该停止
             if (m_isTaskRunning) {
-                LOGI("zChildThread[%zu] received signal and has task, processing...", m_threadIndex);
+                LOGI("zThread[%zu] received signal and has task, processing...", m_threadIndex);
             } else if (!m_isThreadRunning) {
-                LOGI("zChildThread[%zu] thread should stop, exiting wait loop", m_threadIndex);
+                LOGI("zThread[%zu] thread should stop, exiting wait loop", m_threadIndex);
                 break;
             } else {
-                LOGI("zChildThread[%zu] timeout, continuing...", m_threadIndex);
+                LOGI("zThread[%zu] timeout, continuing...", m_threadIndex);
                 continue;
             }
         }
         
         // 执行设置的任务函数
         if (m_isThreadRunning && m_task) {
-            LOGI("zChildThread[%zu] executing zTask '%s' (ID: %s)...", 
+            LOGI("zThread[%zu] executing zTask '%s' (ID: %s)...",
                  m_threadIndex, m_task->getTaskName().c_str(), m_task->getTaskId().c_str());
             
             // 执行 zTask 对象
@@ -258,9 +258,9 @@ void* zChildThread::threadMain() {
                 m_taskCompletionCallbackFunc(taskId, nullptr);
             }
 
-            LOGI("zChildThread[%zu] zTask completed", m_threadIndex);
+            LOGI("zThread[%zu] zTask completed", m_threadIndex);
         } else if (m_isThreadRunning && m_executeFunc) {
-            LOGI("zChildThread[%zu] executing task m_executeFunc function...", m_threadIndex);
+            LOGI("zThread[%zu] executing task m_executeFunc function...", m_threadIndex);
             // m_isTaskRunning 已经在 setExecuteFunction 中设置了，这里不需要重复设置
             m_executeFunc(m_executeFuncArg);
             m_isTaskRunning = false;
@@ -271,15 +271,15 @@ void* zChildThread::threadMain() {
                 m_taskCompletionCallbackFunc("function_task", nullptr);
             }
 
-            LOGI("zChildThread[%zu] task function completed", m_threadIndex);
+            LOGI("zThread[%zu] task function completed", m_threadIndex);
         } else if (m_isThreadRunning && m_callable) {
-            LOGI("zChildThread[%zu] executing task m_callable function...", m_threadIndex);
+            LOGI("zThread[%zu] executing task m_callable function...", m_threadIndex);
             // m_isTaskRunning 已经在 setExecuteFunction 中设置了，这里不需要重复设置
             try {
                 m_callable();
-                LOGI("zChildThread[%zu] task function executed successfully", m_threadIndex);
+                LOGI("zThread[%zu] task function executed successfully", m_threadIndex);
             } catch (...) {
-                LOGE("zChildThread[%zu] task function execution failed with exception", m_threadIndex);
+                LOGE("zThread[%zu] task function execution failed with exception", m_threadIndex);
             }
             m_isTaskRunning = false;
             if(m_taskCompletionCallback){
@@ -287,40 +287,40 @@ void* zChildThread::threadMain() {
             } else if(m_taskCompletionCallbackFunc) {
                 m_taskCompletionCallbackFunc("callable_task", nullptr);
             }
-            LOGI("zChildThread[%zu] task function completed", m_threadIndex);
+            LOGI("zThread[%zu] task function completed", m_threadIndex);
         } else if (m_isThreadRunning && m_isTaskRunning) {
             // 如果标记为正在执行任务，但是没有可执行的任务，这是一个错误状态
-            LOGW("zChildThread[%zu] isTaskRunning is true but no task available", m_threadIndex);
+            LOGW("zThread[%zu] isTaskRunning is true but no task available", m_threadIndex);
             m_isTaskRunning = false;
         } else if (m_isThreadRunning) {
             // 如果没有设置执行函数，执行默认任务
-            LOGI("zChildThread[%zu] executing default task...", m_threadIndex);
+            LOGI("zThread[%zu] executing default task...", m_threadIndex);
             usleep(100000); // 100ms
         }
     }
     
-    LOGI("zChildThread[%zu] main loop ended", m_threadIndex);
+    LOGI("zThread[%zu] main loop ended", m_threadIndex);
     return nullptr;
 }
 
 // 设置线程名称
-zChildThread* zChildThread::setName(const string& name) {
+zThread* zThread::setName(const string& name) {
     m_threadName = name;
     return this;
 }
 
 // 获取线程名称
-string zChildThread::getName() const {
+string zThread::getName() const {
     return m_threadName;
 }
 
 // 检查线程是否正在运行
-bool zChildThread::isThreadRunning() const {
+bool zThread::isThreadRunning() const {
     return m_isThreadRunning;
 }
 
 // 检查是否正在执行任务
-bool zChildThread::isTaskRunning() const {
+bool zThread::isTaskRunning() const {
     // 使用 RAII 锁保护状态检查，确保原子性
     std::lock_guard<std::mutex> lock(*m_taskMutex);
     return m_isTaskRunning;

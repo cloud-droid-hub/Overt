@@ -100,6 +100,7 @@ public:
 
     void raise_thread_priority(int sched_priority = 0);
 
+    void update_test_info();
     void update_ssl_info();
     void update_local_network_info();
     void update_proc_info();

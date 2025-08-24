@@ -25,14 +25,23 @@ zLinker* zLinker::getInstance() {
     std::call_once(init_flag, []() {
         try {
             instance = new zLinker();
+            if (instance == nullptr) {
+                LOGE("zLinker: Failed to create singleton instance - null pointer");
+                return;
+            }
             LOGI("zLinker: Created singleton instance");
         } catch (const std::exception& e) {
             LOGE("zLinker: Failed to create singleton instance: %s", e.what());
+            instance = nullptr;
         } catch (...) {
             LOGE("zLinker: Failed to create singleton instance with unknown error");
+            instance = nullptr;
         }
     });
     
+    if (instance == nullptr) {
+        LOGE("zLinker: Singleton instance is null");
+    }
     return instance;
 }
 
@@ -46,6 +55,10 @@ zLinker::zLinker() {
     
     // 解析linker64文件的ELF结构
     this->elf_file_ptr = parse_elf_file("/system/bin/linker64");
+    if (this->elf_file_ptr == nullptr) {
+        LOGE("Failed to parse linker64 file");
+        return;
+    }
     LOGI("linker64 elf_file_ptr %p", this->elf_file_ptr);
 
     // 解析ELF头部信息
@@ -57,19 +70,34 @@ zLinker::zLinker() {
 
     // 获取linker64在内存中的基地址
     this->elf_mem_ptr = get_maps_base("linker64");
+    if (this->elf_mem_ptr == nullptr) {
+        LOGE("Failed to get linker64 maps base");
+        return;
+    }
     LOGI("linker64 elf_mem_ptr %p", this->elf_mem_ptr);
 
     // 获取solist_get_head函数指针，用于获取soinfo链表头
     soinfo*(*solist_get_head)() = (soinfo*(*)())(this->find_symbol("__dl__Z15solist_get_headv"));
-
+    if (solist_get_head == nullptr) {
+        LOGE("Failed to find solist_get_head symbol");
+        return;
+    }
     LOGI("linker64 solist_get_head %p", solist_get_head);
 
     // 获取soinfo链表头指针
     soinfo_head = solist_get_head();
+    if (soinfo_head == nullptr) {
+        LOGE("Failed to get soinfo head");
+        return;
+    }
     LOGI("soinfo_head %p", soinfo_head);
 
     // 获取get_realpath函数指针，用于获取共享库的真实路径
-    soinfo_get_realpath =  (char*(*)(void*))(this->find_symbol("__dl__ZNK6soinfo12get_realpathEv"));
+    soinfo_get_realpath = (char*(*)(void*))(this->find_symbol("__dl__ZNK6soinfo12get_realpathEv"));
+    if (soinfo_get_realpath == nullptr) {
+        LOGE("Failed to find get_realpath symbol");
+        return;
+    }
     LOGI("soinfo_get_realpath %p", soinfo_get_realpath);
 
     // 遍历所有已加载的共享库
@@ -199,4 +227,30 @@ bool zLinker::check_lib_crc(const char* so_name){
         LOGI("check_lib_crc: CRC match for %s", so_name);
     }
     return crc_mismatch;
+}
+
+/**
+ * zLinker析构函数
+ * 清理资源，取消内存映射并关闭文件描述符
+ */
+zLinker::~zLinker() {
+    // 清理资源
+    if (elf_file_ptr != nullptr) {
+        if (munmap(elf_file_ptr, elf_file_size) != 0) {
+            LOGW("Failed to munmap linker64: %s", strerror(errno));
+        }
+        elf_file_ptr = nullptr;
+    }
+    
+    // 避免关闭标准文件描述符（0-2）
+    if (elf_file_fd > 2) {
+        if (close(elf_file_fd) != 0) {
+            LOGW("Failed to close linker64 fd: %s", strerror(errno));
+        }
+        elf_file_fd = -1;
+    } else if (elf_file_fd >= 0) {
+        LOGE("zLinker::~zLinker: WARNING - Skipping close of standard file descriptor %d (stdin/stdout/stderr)", elf_file_fd);
+        LOGE("zLinker::~zLinker: This prevents conflict with Android's unique_fd management");
+        elf_file_fd = -1;
+    }
 }

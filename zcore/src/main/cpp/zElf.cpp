@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <elf.h>
 #include <link.h>
+#include <errno.h>
 
 
 #include "zLog.h"
@@ -35,6 +36,8 @@ zElf::zElf(void *elf_mem_addr) {
     LOGD("Constructor called with elf_mem_addr: %p", elf_mem_addr);
     link_view = LINK_VIEW::MEMORY_VIEW;
     this->elf_mem_ptr = (char *) elf_mem_addr;
+    // 内存视图不需要文件描述符，保持为 -1
+    this->elf_file_fd = -1;
     parse_elf_head();
     parse_program_header_table();
     parse_dynamic_table();
@@ -70,6 +73,10 @@ zElf::zElf(char *elf_file_name) {
         // 内存视图：从内存映射中获取库的基地址
         link_view = LINK_VIEW::MEMORY_VIEW;
         this->elf_mem_ptr = get_maps_base(elf_file_name);
+        if (this->elf_mem_ptr == nullptr) {
+            LOGW("Failed to get maps base for %s", elf_file_name);
+            return;
+        }
         parse_elf_head();
         parse_program_header_table();
         parse_dynamic_table();
@@ -78,6 +85,10 @@ zElf::zElf(char *elf_file_name) {
         link_view = LINK_VIEW::FILE_VIEW;
         this->real_path = string(elf_file_name);
         this->elf_file_ptr = parse_elf_file(elf_file_name);
+        if (this->elf_file_ptr == nullptr) {
+            LOGW("Failed to parse elf file: %s", elf_file_name);
+            return;
+        }
         parse_elf_head();
         parse_program_header_table();
         parse_dynamic_table();
@@ -387,7 +398,14 @@ char *zElf::parse_elf_file(char *elf_path) {
         LOGE("parse_elf_file: failed to open file");
         return nullptr;
     }
-    LOGD("parse_elf_file: file opened successfully");
+    
+    // 检查文件描述符是否在标准范围内（0-2）
+    if (elf_file_fd <= 2) {
+        LOGE("parse_elf_file: WARNING - File descriptor %d is in standard range (0-2) for file %s", elf_file_fd, elf_path);
+        LOGE("parse_elf_file: This may cause issues with Android's unique_fd management");
+    }
+    
+    LOGD("parse_elf_file: file opened successfully with fd %d", elf_file_fd);
     
     // 获取文件大小
     elf_file_size = lseek(elf_file_fd, 0, SEEK_END);
@@ -427,7 +445,14 @@ char *zElf::parse_elf_file_(char *elf_path) {
         LOGE("parse_elf_file_: failed to open file");
         return nullptr;
     }
-    LOGD("parse_elf_file_: file opened successfully");
+    
+    // 检查文件描述符是否在标准范围内（0-2）
+    if (elf_file_fd <= 2) {
+        LOGE("parse_elf_file_: WARNING - File descriptor %d is in standard range (0-2) for file %s", elf_file_fd, elf_path);
+        LOGE("parse_elf_file_: This may cause issues with Android's unique_fd management");
+    }
+    
+    LOGD("parse_elf_file_: file opened successfully with fd %d", elf_file_fd);
     
     // 获取文件大小
     size_t elf_file_size = lseek(elf_file_fd, 0, SEEK_END);
@@ -520,11 +545,25 @@ uint64_t zElf::get_program_header_crc(){
  * 清理资源，取消内存映射并关闭文件描述符
  */
 zElf::~zElf() {
-    if (elf_file_ptr == nullptr) {
-        return;
+    // 清理文件视图资源
+    if (link_view == LINK_VIEW::FILE_VIEW && elf_file_ptr != nullptr) {
+        if (munmap(elf_file_ptr, elf_file_size) != 0) {
+            LOGW("Failed to munmap: %s", strerror(errno));
+        }
+        elf_file_ptr = nullptr;
     }
-    munmap(elf_file_ptr, elf_file_size);
-    close(elf_file_fd);
+    
+    // 清理文件描述符 - 避免关闭标准文件描述符（0-2）
+    if (elf_file_fd > 2) {
+        if (close(elf_file_fd) != 0) {
+            LOGW("Failed to close fd %d: %s", elf_file_fd, strerror(errno));
+        }
+        elf_file_fd = -1;
+    } else if (elf_file_fd >= 0) {
+        LOGE("zElf::~zElf: WARNING - Skipping close of standard file descriptor %d (stdin/stdout/stderr)", elf_file_fd);
+        LOGE("zElf::~zElf: This prevents conflict with Android's unique_fd management");
+        elf_file_fd = -1;
+    }
 }
 
 /**
