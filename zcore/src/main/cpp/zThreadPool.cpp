@@ -2,16 +2,19 @@
 // Created by lxz on 2025/8/21.
 //
 
+#include <mutex>
+#include <thread>
+#include <cmath>
 
 #include "zLog.h"
 #include "zLibc.h"
 #include "zLibcUtil.h"
 #include "zStd.h"
 #include "zStdUtil.h"
-#include <mutex>
-
-#include "zThreadPool.h"
+#include "zFile.h"
 #include "zThread.h"
+#include "zThreadPool.h"
+
 
 // 静态单例实例指针 - 用于实现单例模式
 zThreadPool* zThreadPool::instance = nullptr;
@@ -38,8 +41,16 @@ zThreadPool* zThreadPool::getInstance() {
     std::call_once(init_flag, []() {
         try {
             instance = new zThreadPool();
+
+            // 简单的根据频率评估一下设备性能，设置线程池中线程的数量
+            int cpu_max_freq = get_cpu_max_freq();
+            LOGI("zThreadPool: cpu_max_freq %d", cpu_max_freq);
+
+            int thread_count = suggest_thread_count(cpu_max_freq);
+            LOGI("zThreadPool: thread_count %d", thread_count);
+
             // 启动线程池
-            bool success = instance->startThreadPool(16);
+            bool success = instance->startThreadPool(thread_count);
             if (success) {
                 LOGI("zThreadPool: Created singleton instance and started thread pool");
             } else {
@@ -134,10 +145,7 @@ zThreadPool::~zThreadPool() {
         m_workerThreads.clear();
         m_running = false;
     }
-    
-    // std::mutex 会自动销毁，无需手动清理
-    LOGI("zThread: Task queue mutex will be automatically destroyed");
-    
+
     LOGI("zThread: Destructor completed");
 }
 
@@ -218,8 +226,62 @@ void zThreadPool::tryRunTask(){
         }
     }
 
-    LOGI("zThread: tryRunTask completed, assigned %d tasks successfully, remaining tasks: %zu", 
-         successfulAssignments, m_tasks.size());
+    LOGI("zThread: tryRunTask completed, assigned %d tasks successfully, remaining tasks: %zu", successfulAssignments, m_tasks.size());
+}
+
+int zThreadPool::get_cpu_max_freq() {
+    LOGI("get_cpu_max_freq called");
+    const int cpuCount = std::thread::hardware_concurrency();
+
+    int max_freq = 0;
+
+    LOGD("Scanning CPU frequencies for %d CPUs", cpuCount);
+    for (int cpu = 0; cpu < cpuCount; ++cpu) {
+
+        string path = string_format("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", cpu);
+
+        LOGV("Checking CPU %d frequency file: %s", cpu, path.c_str());
+
+        zFile cpuinfo_max_freq_file(path);
+
+        string cpu_freq_str = cpuinfo_max_freq_file.readAllText();
+        LOGE("freq_str %s", cpu_freq_str.c_str());
+
+        int cpu_freq = atoi(cpu_freq_str.c_str());
+        LOGE("cpu_freq %d", cpu_freq);
+
+        if (cpu_freq > max_freq) {
+            max_freq = cpu_freq;
+            LOGI("New max frequency found: %d kHz (CPU %d)", max_freq, cpu);
+        }
+    }
+    LOGI("Max frequency found: %d kHz", max_freq);
+    return max_freq;
+}
+
+int zThreadPool::suggest_thread_count(uint32_t maxFreq){
+    const int cpuCount = std::thread::hardware_concurrency();
+    if (cpuCount <= 0) return 1;
+
+    /* 阈值（单位 kHz） */
+    const uint32_t LOW_FREQ  = 2208000;   // 2.2 GHz
+    const uint32_t HIGH_FREQ = 4320000;   // 4.3 GHz
+    const int LOW_THREADS    = 4;
+
+    int threads;
+    if (maxFreq >= HIGH_FREQ) {
+        threads = cpuCount;                 // 旗舰：全开
+    } else if (maxFreq <= LOW_FREQ) {
+        threads = std::min(LOW_THREADS, cpuCount); // 老机：4
+    } else {
+        /* 线性插值 */
+        double ratio = static_cast<double>(maxFreq - LOW_FREQ)
+                       / (HIGH_FREQ - LOW_FREQ);
+        threads = static_cast<int>(
+                std::round(LOW_THREADS + ratio * (cpuCount - LOW_THREADS))
+        );
+    }
+    return std::max(1, threads);
 }
 
 

@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <initializer_list>
+#include <utility>  // 添加 utility 头文件，提供 std::forward
 
 #include "zLog.h"
 
@@ -165,29 +166,28 @@ namespace nonstd {
     public:
         // Iterator class
         class iterator {
-        public:
+        private:
             Node* current;
             const map* container;
+            mutable pair<K, V> temp_pair;  // 改为成员变量，避免静态变量
 
-
+        public:
             iterator(Node* node, const map* cont) : current(node), container(cont) {}
 
             pair<K, V>& operator*() {
-                static pair<K, V> temp;
                 if (current) {
-                    temp.first = current->key;
-                    temp.second = current->value;
+                    temp_pair.first = current->key;
+                    temp_pair.second = current->value;
                 }
-                return temp;
+                return temp_pair;
             }
 
             pair<K, V>* operator->() {
-                static pair<K, V> temp;
                 if (current) {
-                    temp.first = current->key;
-                    temp.second = current->value;
+                    temp_pair.first = current->key;
+                    temp_pair.second = current->value;
                 }
-                return &temp;
+                return &temp_pair;
             }
 
             iterator& operator++() {
@@ -217,26 +217,25 @@ namespace nonstd {
         private:
             Node* current;
             const map* container;
+            mutable pair<K, V> temp_pair;  // 改为成员变量
 
         public:
             const_iterator(Node* node, const map* cont) : current(node), container(cont) {}
 
             const pair<K, V>& operator*() const {
-                static pair<K, V> temp;
                 if (current) {
-                    temp.first = current->key;
-                    temp.second = current->value;
+                    temp_pair.first = current->key;
+                    temp_pair.second = current->value;
                 }
-                return temp;
+                return temp_pair;
             }
 
             const pair<K, V>* operator->() const {
-                static pair<K, V> temp;
                 if (current) {
-                    temp.first = current->key;
-                    temp.second = current->value;
+                    temp_pair.first = current->key;
+                    temp_pair.second = current->value;
                 }
-                return &temp;
+                return &temp_pair;
             }
 
             const_iterator& operator++() {
@@ -585,13 +584,6 @@ namespace nonstd {
         }
     };
 
-
-
-
-
-
 } // namespace nonstd
-
-
 
 #endif // zMap_H

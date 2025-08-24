@@ -2,8 +2,6 @@
 // Created by lxz on 2025/7/11.
 //
 
-
-
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -19,7 +17,16 @@
 
 /**
  * 默认构造函数
- * 初始化空的文件路径
+ * 初始化空的文件对象
+ */
+zFile::zFile() : m_path(""), m_fd(-1), earliest_time(0), st_ret(-1) {
+    LOGD("Default constructor called");
+}
+
+/**
+ * 带字符串路径的构造函数
+ * 根据指定路径初始化文件对象，并设置文件属性
+ * @param string 文件或目录的路径
  */
 zFile::zFile(const char *string) : m_path(string) {
     LOGD("Default constructor called");
@@ -56,6 +63,63 @@ zFile::zFile(const string& path) : m_path(path) {
     // 验证文件是否成功打开
     if (m_fd < 0) {
         LOGW("Failed to open file: %s", m_path.c_str());
+    }
+}
+
+/**
+ * 设置文件路径
+ * 设置新的文件路径，会先清理之前的文件描述符
+ * @param path 新的文件路径
+ */
+void zFile::setPath(const string& path) {
+    LOGD("setPath called with path: %s", path.c_str());
+    
+    // 如果路径没有变化，直接返回
+    if (m_path == path) {
+        LOGD("Path unchanged, skipping update");
+        return;
+    }
+    
+    // 清理之前的文件描述符
+    if (m_fd > 2) {
+        LOGD("Closing previous fd: %d", m_fd);
+        if (close(m_fd) != 0) {
+            LOGW("Failed to close fd %d: %s", m_fd, strerror(errno));
+        }
+        m_fd = -1;
+    } else if (m_fd >= 0) {
+        LOGE("setPath: WARNING - Skipping close of standard file descriptor %d (stdin/stdout/stderr)", m_fd);
+        LOGE("setPath: This prevents conflict with Android's unique_fd management");
+        m_fd = -1;
+    }
+    
+    // 设置新路径
+    m_path = path;
+    
+    // 如果新路径为空，重置其他状态
+    if (m_path.empty()) {
+        LOGD("setPath: Path set to empty, resetting state");
+        earliest_time = 0;
+        st_ret = -1;
+        return;
+    }
+    
+    // 设置文件属性（文件/目录）
+    setAttribute();
+    
+    // 设置文件描述符
+    setFd();
+    
+    // 验证文件是否成功打开
+    if (m_fd < 0) {
+        LOGW("setPath: Failed to open file: %s", m_path.c_str());
+    } else {
+        // 检查文件描述符是否在标准范围内（0-2）
+        if (m_fd <= 2) {
+            LOGE("setPath: WARNING - File descriptor %d is in standard range (0-2) for %s", m_fd, m_path.c_str());
+            LOGE("setPath: This may cause issues with Android's unique_fd management");
+        }
+        LOGI("setPath: File opened successfully with fd %d", m_fd);
     }
 }
 
@@ -354,11 +418,10 @@ string zFile::getEarliestTimeFormatted() const {
 string zFile::readAllText() {
     LOGD("readAllText %d %d", isDir(), m_fd);
     if (isDir() || m_fd < 0) {
-        LOGD("readAllText3");
+        LOGD("readAllText isDir or m_fd<0");
         return "";
     }
 
-    LOGD("readAllText2");
     // 检查是否为文本文件
     if (!isTextFile()) {
         LOGW("readAllText: 文件不是文本文件: %s", m_path.c_str());
@@ -764,6 +827,7 @@ int zFile::getUTF8CharLength(unsigned char first_byte) const {
  * @return 如果文件是文本文件返回true
  */
 bool zFile::isTextFile() {
+    // 这个函数实现起来有问题
     return true;
     
     if (m_fd < 0) {

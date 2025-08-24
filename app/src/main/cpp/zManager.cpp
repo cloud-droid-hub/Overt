@@ -27,8 +27,8 @@
 #include "zLogcatInfo.h"
 #include "zJavaVm.h"
 #include <mutex>
+#include <cmath>
 
-#define MAX_CPU 8
 
 // 静态成员变量初始化
 zManager* zManager::instance = nullptr;
@@ -133,7 +133,7 @@ const map<string, map<string, string>> zManager::get_info(const string& key){
 void zManager::round_tasks(){
     LOGI("add_tasks: starting periodic task management loop");
     // 定义所有需要周期性执行的任务
-    map<string, void(zManager::*)()> periodic_tasks = {
+    vector<pair<string, void(zManager::*)()>> periodic_tasks = {
             {"proc_info", &zManager::update_proc_info},
             {"tee_info", &zManager::update_tee_info},
             {"class_loader_info", &zManager::update_class_loader_info},
@@ -143,22 +143,11 @@ void zManager::round_tasks(){
             {"system_prop_info", &zManager::update_system_prop_info},
             {"root_file_info", &zManager::update_root_file_info},
             {"port_info", &zManager::update_port_info},
-
             {"time_info", &zManager::update_time_info},
             {"ssl_info", &zManager::update_ssl_info},
             {"local_network_info", &zManager::update_local_network_info},
             {"logcat_info", &zManager::update_logcat_info},
-
-//            {"test_info1", &zManager::update_test_info},
-//            {"test_info2", &zManager::update_test_info},
-//            {"test_info3", &zManager::update_test_info},
-//            {"test_info4", &zManager::update_test_info},
-//            {"test_info5", &zManager::update_test_info},
-//            {"test_info6", &zManager::update_test_info},
-//            {"test_info7", &zManager::update_test_info},
-
     };
-
     LOGI("add_tasks: initialized %zu periodic tasks", periodic_tasks.size());
     
     while (true) {
@@ -181,14 +170,7 @@ void zManager::round_tasks(){
             sleep(5); // 发生异常时短暂等待
         }
     }
-    
     LOGI("add_tasks: periodic task management loop stopped");
-};
-
-void zManager::update_test_info(){
-    // 收集SSL信息 - 检测SSL证书异常
-    sleep(100);
-    notice_java("test_info");
 };
 
 void zManager::update_ssl_info(){
@@ -352,15 +334,17 @@ void zManager::clear_device_info(){
     LOGI("clear_device_info");
 };
 
+
 vector<int> zManager::get_big_core_list() {
     LOGI("get_big_core_list called");
+    const int cpuCount = std::thread::hardware_concurrency();
 
     vector<int> big_cores;
     int max_freq = 0;
-    int freqs[MAX_CPU] = {0};
+    vector<int> freqs;
 
-    LOGD("Scanning CPU frequencies for %d CPUs", MAX_CPU);
-    for (int cpu = 0; cpu < MAX_CPU; ++cpu) {
+    LOGD("Scanning CPU frequencies for %d CPUs", cpuCount);
+    for (int cpu = 0; cpu < cpuCount; ++cpu) {
 
         string path = string_format("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", cpu);
 
@@ -384,14 +368,14 @@ vector<int> zManager::get_big_core_list() {
     LOGI("Max frequency found: %d kHz", max_freq);
     LOGD("Identifying big cores with max frequency...");
 
-    for (int i = 0; i < MAX_CPU; ++i) {
+    for (int i = 0; i < cpuCount; ++i) {
         if (freqs[i] == max_freq) {
             big_cores.push_back(i);
             LOGI("Added CPU %d as big core (freq: %d kHz)", i, freqs[i]);
         }
     }
 
-    LOGI("Found %zu big cores out of %d CPUs", big_cores.size(), MAX_CPU);
+    LOGI("Found %zu big cores out of %d CPUs", big_cores.size(), cpuCount);
     return big_cores;
 }
 
@@ -402,6 +386,7 @@ pid_t zManager::gettid(){
 
 void zManager::bind_self_to_least_used_big_core() {
     LOGI("bind_self_to_least_used_big_core called");
+    const int cpuCount = std::thread::hardware_concurrency();
 
     LOGD("Getting list of big cores...");
     vector<int> big_cores = get_big_core_list();
@@ -457,7 +442,7 @@ void zManager::bind_self_to_least_used_big_core() {
         CPU_ZERO(&verify_set);
         if (sched_getaffinity(tid, sizeof(verify_set), &verify_set) == 0) {
             LOGD("Verification - current CPU affinity:");
-            for (int cpu = 0; cpu < MAX_CPU; ++cpu) {
+            for (int cpu = 0; cpu < cpuCount; ++cpu) {
                 if (CPU_ISSET(cpu, &verify_set)) {
                     LOGD("  CPU %d is in affinity set", cpu);
                 }
@@ -498,3 +483,4 @@ void zManager::raise_thread_priority(int nice_priority){
         LOGI("Successfully set thread %d priority to %d (actual nice: %d)", tid, nice_priority, actual);
     }
 }
+

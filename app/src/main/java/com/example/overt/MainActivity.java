@@ -1,5 +1,6 @@
 package com.example.overt;
 
+import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -45,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
         // 将卡片容器添加到布局中
         NestedScrollView scrollView = cardContainer.getContainerView();
         cardContainerLayout.addView(scrollView);
+
     }
     
     /**
@@ -55,40 +57,18 @@ public class MainActivity extends AppCompatActivity {
     public static void onCardInfoUpdated(String title, Map<String, Map<String, String>> newCardInfo) {
         Log.d(TAG, "Received device info update notification from native (static method)");
 
-        // so 中 init 启动的太早了，触发数据更新的时候，可能还没执行到 Activity 的 onCreate，这里有必要做一些等待
-        final long timeout = 1000L;          // 1 秒
-        final long deadline = System.currentTimeMillis() + timeout;
-
-        while (currentInstance == null && System.currentTimeMillis() < deadline) {
+        // so 中 init 启动的太早了，触发数据更新的时候，可能还没执行到 Activity 的 onCreate，这里有必要做一些判断和等待
+        final long deadline = System.currentTimeMillis() + 1000L;
+        while ((currentInstance == null || mainHandler == null)&& System.currentTimeMillis() < deadline) {
             try {
-                Thread.sleep(50);            // 每 50 ms 检查一次，不会把 CPU 吃满
+                Thread.sleep(30);            // 每 30 ms 检查一次，不会把 CPU 吃满
             } catch (InterruptedException ignore) {
                 // 有人打断就直接放弃
                 Thread.currentThread().interrupt();
-                Log.e(TAG, "Current instance is null, cannot update UI0");
+                Log.e(TAG, "Cannot update UICurrent currentInstance is  " + currentInstance);
+                Log.e(TAG, "Cannot update UICurrent mainHandler is  " + mainHandler);
                 return;
             }
-        }
-
-        if (currentInstance == null) {
-            Log.e(TAG, "Current instance is null, cannot update UI");
-            return;
-        }
-
-        while (mainHandler == null && System.currentTimeMillis() < deadline) {
-            try {
-                Thread.sleep(50);            // 每 50 ms 检查一次，不会把 CPU 吃满
-            } catch (InterruptedException ignore) {
-                // 有人打断就直接放弃
-                Thread.currentThread().interrupt();
-                Log.e(TAG, "mainHandler is null, cannot update UI0");
-                return;
-            }
-        }
-
-        if (mainHandler == null) {
-            Log.e(TAG, "mainHandler is null, cannot update UI");
-            return;
         }
 
         // 保存当前实例的引用，避免在post执行时被清空

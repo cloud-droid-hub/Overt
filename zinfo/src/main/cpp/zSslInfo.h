@@ -5,10 +5,8 @@
 #ifndef SSLCHECK_SSL_INFO_H
 #define SSLCHECK_SSL_INFO_H
 
-
 #include "zStd.h"
 
 map<string, map<string, string>> get_ssl_info();
-
 
 #endif //SSLCHECK_SSL_INFO_H

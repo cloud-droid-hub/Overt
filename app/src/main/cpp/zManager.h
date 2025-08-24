@@ -97,8 +97,9 @@ public:
     pid_t gettid();
 
     void bind_self_to_least_used_big_core();
-
     void raise_thread_priority(int sched_priority = 0);
+
+
 
     void update_test_info();
     void update_ssl_info();

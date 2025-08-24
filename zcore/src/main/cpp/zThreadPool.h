@@ -73,7 +73,10 @@ public:
         }
     }
 
+    // 从实际测试效果来看 4 个线程启动 app 比较丝滑
     bool startThreadPool(size_t threadCount = 4);
+    static int get_cpu_max_freq();
+    static int suggest_thread_count(uint32_t maxFreq);
 
     vector<zTask*> m_tasks;
 

@@ -9,6 +9,7 @@
 #include "zStd.h"
 #include "zStdUtil.h"
 #include "zHttps.h"
+#include "zLinker.h"
 
 
 // 全局测试统计
@@ -192,15 +193,18 @@ void __attribute__((constructor)) init_(void) {
     LOGI("🚀 zCore 初始化 - 启动全面测试");
     
 
-    // HTTPS超时机制测试
-    test_https_module();
-    
-    // 输出测试结果
-    LOGI("=== 测试结果汇总 ===");
-    LOGI("通过: %d", g_testsPassed);
-    LOGI("失败: %d", g_testsFailed);
-    LOGI("警告: %d", g_testsWarning);
-    LOGI("总计: %d", g_testsPassed + g_testsFailed + g_testsWarning);
+//    // HTTPS超时机制测试
+//    test_https_module();
+//
+//    // 输出测试结果
+//    LOGI("=== 测试结果汇总 ===");
+//    LOGI("通过: %d", g_testsPassed);
+//    LOGI("失败: %d", g_testsFailed);
+//    LOGI("警告: %d", g_testsWarning);
+//    LOGI("总计: %d", g_testsPassed + g_testsFailed + g_testsWarning);
+
+
+    zLinker::getInstance()->find_lib("libart.so");
     
     return;
 }

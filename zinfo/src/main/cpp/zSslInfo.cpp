@@ -5,7 +5,6 @@
 #include "zLog.h"
 #include "zHttps.h"
 #include "zJson.h"
-
 #include "zSslInfo.h"
 
 string get_location() {
@@ -83,28 +82,30 @@ map<string, map<string, string>> get_ssl_info() {
             continue;
         }
         if (response.certificate.fingerprint_sha256 != item.second) {
+            LOGI("Server Url : %s", item.first.c_str());
             LOGI("Server Certificate Fingerprint Local : %s", item.second.c_str());
             LOGD("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
             info[item.first]["risk"] = "error";
             info[item.first]["explain"] = "Certificate Fingerprint is wrong " + response.certificate.fingerprint_sha256;
             continue;
         }
+        LOGI("=== Testing2 URL: %s ===", item.first.c_str());
     }
 
-    string location = get_location();
-    if (location.empty()) {
-        LOGW("get_location failed");
-        info["location"]["risk"] = "error";
-        info["location"]["explain"] = "get_location failed";
-    } else if (string_start_with(location.c_str(), "中国")) {
-        LOGI("get_location succeed");
-        info["location"]["risk"] = "safe";
-        info["location"]["explain"] = location;
-    } else {
-        LOGW("get_location succeed but error");
-        info["location"]["risk"] = "error";
-        info["location"]["explain"] = location;
-    }
+//    string location = get_location();
+//    if (location.empty()) {
+//        LOGW("get_location failed");
+//        info["location"]["risk"] = "error";
+//        info["location"]["explain"] = "get_location failed";
+//    } else if (string_start_with(location.c_str(), "中国")) {
+//        LOGI("get_location succeed");
+//        info["location"]["risk"] = "safe";
+//        info["location"]["explain"] = location;
+//    } else {
+//        LOGW("get_location succeed but error");
+//        info["location"]["risk"] = "error";
+//        info["location"]["explain"] = location;
+//    }
 
     return info;
 }

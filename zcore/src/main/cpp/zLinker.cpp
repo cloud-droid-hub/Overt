@@ -50,9 +50,13 @@ zLinker* zLinker::getInstance() {
  * 初始化动态链接器检测器，解析linker64文件并获取soinfo链表
  * 通过ELF解析技术获取linker64的内存布局和符号信息
  */
-zLinker::zLinker() {
+zLinker::zLinker() : zElf() {
     LOGD("Constructor called");
+    this->link_view = LINK_VIEW::FILE_VIEW;
     
+    // 设置文件路径
+    setPath("/system/bin/linker64");
+
     // 解析linker64文件的ELF结构
     this->elf_file_ptr = parse_elf_file("/system/bin/linker64");
     if (this->elf_file_ptr == nullptr) {
@@ -231,26 +235,15 @@ bool zLinker::check_lib_crc(const char* so_name){
 
 /**
  * zLinker析构函数
- * 清理资源，取消内存映射并关闭文件描述符
+ * 清理资源，取消内存映射
  */
 zLinker::~zLinker() {
     // 清理资源
     if (elf_file_ptr != nullptr) {
-        if (munmap(elf_file_ptr, elf_file_size) != 0) {
+        if (munmap(elf_file_ptr, getFileSize()) != 0) {
             LOGW("Failed to munmap linker64: %s", strerror(errno));
         }
         elf_file_ptr = nullptr;
     }
-    
-    // 避免关闭标准文件描述符（0-2）
-    if (elf_file_fd > 2) {
-        if (close(elf_file_fd) != 0) {
-            LOGW("Failed to close linker64 fd: %s", strerror(errno));
-        }
-        elf_file_fd = -1;
-    } else if (elf_file_fd >= 0) {
-        LOGE("zLinker::~zLinker: WARNING - Skipping close of standard file descriptor %d (stdin/stdout/stderr)", elf_file_fd);
-        LOGE("zLinker::~zLinker: This prevents conflict with Android's unique_fd management");
-        elf_file_fd = -1;
-    }
+    // 父类析构函数会自动处理文件描述符
 }

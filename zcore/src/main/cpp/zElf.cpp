@@ -22,7 +22,7 @@
  * 默认构造函数
  * 初始化空的ELF对象
  */
-zElf::zElf() {
+zElf::zElf() : zFile() {
     LOGD("Default constructor called");
     // 空实现，因为所有成员变量都已经在类定义中初始化
 }
@@ -32,12 +32,10 @@ zElf::zElf() {
  * 根据内存地址初始化ELF对象，用于分析已加载到内存的ELF文件
  * @param elf_mem_addr 内存中的ELF文件基地址
  */
-zElf::zElf(void *elf_mem_addr) {
+zElf::zElf(void *elf_mem_addr) : zFile() {
     LOGD("Constructor called with elf_mem_addr: %p", elf_mem_addr);
     link_view = LINK_VIEW::MEMORY_VIEW;
     this->elf_mem_ptr = (char *) elf_mem_addr;
-    // 内存视图不需要文件描述符，保持为 -1
-    this->elf_file_fd = -1;
     parse_elf_head();
     parse_program_header_table();
     parse_dynamic_table();
@@ -65,7 +63,7 @@ static ElfW(Dyn) *find_dyn_by_tag2(ElfW(Dyn) *dyn, ElfW(Sxword) tag) {
  * 根据文件路径初始化ELF对象，支持内存视图和文件视图
  * @param elf_file_name ELF文件路径或库名
  */
-zElf::zElf(char *elf_file_name) {
+zElf::zElf(char *elf_file_name) : zFile(elf_file_name) {
     LOGD("Constructor called with elf_file_name: %s", elf_file_name);
     
     // 检查是否为库名（以"lib"开头）
@@ -83,7 +81,6 @@ zElf::zElf(char *elf_file_name) {
     } else {
         // 文件视图：直接解析ELF文件
         link_view = LINK_VIEW::FILE_VIEW;
-        this->real_path = string(elf_file_name);
         this->elf_file_ptr = parse_elf_file(elf_file_name);
         if (this->elf_file_ptr == nullptr) {
             LOGW("Failed to parse elf file: %s", elf_file_name);
@@ -391,38 +388,25 @@ char* zElf::find_symbol(const char *symbol_name) {
 char *zElf::parse_elf_file(char *elf_path) {
     LOGI("parse_elf_file %s", elf_path);
 
-    // 打开文件，获取文件描述符
-    elf_file_fd = open(elf_path, O_RDONLY);
-    if (elf_file_fd == -1) {
-        // 处理文件打开失败的情况
-        LOGE("parse_elf_file: failed to open file");
+    // 使用父类的文件描述符管理
+    if (!exists()) {
+        LOGE("parse_elf_file: file does not exist: %s", elf_path);
         return nullptr;
     }
-    
-    // 检查文件描述符是否在标准范围内（0-2）
-    if (elf_file_fd <= 2) {
-        LOGE("parse_elf_file: WARNING - File descriptor %d is in standard range (0-2) for file %s", elf_file_fd, elf_path);
-        LOGE("parse_elf_file: This may cause issues with Android's unique_fd management");
-    }
-    
-    LOGD("parse_elf_file: file opened successfully with fd %d", elf_file_fd);
-    
+
     // 获取文件大小
-    elf_file_size = lseek(elf_file_fd, 0, SEEK_END);
-    if (elf_file_size == -1) {
-        // 处理获取文件大小失败的情况
+    long file_size = getFileSize();
+    if (file_size <= 0) {
         LOGE("parse_elf_file: failed to get file size");
-        close(elf_file_fd);
         return nullptr;
     }
-    LOGD("parse_elf_file: file size obtained");
+    LOGD("parse_elf_file: file size obtained: %ld", file_size);
     
     // 将文件映射到内存中
-    elf_file_ptr = (char *) mmap(NULL, elf_file_size, PROT_READ, MAP_PRIVATE, elf_file_fd, 0);
+    elf_file_ptr = (char *) mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, getFd(), 0);
     if (elf_file_ptr == MAP_FAILED) {
         // 处理映射失败的情况
         LOGE("parse_elf_file: failed to mmap file");
-        close(elf_file_fd);
         return nullptr;
     }
     LOGI("parse_elf_file: file mapped successfully");
@@ -542,28 +526,17 @@ uint64_t zElf::get_program_header_crc(){
 
 /**
  * 析构函数
- * 清理资源，取消内存映射并关闭文件描述符
+ * 清理资源，取消内存映射
  */
 zElf::~zElf() {
     // 清理文件视图资源
     if (link_view == LINK_VIEW::FILE_VIEW && elf_file_ptr != nullptr) {
-        if (munmap(elf_file_ptr, elf_file_size) != 0) {
+        if (munmap(elf_file_ptr, getFileSize()) != 0) {
             LOGW("Failed to munmap: %s", strerror(errno));
         }
         elf_file_ptr = nullptr;
     }
-    
-    // 清理文件描述符 - 避免关闭标准文件描述符（0-2）
-    if (elf_file_fd > 2) {
-        if (close(elf_file_fd) != 0) {
-            LOGW("Failed to close fd %d: %s", elf_file_fd, strerror(errno));
-        }
-        elf_file_fd = -1;
-    } else if (elf_file_fd >= 0) {
-        LOGE("zElf::~zElf: WARNING - Skipping close of standard file descriptor %d (stdin/stdout/stderr)", elf_file_fd);
-        LOGE("zElf::~zElf: This prevents conflict with Android's unique_fd management");
-        elf_file_fd = -1;
-    }
+    // 父类析构函数会自动处理文件描述符
 }
 
 /**
@@ -607,4 +580,20 @@ char *zElf::get_maps_base(const char *so_name) {
 
     LOGI("elf_mem_ptr:%p", elf_mem_ptr);
     return elf_mem_ptr;
+}
+
+/**
+ * 重写父类的 exists() 方法
+ * 根据视图类型检查文件是否存在
+ * @return 如果文件存在返回true
+ */
+bool zElf::exists() const {
+    if (link_view == LINK_VIEW::MEMORY_VIEW) {
+        // 内存视图：检查内存指针是否有效
+        return elf_mem_ptr != nullptr;
+    } else if (link_view == LINK_VIEW::FILE_VIEW) {
+        // 文件视图：调用父类方法检查文件是否存在
+        return zFile::exists();
+    }
+    return false;
 }

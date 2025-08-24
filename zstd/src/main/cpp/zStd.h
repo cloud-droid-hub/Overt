@@ -24,9 +24,10 @@
     #include "queue.h"
     using nonstd::string;
     using nonstd::vector;
+    using nonstd::pair;
     using nonstd::map;
     using nonstd::queue;
-    using nonstd::pair;
+
     using nonstd::to_string;
 
 #else
@@ -37,7 +38,6 @@
 #include <vector>
 #include <map>
 #include <queue>
-
 
 // 使用 std 命名空间（但避免与系统函数冲突）
 using std::string;

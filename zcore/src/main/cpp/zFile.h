@@ -16,6 +16,7 @@
 class zFile {
 public:
     // 构造函数
+    zFile();
     zFile(const char *string);
     zFile(const string& path);
     
@@ -23,6 +24,13 @@ public:
     ~zFile();
     
     // 文件路径相关操作
+    /**
+     * 设置文件路径
+     * 设置新的文件路径，会先清理之前的文件描述符
+     * @param path 新的文件路径
+     */
+    void setPath(const string& path);
+    
     /**
      * 获取文件路径
      * @return 文件完整路径

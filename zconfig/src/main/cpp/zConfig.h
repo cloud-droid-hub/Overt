@@ -21,6 +21,6 @@
 #define LOG_LEVEL_ERROR   6
 
 // 当前日志级别 - 可以通过修改这个值来控制日志输出级别
-#define CURRENT_LOG_LEVEL LOG_LEVEL_INFO
+#define CURRENT_LOG_LEVEL LOG_LEVEL_DEBUG
 
 #endif // CONFIG_H

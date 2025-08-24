@@ -8,8 +8,9 @@
 #include <linux/elf.h>
 #include <stddef.h>
 #include "zStd.h"
+#include "zFile.h"
 
-class zElf {
+class zElf : public zFile {
 public:
     enum LINK_VIEW {
         MEMORY_VIEW,
@@ -19,15 +20,17 @@ public:
 
     LINK_VIEW link_view = UNKNOWN_VIEW;
 
+    // ELF 特有的成员
     char* elf_mem_ptr = nullptr;
     char* elf_file_ptr = nullptr;
-    string real_path = "";
 
+    // 构造函数
     zElf();
     zElf(char* elf_file_name);
     zElf(void* elf_mem_addr);
     ~zElf();
 
+    // ELF 解析相关成员
     Elf64_Ehdr* elf_header = nullptr;
     Elf64_Phdr* program_header_table;
     Elf64_Half program_header_table_num = 0;
@@ -68,10 +71,8 @@ public:
     char* gnu_hash_table = nullptr;
     void parse_dynamic_table();
 
-    size_t elf_file_size = 0;
-    int elf_file_fd = -1;
+    // ELF 特有方法
     char* parse_elf_file(char* elf_path);
-
     static char* parse_elf_file_(char* elf_path);
 
     char* find_symbol(const char *symbol_name);
@@ -87,7 +88,8 @@ public:
     uint64_t get_program_header_crc();
     uint64_t get_text_segment_crc();
 
+    // 重写父类方法
+    bool exists() const;
 };
-
 
 #endif //OVERT_ZELF_H
