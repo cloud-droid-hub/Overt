@@ -29,12 +29,12 @@ map<string, map<string, string>> get_root_file_info(){
             "/data/local/su",              // 本地目录下的su
             "/system/xbin/mu",             // mu二进制文件（另一种Root工具）
             "/system_ext/bin/su",          // 系统扩展目录下的su
-            "/apex/com.android.runtime/bin/suu"  // APEX运行时目录下的suu
+            "/apex/com.android.runtime/bin/suu",  // APEX运行时目录下的suu
     };
 
     // 遍历检测每个路径
     for (const char* path : paths) {
-        LOGD("Checking path: %s", path);
+        LOGI("Checking path: %s", path);
         zFile file(path);
         
         // 检查文件是否存在

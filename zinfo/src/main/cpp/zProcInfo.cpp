@@ -148,7 +148,7 @@ map<string, map<string, string>> get_mounts_info(){
 
     // 遍历每一行挂载信息
     for(int i = 0; i < mounts_lines.size(); i++){
-        LOGD("Processing line %d: %s", i, mounts_lines[i].c_str());
+        LOGI("Processing line %d: %s", i, mounts_lines[i].c_str());
 
         // 检查是否包含异常挂载点名称
         for (const char* path : paths) {
@@ -197,7 +197,7 @@ map<string, map<string, string>> get_task_info(){
 
         // 分析每行状态信息
         for(string stat_line : stat_line_list) {
-            LOGD("Processing stat_line: %s", stat_line.c_str());
+            LOGI("Processing stat_line: %s", stat_line.c_str());
 
             // 检测Frida注入的gmain线程
             if (strstr(stat_line.c_str(), "gamin") != nullptr) {

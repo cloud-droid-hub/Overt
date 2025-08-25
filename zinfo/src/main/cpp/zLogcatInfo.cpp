@@ -8,10 +8,13 @@
 #include "zStdUtil.h"
 #include "zShell.h"
 #include "zLogcatInfo.h"
+#include "zFile.h"
 
 // 这个检测有点不太稳定，一会儿能查到一会儿查不到，但只要查到了肯定是安装了 zygiskd
 map<string, map<string, string>> get_logcat_info(){
     map<string, map<string, string>> info;
+    LOGE("get_logcat_info is called");
+
     for(int i = 1500; i < 2000; i++){
         if(i % 10 == 0){
             LOGD("get_logcat_info pid %d", i);
