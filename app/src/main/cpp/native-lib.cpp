@@ -23,7 +23,6 @@
 void __attribute__((constructor)) init_(void){
     LOGI("init_ start");
 
-
     zThreadPool::getInstance()->addTask("round_tasks", zManager::getInstance(), &zManager::round_tasks);
 
     LOGI("init_ over");
