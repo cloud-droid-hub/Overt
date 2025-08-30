@@ -112,8 +112,6 @@
     #include <stdio.h>
 #endif
 
-
-
 #include <sys/types.h>
 
 extern "C" {

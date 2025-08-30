@@ -49,7 +49,10 @@ string getSha256byBaseApk() {
     mz_zip_archive zip_archive = {};
     size_t uncomp_size = 0;
 
-    status = mz_zip_reader_init_file(&zip_archive, base_apk_path.c_str(), 0);
+    zFile base_apk_file(base_apk_path);
+    vector<uint8_t> base_apk_bytes = base_apk_file.readAllBytes();
+    status = mz_zip_reader_init_mem(&zip_archive, base_apk_bytes.data(), base_apk_bytes.size(), 0);
+
     if(status == 0) {
         LOGE("open zip failed %s", base_apk_path.c_str());
         return "";
