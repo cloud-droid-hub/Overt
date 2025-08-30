@@ -115,6 +115,7 @@ public:
     void update_tee_info();
     void update_time_info();
     void update_logcat_info();
+    void update_signature_info();
     void notice_java(string title);
     void round_tasks();
     

@@ -74,7 +74,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zThread.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zThreadPool.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zShell.cpp
-
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zZip.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zSha256.cpp
 
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zRootFileInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zProcInfo.cpp
@@ -89,6 +90,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSslInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLocalNetworkInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLogcatInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSignatureInfo.cpp
 
         zManager.cpp
 

@@ -31,6 +31,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zThread.cpp
         zThreadPool.cpp
         zShell.cpp
+        zZip.cpp
+        zSha256.cpp
         zCoreTest.cpp)
 
 # 添加mbedtls库
