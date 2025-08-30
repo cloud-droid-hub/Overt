@@ -6,6 +6,7 @@
 #include "zFile.h"
 
 #include "zPackageInfo.h"
+#include "zShell.h"
 
 bool isAppInstalledByContext(JNIEnv *env, jobject context, const char* packageNameCStr) {
     // 1. 将 C 字符串转换为 jstring
@@ -60,6 +61,17 @@ bool isAppInstalledByPath(const char* packageName) {
     return false;
 }
 
+bool isAppInstalledByShellHole(const char* packageName) {
+    string cmd = "file /storage/emulated/\342\200\2130/Android/data/" + string(packageName);
+    string ret = runShell(cmd);
+    LOGE("cmd: %s", ret.c_str());
+    if(strstr(ret.c_str(), "No such file or directory") == nullptr){
+        return true;
+    }
+    return false;
+}
+
+
 
 map<string, map<string, string>> get_package_info(JNIEnv *env, jobject context){
     map<string, map<string, string>> info;
@@ -95,12 +107,15 @@ map<string, map<string, string>> get_package_info(JNIEnv *env, jobject context){
     };
 
     for (auto &[package_name, app_name] : black_map) {
-        if(isAppInstalledByPath(package_name.c_str())){
+        if(isAppInstalledByContext(env, context, package_name.c_str())){
             info[package_name]["risk"] = "error";
-            info[package_name]["explain"] = "black package name but install " + app_name;
-        }else if(isAppInstalledByContext(env, context, package_name.c_str())){
+            info[package_name]["explain"] = "black package name but install[pms] " + app_name;
+        }else if(isAppInstalledByPath(package_name.c_str())){
             info[package_name]["risk"] = "error";
-            info[package_name]["explain"] = "black package name but install " + app_name;
+            info[package_name]["explain"] = "black package name but install[file] " + app_name;
+        }else if(isAppInstalledByShellHole(package_name.c_str())){
+            info[package_name]["risk"] = "error";
+            info[package_name]["explain"] = "black package name but install[shell hole] " + app_name;
         }
     }
 
