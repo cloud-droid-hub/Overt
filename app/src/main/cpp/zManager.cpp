@@ -134,6 +134,7 @@ void zManager::round_tasks(){
     LOGI("add_tasks: starting periodic task management loop");
     // 定义所有需要周期性执行的任务
     vector<pair<string, void(zManager::*)()>> periodic_tasks = {
+            {"root_file_info", &zManager::update_root_file_info},
             {"proc_info", &zManager::update_proc_info},
             {"tee_info", &zManager::update_tee_info},
             {"class_loader_info", &zManager::update_class_loader_info},
@@ -141,7 +142,6 @@ void zManager::round_tasks(){
             {"package_info", &zManager::update_package_info},
             {"system_setting_info", &zManager::update_system_setting_info},
             {"system_prop_info", &zManager::update_system_prop_info},
-            {"root_file_info", &zManager::update_root_file_info},
             {"port_info", &zManager::update_port_info},
             {"time_info", &zManager::update_time_info},
             {"ssl_info", &zManager::update_ssl_info},

@@ -330,12 +330,11 @@ Elf64_Addr zElf::find_symbol_offset_by_section(const char *symbol_name) {
     for (int j = 0; j < section_symbol_num; j++) {
         const char *name = string_table + symbol->st_name;
         if (strcmp(name, symbol_name) == 0) {
-            LOGD("find_dynamic_symbol [%d] %s 0x%x", j, name, symbol->st_name);
+            LOGD("find_symbol_offset_by_section [%d] %s 0x%x 0x%x", j, name, symbol->st_value, symbol->st_value - physical_address);
             return symbol->st_value - physical_address;
         }
         symbol++;
         // LOGE("section_symbol %d %s", j, name, symbol->st_value);
-        // sleep(0);// android studio 中如果打印太快会丢失一些 log 日志
     }
 
     return 0;
@@ -575,6 +574,7 @@ char *zElf::get_maps_base(const char *so_name) {
         // 验证ELF魔数
         if (start == nullptr || memcmp(start, "\x7f""ELF", 4) != 0) continue;
         LOGD("get_maps_base start:%p", start);
+        // elf_mem_ptr = (elf_mem_ptr !=0 && elf_mem_ptr < start) ? elf_mem_ptr : start;
         elf_mem_ptr = start;
     }
 

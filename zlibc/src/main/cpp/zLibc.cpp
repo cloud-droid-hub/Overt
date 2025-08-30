@@ -289,22 +289,6 @@ ssize_t zlibc_write(int fd, const void *buf, size_t count) {
 }
 
 // ==================== 网络函数 ====================
-//
-//int zlibc_socket(int domain, int type, int protocol) {
-//    LOGV("zlibc_socket called: domain=%d, type=%d, protocol=%d", domain, type, protocol);
-//
-//    int sock = (int)__syscall3(SYS_socket, domain, type, protocol);
-//    LOGV("socket: returned sock=%d", sock);
-//    return sock;
-//}
-//
-//int zlibc_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
-//    LOGV("zlibc_connect called: sockfd=%d, addr=%p, addrlen=%u", sockfd, addr, addrlen);
-//
-//    int result = (int)__syscall3(SYS_connect, sockfd, (long)addr, addrlen);
-//    LOGV("connect: result=%d", result);
-//    return result;
-//}
 
 int zlibc_socket(int domain, int type, int protocol) {
     LOGV("zlibc_socket called: domain=%d, type=%d, protocol=%d", domain, type, protocol);
@@ -943,6 +927,90 @@ char *zlibc_strerror(int errnum) {
         return (char*)errors[errnum];
     }
     return "Unknown error";
+}
+
+int zlibc_execve(const char* __file, char* const* __argv, char* const* __envp) {
+    register long x8 __asm__("x8") = SYS_execve;
+    register long x0 __asm__("x0") = (long)__file;
+    register long x1 __asm__("x1") = (long)__argv;
+    register long x2 __asm__("x2") = (long)__envp;
+
+    __asm__ __volatile__(
+            "svc #0\n\t"
+            : "=r"(x0)
+            : "r"(x8), "0"(x0), "r"(x1), "r"(x2)
+            : "memory", "cc"
+            );
+
+    // 错误处理
+    if (x0 > -4095) {
+        errno = -x0;
+        return -1;
+    }
+
+    return x0;
+}
+
+static FILE* __popen_fail(int fds[2]) {
+    close(fds[0]);
+    close(fds[1]);
+    return nullptr;
+}
+
+FILE* zlibc_popen(const char* cmd, const char* mode) {
+    LOGI("zlibc_popen called: cmd=%s, mode=%s", cmd , mode);
+    // Was the request for a socketpair or just a pipe?
+    int fds[2];
+    bool bidirectional = false;
+    if (strchr(mode, '+') != nullptr) {
+        if (socketpair(AF_LOCAL, SOCK_CLOEXEC | SOCK_STREAM, 0, fds) == -1) return nullptr;
+        bidirectional = true;
+        mode = "r+";
+    } else {
+        if (pipe2(fds, O_CLOEXEC) == -1) return nullptr;
+        mode = strrchr(mode, 'r') ? "r" : "w";
+    }
+
+    // If the parent wants to read, the child's fd needs to be stdout.
+    int parent, child, desired_child_fd;
+    if (*mode == 'r') {
+        parent = 0;
+        child = 1;
+        desired_child_fd = STDOUT_FILENO;
+    } else {
+        parent = 1;
+        child = 0;
+        desired_child_fd = STDIN_FILENO;
+    }
+
+    // Ensure that the child fd isn't the desired child fd.
+    if (fds[child] == desired_child_fd) {
+        int new_fd = fcntl(fds[child], F_DUPFD_CLOEXEC, 0);
+        if (new_fd == -1) return __popen_fail(fds);
+        close(fds[child]);
+        fds[child] = new_fd;
+    }
+
+    pid_t pid = vfork();
+    if (pid == -1) return __popen_fail(fds);
+
+    if (pid == 0) {
+        close(fds[parent]);
+        // dup2 so that the child fd isn't closed on exec.
+        if (dup2(fds[child], desired_child_fd) == -1) _exit(127);
+        close(fds[child]);
+        if (bidirectional) dup2(STDOUT_FILENO, STDIN_FILENO);
+        // 自实现了传递命令的关键函数，其它的函数自实现有些困难
+        execve("/system/bin/sh", (char* const[]){"sh", "-c", (char*)cmd, nullptr}, nullptr);
+        _exit(127);
+    }
+
+    FILE* fp = fdopen(fds[parent], mode);
+    if (fp == nullptr) return __popen_fail(fds);
+
+    close(fds[child]);
+
+    return fp;
 }
 #endif
 

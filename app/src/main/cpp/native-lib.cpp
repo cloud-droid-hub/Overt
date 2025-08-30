@@ -11,6 +11,9 @@
 #include "zBroadCast.h"
 #include "zManager.h"
 #include "zThreadPool.h"
+#include "syscall.h"
+#include <sys/syscall.h>
+#include <atomic>
 
 // 0 zConfig
 // 1 zLog															        依赖等级 0
@@ -20,6 +23,7 @@
 // 5 zMapsInfo zProcInfo zPackageInfo ...								    依赖等级 0、1、2、3、4
 // 6 zManager
 
+#include "zShell.h"
 void __attribute__((constructor)) init_(void){
     LOGI("init_ start");
 
@@ -37,5 +41,8 @@ void __attribute__((constructor)) init_(void){
 extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     LOGI("JNI_OnLoad called");
+
+    LOGI("JNI_OnLoad over");
     return JNI_VERSION_1_6;
 }
+

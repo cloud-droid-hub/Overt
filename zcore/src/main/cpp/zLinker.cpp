@@ -108,7 +108,7 @@ zLinker::zLinker() : zElf() {
     soinfo* soinfo = soinfo_head;
     while(soinfo->next != nullptr){
         char* real_path = soinfo_get_realpath(soinfo);
-        LOGV("linker64 soinfo base:%p path:%s", soinfo->base, real_path);
+        LOGI("linker64 soinfo base:%p path:%s", soinfo->base, real_path);
         soinfo = soinfo->next;
     }
 }

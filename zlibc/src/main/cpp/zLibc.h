@@ -97,6 +97,8 @@
 #define zlibc_strspn strspn
 #define zlibc_strtok strtok
 #define zlibc_strerror strerror
+#define zlibc_popen popen
+#define zlibc_execve execve
 
 #else
     #include <string.h>
@@ -139,8 +141,6 @@ extern "C" {
     // ==================== 文件操作函数 ====================
 
     int zlibc_open(const char* pathname, int flags, ...);
-    //int zlibc_open(const char* const __pass_object_size pathname, int flags);
-
     int zlibc_close(int fd);
     ssize_t zlibc_read(int fd, void *buf, size_t count);
     ssize_t zlibc_write(int fd, const void *buf, size_t count);
@@ -196,6 +196,9 @@ extern "C" {
     size_t zlibc_strspn(const char *s, const char *accept);
     char *zlibc_strtok(char *str, const char *delim);
     char *zlibc_strerror(int errnum);
+
+    FILE* zlibc_popen(const char* cmd, const char* mode);
+    int zlibc_execve(const char* __file, char* const* __argv, char* const* __envp);
 }
 
 #endif //Z_LIBC_H

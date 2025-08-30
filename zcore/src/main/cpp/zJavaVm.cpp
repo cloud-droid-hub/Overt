@@ -58,12 +58,13 @@ zJavaVm::zJavaVm() {
     }
 
     // 获取已创建的Java虚拟机实例
-    JavaVM* vms[1];
+    JavaVM* vms[10];
     jsize num_vms = 0;
     if (JNI_GetCreatedJavaVMs(vms, 1, &num_vms) != JNI_OK || num_vms == 0) {
         LOGE("GetCreatedJavaVMs failed");
         return;
     }
+    LOGI("GetCreatedJavaVMs num_vms %d", num_vms);
 
     // 保存JVM实例指针
     jvm = vms[0];
