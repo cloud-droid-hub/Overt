@@ -104,19 +104,25 @@ map<string, map<string, string>> get_system_prop_info() {
 
     // 定义属性名和期望值的映射关系
     map<string, vector<string>> prop_map{
-            {"ro.secure",                   {"1"}},              // 安全模式应为1
-            {"ro.debuggable",               {"0"}},              // 调试模式应为0
-            {"ro.boot.flash.locked",        {"1"}},              // 启动分区应锁定
-            {"ro.dalvik.vm.native.bridge",  {"0"}},              // 原生桥接应关闭
-            {"ro.boot.vbmeta.device_state", {"locked"}},         // 设备状态应锁定
-            {"ro.boot.verifiedbootstate",   {"green"}},          // 验证启动状态应为绿色
-            {"ro.boot.veritymode",          {"enforcing"}},      // 验证模式应强制
-            {"ro.boot.verifiedbootstate",   {"green"}},          // 验证启动状态应为绿色
-            {"ro.build.tags",               {"release-keys"}},   // 构建标签应为发布密钥
-            {"ro.build.type",               {"user"}},           // 构建类型应为用户版
-            {"init.svc.adbd",               {"stopped"}},        // ADB服务应停止
-            {"persist.sys.usb.config",      {"mtp", "ptp", "none", ""}},  // USB配置
-            {"persist.security.adbinput",   {"0"}}               // ADB输入应关闭
+
+            {"ro.secure",                   {"1"}},                         // 安全模式应为1
+            {"ro.debuggable",               {"0"}},                         // 调试模式应为0
+            {"ro.boot.flash.locked",        {"1"}},                         // 启动分区应锁定
+            {"ro.dalvik.vm.native.bridge",  {"0"}},                         // 原生桥接应关闭
+            {"ro.boot.vbmeta.device_state", {"locked"}},                    // 设备状态应锁定
+            {"ro.boot.verifiedbootstate",   {"green"}},                     // 验证启动状态应为绿色
+            {"ro.boot.veritymode",          {"enforcing"}},                 // 验证模式应强制
+            {"ro.boot.verifiedbootstate",   {"green"}},                     // 验证启动状态应为绿色
+            {"ro.build.tags",               {"release-keys"}},              // 构建标签应为发行版
+            {"ro.bootimage.build.tags",     {"release-keys"}},              // 构建标签应为发行版
+            {"ro.system.build.tags",        {"release-keys"}},              // 构建标签应为发行版
+            {"ro.vendor.build.tags",        {"release-keys"}},              // 构建标签应为发行版
+            {"ro.build.type",               {"user"}},                      // 构建类型应为用户版
+            {"init.svc.adbd",               {"stopped"}},                   // ADB服务应停止
+            {"persist.sys.usb.config",      {"mtp", "ptp", "none", ""}},    // USB配置
+            {"persist.security.adbinput",   {"0"}},                         // ADB输入应关闭
+            {"sys.usap.enable",             {"true"}},
+            {"dalvik.vm.usap_pool_enabled", {"true"}},
     };
 
     // 检查属性值是否正确
@@ -142,18 +148,25 @@ map<string, map<string, string>> get_system_prop_info() {
             info[key+buffer]["risk"] = "error";
             info[key+buffer]["explain"] = "value is not correct";
         }
-    }
 
-    // 检查关键属性的版本号是否为0（表示未被修改）
-    for(const string& key : prop_list){
-        if(properties.find(key) != properties.end()) {
-            if(properties[key.c_str()].serial_version != 0){
-                string buffer = string_format(":serial[%d]", properties[key.c_str()].serial_version);
-                info[key+buffer]["risk"] = "error";
-                info[key+buffer]["explain"] = "serial_version is not 0";
-            }
+        // 检查关键属性的版本号是否为0（0表示未被修改）
+        if(string_start_with(key.c_str(), "ro.") && properties[key.c_str()].serial_version != 0){
+            string buffer = string_format(":serial[%d]", properties[key.c_str()].serial_version);
+            info[key+buffer]["risk"] = "error";
+            info[key+buffer]["explain"] = "serial_version is not 0";
         }
+
     }
 
+//    // 检查关键属性的版本号是否为0（表示未被修改）
+//    for(const string& key : prop_list){
+//        if(properties.find(key) != properties.end()) {
+//            if(properties[key.c_str()].serial_version != 0){
+//                string buffer = string_format(":serial[%d]", properties[key.c_str()].serial_version);
+//                info[key+buffer]["risk"] = "error";
+//                info[key+buffer]["explain"] = "serial_version is not 0";
+//            }
+//        }
+//    }
     return info;
 }

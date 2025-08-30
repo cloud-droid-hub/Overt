@@ -4,16 +4,9 @@
 #include "zLibc.h"
 #include "zLibcUtil.h"
 #include "zStd.h"
-#include "zFile.h"
-#include "zLinker.h"
-#include "zJavaVm.h"
-#include "zJson.h"
-#include "zBroadCast.h"
 #include "zManager.h"
 #include "zThreadPool.h"
-#include "syscall.h"
-#include <sys/syscall.h>
-#include <atomic>
+
 
 // 0 zConfig
 // 1 zLog															        依赖等级 0

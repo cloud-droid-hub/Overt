@@ -104,6 +104,7 @@ map<string, map<string, string>> get_port_info(){
     map<int, string> tcp_info{
         {27042, "frida"},
         {27043, "frida"},
+        {27047, "frida"},
         {23946, "ida"},
     };
 

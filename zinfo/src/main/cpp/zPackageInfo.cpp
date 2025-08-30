@@ -64,14 +64,12 @@ bool isAppInstalledByPath(const char* packageName) {
 bool isAppInstalledByShellHole(const char* packageName) {
     string cmd = "file /storage/emulated/\342\200\2130/Android/data/" + string(packageName);
     string ret = runShell(cmd);
-    LOGE("cmd: %s", ret.c_str());
+    LOGI("cmd: %s", ret.c_str());
     if(strstr(ret.c_str(), "No such file or directory") == nullptr){
         return true;
     }
     return false;
 }
-
-
 
 map<string, map<string, string>> get_package_info(JNIEnv *env, jobject context){
     map<string, map<string, string>> info;

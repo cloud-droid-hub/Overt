@@ -238,6 +238,31 @@ map<string, map<string, string>> get_attr_prev_info(){
     return info;
 }
 
+map<string, map<string, string>> get_net_tcp_info(){
+    LOGI("get_net_tcp_info called");
+    map<string, map<string, string>> info;
+
+    // android7 之后没权限
+    vector<string> lines = zFile("/proc/self/net/tcp").readAllLines();
+
+    // 遍历每一行挂载信息
+    for(string line : lines){
+        LOGI("line %s", line.c_str());
+
+        if(strstr(line.c_str(), ":69A2") != nullptr || strstr(line.c_str(), ":69A3") != nullptr){
+            LOGE("black port is found in tcp line");
+            info[line.c_str()]["risk"] = "error";
+            info[line.c_str()]["explain"] = "find frida port";
+        }
+        if(strstr(line.c_str(), ":5D8A") != nullptr){
+            LOGE("black port is found in tcp line");
+            info[line.c_str()]["risk"] = "error";
+            info[line.c_str()]["explain"] = "find ida port";
+        }
+    }
+
+    return info;
+}
 
 map<string, map<string, string>> get_proc_info(){
     map<string, map<string, string>> info;
@@ -261,6 +286,11 @@ map<string, map<string, string>> get_proc_info(){
     map<string, map<string, string>> attr_prev_info = get_attr_prev_info();
     LOGI("get_attr_prev_info insert is called");
     info.insert(attr_prev_info.begin(), attr_prev_info.end());
+
+    LOGI("get_net_tcp_info is called");
+    map<string, map<string, string>> net_tcp_info = get_net_tcp_info();
+    LOGI("get_net_tcp_info insert is called");
+    info.insert(net_tcp_info.begin(), net_tcp_info.end());
 
     return info;
 }
