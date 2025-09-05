@@ -7,16 +7,14 @@
 #include "zManager.h"
 #include "zThreadPool.h"
 
-
 // 0 zConfig
 // 1 zLog															        依赖等级 0
 // 2 zLibc zLibcUtil											            依赖等级 0、1
 // 3 zStdString zStdVector zStdMap zStdUtil					                依赖等级 0、1、2
 // 4 zFile zHttps zCrc zTee zJson zJavaVm zElf zClassLoader zThreadPool		依赖等级 0、1、2、3
 // 5 zMapsInfo zProcInfo zPackageInfo ...								    依赖等级 0、1、2、3、4
-// 6 zManager
+// 6 zManager                                                               依赖等级 0、1、2、3、4、5
 
-#include "zShell.h"
 void __attribute__((constructor)) init_(void){
     LOGI("init_ start");
 

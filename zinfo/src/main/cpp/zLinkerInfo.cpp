@@ -28,14 +28,14 @@ map<string, map<string, string>> get_linker_info(){
     // 遍历所有共享库路径，检测黑名单库
     for (int i = 0; i < libpath_list.size(); ++i) {
         LOGD("libpath %s", libpath_list[i].c_str());
-        
+
         // 检测LSPosed相关的共享库
         if(strstr(libpath_list[i].c_str(), "lsposed")){
             LOGW("Found blacklisted library: %s", libpath_list[i].c_str());
             info[libpath_list[i]]["risk"] = "error";
             info[libpath_list[i]]["explain"] = "black soname";
         }
-        
+
         // 检测Frida相关的共享库
         if(strstr(libpath_list[i].c_str(), "frida")){
             LOGW("Found blacklisted library: %s", libpath_list[i].c_str());

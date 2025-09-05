@@ -33,28 +33,28 @@ string get_location() {
 
     LOGI("get_time_info: pinduoduo_time: %s", response.body.c_str());
 
-    zJson json(response.body);
-    // 检查解析是否成功
-    if (json.isError()) {
-        LOGW("Failed to parse JSON response");
+    try {
+        zJson json = zJson::parse(response.body.c_str());
+
+        string country = json.value("country", "");
+
+        string province = json.value("province", "");
+
+        string city = json.value("city", "");
+
+        if (province == city) {
+            location = country + province;
+        } else {
+            location = country + province + city;
+        }
+
+        LOGI("get_location: %s", location.c_str());
+
+        return location;
+    } catch (zJson::parse_error &e) {
+        LOGE("zJson::parse_error:%s", e.what());
         return location;
     }
-
-    string country = json.getString("country", "");
-
-    string province = json.getString("province", "");
-
-    string city = json.getString("city", "");
-
-    if (province == city) {
-        location = country + province;
-    } else {
-        location = country + province + city;
-    }
-
-    LOGI("get_location: %s", location.c_str());
-
-    return location;
 }
 
 map<string, map<string, string>> get_ssl_info() {
@@ -92,20 +92,20 @@ map<string, map<string, string>> get_ssl_info() {
         LOGI("=== Testing2 URL: %s ===", item.first.c_str());
     }
 
-//    string location = get_location();
-//    if (location.empty()) {
-//        LOGW("get_location failed");
-//        info["location"]["risk"] = "error";
-//        info["location"]["explain"] = "get_location failed";
-//    } else if (string_start_with(location.c_str(), "中国")) {
-//        LOGI("get_location succeed");
-//        info["location"]["risk"] = "safe";
-//        info["location"]["explain"] = location;
-//    } else {
-//        LOGW("get_location succeed but error");
-//        info["location"]["risk"] = "error";
-//        info["location"]["explain"] = location;
-//    }
+    string location = get_location();
+    if (location.empty()) {
+        LOGW("get_location failed");
+        info["location"]["risk"] = "error";
+        info["location"]["explain"] = "get_location failed";
+    } else if (string_start_with(location.c_str(), "中国")) {
+        LOGI("get_location succeed");
+        info["location"]["risk"] = "safe";
+        info["location"]["explain"] = location;
+    } else {
+        LOGW("get_location succeed but error");
+        info["location"]["risk"] = "error";
+        info["location"]["explain"] = location;
+    }
 
     return info;
 }

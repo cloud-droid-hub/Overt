@@ -57,7 +57,6 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
 
         ${CMAKE_SOURCE_DIR}/../../../../zlibc/src/main/cpp/zLibc.cpp
 
-        ${CMAKE_SOURCE_DIR}/../../../../zstd/src/main/cpp/zString.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zstd/src/main/cpp/zStdUtil.cpp
 
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zHttps.cpp
@@ -68,7 +67,6 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zJavaVm.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zTee.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zBroadCast.cpp
-        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zJson.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zFile.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zTask.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zThread.cpp

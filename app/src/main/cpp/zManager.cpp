@@ -10,7 +10,7 @@
 #include "zManager.h"
 #include "syscall.h"
 #include "zSslInfo.h"
-
+#include "zJson.h"
 #include "zRootFileInfo.h"
 #include "zProcInfo.h"
 #include "zSystemPropInfo.h"
@@ -143,12 +143,12 @@ void zManager::round_tasks(){
             {"package_info", &zManager::update_package_info},
             {"system_setting_info", &zManager::update_system_setting_info},
             {"system_prop_info", &zManager::update_system_prop_info},
+            {"signature_info", &zManager::update_signature_info},
             {"port_info", &zManager::update_port_info},
             {"time_info", &zManager::update_time_info},
             {"ssl_info", &zManager::update_ssl_info},
             {"local_network_info", &zManager::update_local_network_info},
             {"logcat_info", &zManager::update_logcat_info},
-            {"signature_info", &zManager::update_signature_info},
     };
     LOGI("add_tasks: initialized %zu periodic tasks", periodic_tasks.size());
     
@@ -286,7 +286,7 @@ void zManager::notice_java(string title){
     }
 
     // 获取Java层的回调方法ID
-    jmethodID method_id = env->GetStaticMethodID(activity_class, "onCardInfoUpdated", "(Ljava/lang/String;Ljava/util/Map;)V");
+    jmethodID method_id = env->GetStaticMethodID(activity_class, "onCardInfoUpdated", "(Ljava/lang/String;Ljava/lang/String;)V");
     if (method_id == nullptr){
         LOGE("notice_java: method_id onCardInfoUpdated is null");
         return;
@@ -295,6 +295,11 @@ void zManager::notice_java(string title){
     // 使用读锁安全地获取设备信息
     map<string, map<string, string>> card_data = get_info(title);
 
+    zJson card_data_json = card_data;
+
+    string card_data_str = card_data_json.dump();
+    LOGE("card_data_str:%s", card_data_str.c_str());
+
     // 创建Java字符串
     jstring title_jstr = env->NewStringUTF(title.c_str());
     if (title_jstr == nullptr) {
@@ -302,17 +307,16 @@ void zManager::notice_java(string title){
         return;
     }
 
-    // 转换数据为Java Map
-    jobject map = cmap_to_jmap_nested(env, card_data);
-    if (map == nullptr) {
-        LOGE("notice_java: Failed to convert data to Java Map");
-        env->DeleteLocalRef(title_jstr);
+    // 创建Java字符串
+    jstring card_data_jstr = env->NewStringUTF(card_data_str.c_str());
+    if (card_data_jstr == nullptr) {
+        LOGE("notice_java: Failed to create title string");
         return;
     }
 
     // 调用Java层方法通知信息更新完成
     LOGI("notice_java: calling onCardInfoUpdated for title: %s", title.c_str());
-    env->CallStaticVoidMethod(activity_class, method_id, title_jstr, map);
+    env->CallStaticVoidMethod(activity_class, method_id, title_jstr, card_data_jstr);
 
     // 检查是否抛出异常
     if (env->ExceptionCheck()) {
@@ -323,7 +327,7 @@ void zManager::notice_java(string title){
 
     // 清理局部引用
     env->DeleteLocalRef(title_jstr);
-    env->DeleteLocalRef(map);
+    env->DeleteLocalRef(card_data_jstr);
 
     LOGI("notice_java: completed successfully for title: %s", title.c_str());
 }
@@ -340,7 +344,6 @@ void zManager::clear_device_info(){
     device_info.clear();
     LOGI("clear_device_info");
 };
-
 
 vector<int> zManager::get_big_core_list() {
     LOGI("get_big_core_list called");

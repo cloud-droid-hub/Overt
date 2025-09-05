@@ -9,6 +9,10 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.widget.NestedScrollView;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
@@ -53,8 +57,7 @@ public class MainActivity extends AppCompatActivity {
      * 静态回调方法 - 由native层调用
      * 这个方法可以在没有对象引用的情况下被调用
      */
-
-    public static void onCardInfoUpdated(String title, Map<String, Map<String, String>> newCardInfo) {
+    public static void onCardInfoUpdated(String title, String newCardInfo) {
         Log.d(TAG, "Received device info update notification from native (static method)");
 
         // so 中 init 启动的太早了，触发数据更新的时候，可能还没执行到 Activity 的 onCreate，这里有必要做一些判断和等待
@@ -82,18 +85,16 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-    
-    private void updateUIWithNewData(Map<String, Map<String, Map<String, String>>> newDeviceInfo) {
-        if (cardContainer != null) {
-            Log.d(TAG, "Updating UI with new device info - " + newDeviceInfo.size() + " categories");
-            // 更新卡片容器中的数据
-            cardContainer.updateData(newDeviceInfo);
-        }
-    }
 
-    private void updateUIWithNewCardInfo(String title, Map<String, Map<String, String>> newCardInfo) {
+
+    private void updateUIWithNewCardInfo(String title, String newCardInfo) {
         if (cardContainer != null) {
-            cardContainer.updateCard(title, newCardInfo);
+            try {
+                JSONObject jsonObject = new JSONObject(newCardInfo);
+                cardContainer.updateCard(title, jsonObject, true);
+            } catch (JSONException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
     

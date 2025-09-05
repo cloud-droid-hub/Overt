@@ -9,6 +9,8 @@ import androidx.cardview.widget.CardView;
 import androidx.core.content.ContextCompat;
 import java.util.Map;
 import android.view.View;
+import org.json.JSONObject;
+import java.util.Iterator;
 
 /**
  * 信息卡片类
@@ -17,7 +19,7 @@ import android.view.View;
 public class InfoCard {
     private Context context;
     private String title;
-    private Map<String, Map<String, String>> info;
+    private JSONObject info;
     private CardView cardView;
     private LinearLayout cardContent;
     private TextView titleView;
@@ -37,7 +39,7 @@ public class InfoCard {
      * @param title 标题
      * @param info 信息数据
      */
-    public InfoCard(Context context, String title, Map<String, Map<String, String>> info) {
+    public InfoCard(Context context, String title, JSONObject info) {
         this.context = context;
         this.title = title;
         this.info = info;
@@ -59,7 +61,7 @@ public class InfoCard {
      * @param lightTextColor 浅色模式字体颜色
      * @param darkTextColor 夜间模式字体颜色
      */
-    public InfoCard(Context context, String title, Map<String, Map<String, String>> info, 
+    public InfoCard(Context context, String title, JSONObject info, 
                    int borderWidth, int lightBorderColor, int darkBorderColor,
                    int lightTextColor, int darkTextColor) {
         this.context = context;
@@ -315,49 +317,60 @@ public class InfoCard {
      * 添加信息项
      */
     private void addInfoItems() {
-        if (cardContent == null) return;
+        if (cardContent == null || info == null) return;
 
-        for (Map.Entry<String, Map<String, String>> entry : info.entrySet()) {
-            TextView textView = new TextView(context);
+        try {
+            Iterator<String> keys = info.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                Object value = info.get(key);
+                
+                if (value instanceof JSONObject) {
+                    JSONObject itemData = (JSONObject) value;
+                    TextView textView = new TextView(context);
 
-            String risk = entry.getValue().get("risk");
-            String explain = entry.getValue().get("explain");
-            
-            // 格式化显示文本，添加风险等级符号
-            String riskSymbol = "";
-            if ("error".equals(risk)) {
-                riskSymbol = "× "; // 红色叉号
-            } else if ("warn".equals(risk)) {
-                riskSymbol = "⚠ "; // 警告符号
-            } else if ("safe".equals(risk)){
-                riskSymbol = "√ "; // 绿色对勾
-            }else{
-                continue;
+                    String risk = itemData.optString("risk", "");
+                    String explain = itemData.optString("explain", "");
+                    
+                    // 格式化显示文本，添加风险等级符号
+                    String riskSymbol = "";
+                    if ("error".equals(risk)) {
+                        riskSymbol = "× "; // 红色叉号
+                    } else if ("warn".equals(risk)) {
+                        riskSymbol = "⚠ "; // 警告符号
+                    } else if ("safe".equals(risk)){
+                        riskSymbol = "√ "; // 绿色对勾
+                    } else {
+                        continue;
+                    }
+                    
+                    textView.setText(riskSymbol + key + ": " + risk + ": " + explain);
+                    textView.setTextSize(14);
+
+                    // 根据风险等级设置文字颜色，使用主题颜色适配夜间模式
+                    int textColor;
+                    if ("error".equals(risk)) {
+                        textColor = ContextCompat.getColor(context, R.color.risk_error);
+                    } else if ("warn".equals(risk)) {
+                        textColor = ContextCompat.getColor(context, R.color.risk_warn);
+                    } else {
+                        // 安全状态使用主题文字颜色，自动适配夜间模式
+                        textColor = getTextColor();
+                    }
+                    textView.setTextColor(textColor);
+
+                    // 设置间距和样式
+                    textView.setPadding(8, 2, 8, 2);
+                    textView.setLayoutParams(new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ));
+                    
+                    cardContent.addView(textView);
+                }
             }
-            
-            textView.setText(riskSymbol + entry.getKey() + ": " + risk + ": " + explain);
-            textView.setTextSize(14);
-
-            // 根据风险等级设置文字颜色，使用主题颜色适配夜间模式
-            int textColor;
-            if ("error".equals(risk)) {
-                textColor = ContextCompat.getColor(context, R.color.risk_error);
-            } else if ("warn".equals(risk)) {
-                textColor = ContextCompat.getColor(context, R.color.risk_warn);
-            } else {
-                // 安全状态使用主题文字颜色，自动适配夜间模式
-                textColor = getTextColor();
-            }
-            textView.setTextColor(textColor);
-
-            // 设置间距和样式
-            textView.setPadding(8, 2, 8, 2);
-            textView.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ));
-            
-            cardContent.addView(textView);
+        } catch (Exception e) {
+            android.util.Log.e("InfoCard", "Error adding info items: " + e.getMessage());
         }
     }
 
@@ -365,43 +378,48 @@ public class InfoCard {
      * 刷新信息项的文字颜色
      */
     private void refreshInfoItems() {
-        if (cardContent == null) return;
+        if (cardContent == null || info == null) return;
 
-        for (int i = 0; i < cardContent.getChildCount(); i++) {
-            View child = cardContent.getChildAt(i);
-            if (child instanceof TextView) {
-                TextView textView = (TextView) child;
-                String text = textView.getText().toString();
-                
-                // 从文本中提取信息项名称
-                String itemName = "";
-                if (text.contains(": ")) {
-                    String[] parts = text.split(": ");
-                    if (parts.length > 0) {
-                        // 移除风险符号前缀
-                        String firstPart = parts[0];
-                        if (firstPart.startsWith("× ") || firstPart.startsWith("⚠ ") || firstPart.startsWith("√ ")) {
-                            itemName = firstPart.substring(2);
-                        } else {
-                            itemName = firstPart;
+        try {
+            for (int i = 0; i < cardContent.getChildCount(); i++) {
+                View child = cardContent.getChildAt(i);
+                if (child instanceof TextView) {
+                    TextView textView = (TextView) child;
+                    String text = textView.getText().toString();
+                    
+                    // 从文本中提取信息项名称
+                    String itemName = "";
+                    if (text.contains(": ")) {
+                        String[] parts = text.split(": ");
+                        if (parts.length > 0) {
+                            // 移除风险符号前缀
+                            String firstPart = parts[0];
+                            if (firstPart.startsWith("× ") || firstPart.startsWith("⚠ ") || firstPart.startsWith("√ ")) {
+                                itemName = firstPart.substring(2);
+                            } else {
+                                itemName = firstPart;
+                            }
                         }
                     }
-                }
-                
-                // 获取风险等级并设置颜色
-                if (info.containsKey(itemName)) {
-                    String risk = info.get(itemName).get("risk");
-                    int textColor;
-                    if ("error".equals(risk)) {
-                        textColor = ContextCompat.getColor(context, R.color.risk_error);
-                    } else if ("warn".equals(risk)) {
-                        textColor = ContextCompat.getColor(context, R.color.risk_warn);
-                    } else {
-                        textColor = getTextColor();
+                    
+                    // 获取风险等级并设置颜色
+                    if (info.has(itemName)) {
+                        JSONObject itemData = info.getJSONObject(itemName);
+                        String risk = itemData.optString("risk", "");
+                        int textColor;
+                        if ("error".equals(risk)) {
+                            textColor = ContextCompat.getColor(context, R.color.risk_error);
+                        } else if ("warn".equals(risk)) {
+                            textColor = ContextCompat.getColor(context, R.color.risk_warn);
+                        } else {
+                            textColor = getTextColor();
+                        }
+                        textView.setTextColor(textColor);
                     }
-                    textView.setTextColor(textColor);
                 }
             }
+        } catch (Exception e) {
+            android.util.Log.e("InfoCard", "Error refreshing info items: " + e.getMessage());
         }
     }
 
@@ -463,9 +481,9 @@ public class InfoCard {
 
     /**
      * 获取信息数据
-     * @return 信息数据Map
+     * @return 信息数据JSONObject
      */
-    public Map<String, Map<String, String>> getInfo() {
+    public JSONObject getInfo() {
         return info;
     }
 } 

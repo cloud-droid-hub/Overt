@@ -13,7 +13,6 @@ include_directories(${CMAKE_SOURCE_DIR}/../../../../zlibc/src/main/cpp)
 add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zlog/src/main/cpp/zLog.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zlibc/src/main/cpp/zLibc.cpp
-        zString.cpp
         zStdUtil.cpp
         zStdTest.cpp)
 

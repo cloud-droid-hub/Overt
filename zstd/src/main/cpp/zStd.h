@@ -19,8 +19,8 @@
 #if ZSTD_ENABLE_NONSTD_API
 
     #include "zString.h"
-    #include "vector.h"
-    #include "map.h"
+    #include "zVector.h"
+    #include "zMap.h"
     #include "queue.h"
     using nonstd::string;
     using nonstd::vector;

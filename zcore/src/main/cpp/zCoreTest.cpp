@@ -286,12 +286,32 @@ string getSha256byBaseApk() {
 
 }
 
+#include "zJson.h"
+
 // ==================== 主测试函数 ====================
 void __attribute__((constructor)) init_(void) {
     LOGI("🚀 zCore 初始化 - 启动全面测试");
+    using zJson = nlohmann::json;
 
-    string sha256 = getSha256byBaseApk();
-    LOGI("sha256:%s", sha256.c_str());
+    map<string, map<string, string>> card_data;
+
+    // 模拟 get_info(title) 返回的数据
+    card_data["device1"]["name"] = "iPhone 15";
+    card_data["device1"]["model"] = "A3092";
+    card_data["device1"]["os"] = "iOS 17.0";
+
+    card_data["device2"]["name"] = "Samsung Galaxy S24";
+    card_data["device2"]["model"] = "SM-S921B";
+    card_data["device2"]["os"] = "Android 14";
+
+    try {
+        zJson json_data = card_data;
+        LOGI("JSON parsed successfully: %s", json_data.dump().c_str());
+    } catch (const zJson::parse_error& e) {
+        LOGE("JSON parse error: %s", e.what());
+    } catch (const std::exception& e) {
+        LOGE("Exception: %s", e.what());
+    }
 
     return;
 }
