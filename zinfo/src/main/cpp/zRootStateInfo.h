@@ -13,6 +13,6 @@
  * 这些文件的存在通常表明设备已被Root
  * @return 包含检测结果的Map，格式：{文件路径 -> {风险等级, 说明}}
  */
-map<string, map<string, string>> get_root_file_info();
+map<string, map<string, string>> get_root_state_info();
 
 #endif //OVERT_ROOT_FILE_INFO_H

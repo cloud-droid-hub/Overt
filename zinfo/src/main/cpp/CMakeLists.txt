@@ -30,7 +30,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zSha256.cpp
 
         zLocalNetworkInfo.cpp
-        zRootFileInfo.cpp
+        zRootStateInfo.cpp
         zSystemPropInfo.cpp
         zLinkerInfo.cpp
         zTimeInfo.cpp

@@ -11,7 +11,7 @@
 #include "syscall.h"
 #include "zSslInfo.h"
 #include "zJson.h"
-#include "zRootFileInfo.h"
+#include "zRootStateInfo.h"
 #include "zProcInfo.h"
 #include "zSystemPropInfo.h"
 #include "zLinkerInfo.h"
@@ -135,7 +135,7 @@ void zManager::round_tasks(){
     LOGI("add_tasks: starting periodic task management loop");
     // 定义所有需要周期性执行的任务
     vector<pair<string, void(zManager::*)()>> periodic_tasks = {
-            {"root_file_info", &zManager::update_root_file_info},
+            {"root_state_info", &zManager::update_root_state_info},
             {"proc_info", &zManager::update_proc_info},
             {"tee_info", &zManager::update_tee_info},
             {"class_loader_info", &zManager::update_class_loader_info},
@@ -193,12 +193,11 @@ void zManager::update_proc_info(){
     notice_java("proc_info");
 };
 
-void zManager::update_root_file_info(){
+void zManager::update_root_state_info(){
 // 收集Root文件信息 - 检测Root相关文件
-    zManager::getInstance()->update_device_info("root_file_info", get_root_file_info());
-    notice_java("root_file_info");
+    zManager::getInstance()->update_device_info("root_state_info", get_root_state_info());
+    notice_java("root_state_info");
 };
-
 
 void zManager::update_system_prop_info(){
 // 收集系统属性信息 - 检测系统配置异常

@@ -2,15 +2,11 @@
 #define zString_H
 #define ZCONFIG_ENABLE_NONSTD_API 1
 
-#include <stdexcept>
 #include <initializer_list>
-#include <memory>
-#include <iterator>
-#include <iosfwd>
 #include <algorithm>
-#include <cstdio>
-#include <cstring>
 #include <cassert>
+
+#include "zLibc.h"
 
 namespace nonstd {
 #if ZCONFIG_ENABLE_NONSTD_API
@@ -138,7 +134,7 @@ namespace nonstd {
         static constexpr
         int compare(const char_type* s1, const char_type* s2, size_t n) noexcept {
             if (n == 0) return 0;
-            return std::memcmp(s1, s2, n);
+            return memcmp(s1, s2, n);
         }
         
         static inline size_t constexpr
@@ -159,20 +155,20 @@ namespace nonstd {
         static inline constexpr
         char_type* move(char_type* s1, const char_type* s2, size_t n) noexcept {
             if (n == 0) return s1;
-            return static_cast<char_type*>(std::memmove(s1, s2, n));
+            return static_cast<char_type*>(memmove(s1, s2, n));
         }
         
         static inline constexpr
         char_type* copy(char_type* s1, const char_type* s2, size_t n) noexcept {
             assert(s2 < s1 || s2 >= s1 + n);
             if (n == 0) return s1;
-            return static_cast<char_type*>(std::memcpy(s1, s2, n));
+            return static_cast<char_type*>(memcpy(s1, s2, n));
         }
         
         static inline constexpr
         char_type* assign(char_type* s, size_t n, char_type a) noexcept {
             if (n == 0) return s;
-            return static_cast<char_type*>(std::memset(s, to_int_type(a), n));
+            return static_cast<char_type*>(memset(s, to_int_type(a), n));
         }
 
         static inline constexpr int_type not_eof(int_type c) noexcept {

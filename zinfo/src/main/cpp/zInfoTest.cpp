@@ -12,7 +12,7 @@
 #include "zBroadCast.h"
 
 #include "zLocalNetworkInfo.h"
-#include "zRootFileInfo.h"
+#include "zRootStateInfo.h"
 #include "zSystemPropInfo.h"
 #include "zLinkerInfo.h"
 #include "zPortInfo.h"

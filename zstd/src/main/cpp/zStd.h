@@ -21,12 +21,11 @@
     #include "zString.h"
     #include "zVector.h"
     #include "zMap.h"
-    #include "queue.h"
+
     using nonstd::string;
     using nonstd::vector;
     using nonstd::pair;
     using nonstd::map;
-    using nonstd::queue;
 
     using nonstd::to_string;
 
