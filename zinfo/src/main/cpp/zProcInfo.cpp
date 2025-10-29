@@ -131,6 +131,12 @@ map<string, map<string, string>> get_maps_info(){
     return info;
 }
 
+/**
+ * 获取挂载点信息
+ * 检测/proc/self/mounts文件中的异常挂载点
+ * 主要用于检测系统被修改的痕迹，如overlay挂载、可疑模块等
+ * @return 包含检测结果的Map，格式：{挂载点信息 -> {风险等级, 说明}}
+ */
 map<string, map<string, string>> get_mounts_info(){
     LOGI("get_mounts_info called");
     map<string, map<string, string>> info;
@@ -218,6 +224,12 @@ map<string, map<string, string>> get_task_info(){
 }
 
 
+/**
+ * 获取进程属性信息
+ * 检测/proc/self/attr/prev文件中的进程属性信息
+ * 主要用于检测Magisk等Root框架的痕迹
+ * @return 包含检测结果的Map，格式：{属性信息 -> {风险等级, 说明}}
+ */
 map<string, map<string, string>> get_attr_prev_info(){
     LOGI("get_attr_prev_info called");
     map<string, map<string, string>> info;
@@ -238,6 +250,12 @@ map<string, map<string, string>> get_attr_prev_info(){
     return info;
 }
 
+/**
+ * 获取网络TCP信息
+ * 检测/proc/self/net/tcp文件中的网络连接信息
+ * 主要用于检测Frida、IDA等调试工具的端口使用情况
+ * @return 包含检测结果的Map，格式：{网络连接信息 -> {风险等级, 说明}}
+ */
 map<string, map<string, string>> get_net_tcp_info(){
     LOGI("get_net_tcp_info called");
     map<string, map<string, string>> info;
@@ -264,6 +282,12 @@ map<string, map<string, string>> get_net_tcp_info(){
     return info;
 }
 
+/**
+ * 获取进程信息的主函数
+ * 整合所有进程相关的检测功能，包括内存映射、挂载点、任务状态等
+ * 通过多种检测手段综合分析进程的安全状态
+ * @return 包含所有检测结果的Map，格式：{检测项目 -> {风险等级, 说明}}
+ */
 map<string, map<string, string>> get_proc_info(){
     map<string, map<string, string>> info;
 

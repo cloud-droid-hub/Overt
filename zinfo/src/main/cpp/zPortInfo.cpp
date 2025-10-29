@@ -13,7 +13,13 @@
 #include "zLog.h"
 #include "zPortInfo.h"
 
-// 判断端口是否被监听
+/**
+ * 判断端口是否被监听
+ * 通过尝试连接指定端口来判断端口是否被占用
+ * 使用非阻塞socket连接方式，避免长时间等待
+ * @param port 要检测的端口号
+ * @return true表示端口被占用，false表示端口未被占用
+ */
 bool is_port_in_use(int port) {
     LOGD("is_port_in_use: checking port %d", port);
     
@@ -96,11 +102,18 @@ bool is_port_in_use(int port) {
 }
 
 
+/**
+ * 获取端口信息的主函数
+ * 检测系统中可疑端口的使用情况
+ * 主要用于检测Frida、IDA等调试工具的端口监听
+ * @return 包含检测结果的Map，格式：{工具名 -> {风险等级, 说明}}
+ */
 map<string, map<string, string>> get_port_info(){
     LOGI("get_port_info: starting port detection");
     
     map<string, map<string, string>> info;
 
+    // 定义需要检测的端口和对应的工具名称
     map<int, string> tcp_info{
         {27042, "frida"},
         {27043, "frida"},
@@ -110,6 +123,7 @@ map<string, map<string, string>> get_port_info(){
 
     LOGI("get_port_info: checking %zu ports", tcp_info.size());
 
+    // 检查每个端口是否被占用
     for (auto& item : tcp_info) {
         try {
             LOGD("get_port_info: checking port %d for %s", item.first, item.second.c_str());

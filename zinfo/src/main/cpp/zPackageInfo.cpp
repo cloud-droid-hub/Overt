@@ -8,6 +8,15 @@
 #include "zPackageInfo.h"
 #include "zShell.h"
 
+/**
+ * 通过Context检测应用是否已安装
+ * 使用Android PackageManager API检测指定包名的应用是否已安装
+ * 采用两种检测方式：getApplicationInfo和getLaunchIntentForPackage
+ * @param env JNI环境指针
+ * @param context Android上下文对象
+ * @param packageNameCStr 要检测的包名
+ * @return true表示应用已安装，false表示未安装
+ */
 bool isAppInstalledByContext(JNIEnv *env, jobject context, const char* packageNameCStr) {
     // 1. 将 C 字符串转换为 jstring
     jstring packageName = env->NewStringUTF(packageNameCStr);
@@ -45,6 +54,13 @@ bool isAppInstalledByContext(JNIEnv *env, jobject context, const char* packageNa
     return installed;
 }
 
+/**
+ * 通过文件路径检测应用是否已安装
+ * 检查应用数据目录是否存在，判断应用是否已安装
+ * 主要检查/data/data、/data/user/0、/data/user_de/0等目录
+ * @param packageName 要检测的包名
+ * @return true表示应用已安装，false表示未安装
+ */
 bool isAppInstalledByPath(const char* packageName) {
     vector<string> dir_list = {
             "/data/data",
@@ -61,6 +77,13 @@ bool isAppInstalledByPath(const char* packageName) {
     return false;
 }
 
+/**
+ * 通过Shell命令检测应用是否已安装
+ * 使用file命令检查应用数据目录，通过命令输出判断应用是否存在
+ * 这是一种绕过某些检测机制的辅助检测方法
+ * @param packageName 要检测的包名
+ * @return true表示应用已安装，false表示未安装
+ */
 bool isAppInstalledByShellHole(const char* packageName) {
     string cmd = "file /storage/emulated/\342\200\2130/Android/data/" + string(packageName);
     string ret = runShell(cmd);
@@ -71,9 +94,18 @@ bool isAppInstalledByShellHole(const char* packageName) {
     return false;
 }
 
+/**
+ * 获取包信息的主函数（带JNI参数）
+ * 检测系统中安装的应用程序包，识别可疑的调试工具和Root框架
+ * 通过多种方式检测应用安装状态，包括PackageManager、文件系统、Shell命令等
+ * @param env JNI环境指针
+ * @param context Android上下文对象
+ * @return 包含检测结果的Map，格式：{包名 -> {风险等级, 说明}}
+ */
 map<string, map<string, string>> get_package_info(JNIEnv *env, jobject context){
     map<string, map<string, string>> info;
 
+    // 定义黑名单应用包名和对应的应用名称
     map<string, string> black_map = {
             {"com.zhenxi.hunter", "Hunter"},
             {"com.juqing.catchpackhelper", "抓包帮手"},
@@ -99,11 +131,13 @@ map<string, map<string, string>> get_package_info(JNIEnv *env, jobject context){
             {"me.weishu.kernelsu", "KernelSU"},
     };
 
+    // 定义白名单应用包名和对应的应用名称
     map<string, string> white_map = {
             {"com.tencent.mm", "微信"},
             {"com.eg.android.AlipayGphone", "支付宝"},
     };
 
+    // 检查黑名单应用是否已安装
     for (auto &[package_name, app_name] : black_map) {
         if(isAppInstalledByContext(env, context, package_name.c_str())){
             info[package_name]["risk"] = "error";
@@ -117,6 +151,7 @@ map<string, map<string, string>> get_package_info(JNIEnv *env, jobject context){
         }
     }
 
+    // 检查白名单应用是否未安装
     for (auto &[package_name, app_name] : white_map) {
         bool is_installed_by_path = isAppInstalledByPath(package_name.c_str());
         bool is_installed_by_context = isAppInstalledByContext(env, context,package_name.c_str());
@@ -129,6 +164,11 @@ map<string, map<string, string>> get_package_info(JNIEnv *env, jobject context){
     return info;
 };
 
+/**
+ * 获取包信息的主函数（无参数版本）
+ * 自动获取JNI环境和上下文对象，调用带参数的版本
+ * @return 包含检测结果的Map，格式：{包名 -> {风险等级, 说明}}
+ */
 map<string, map<string, string>> get_package_info(){
     return get_package_info(zJavaVm::getInstance()->getEnv(), zJavaVm::getInstance()->getContext());
 };

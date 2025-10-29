@@ -7,6 +7,12 @@
 #include "zJson.h"
 #include "zSslInfo.h"
 
+/**
+ * 获取地理位置信息
+ * 通过HTTPS请求获取设备的地理位置信息
+ * 使用腾讯新闻API获取IP地址对应的地理位置
+ * @return 地理位置字符串，格式：国家+省份+城市
+ */
 string get_location() {
 
     string location = "";
@@ -57,16 +63,24 @@ string get_location() {
     }
 }
 
+/**
+ * 获取SSL信息的主函数
+ * 检测HTTPS连接的SSL证书指纹，验证网络通信的安全性
+ * 通过对比预定义的证书指纹，检测是否存在中间人攻击或证书伪造
+ * @return 包含检测结果的Map，格式：{检测项目 -> {风险等级, 说明}}
+ */
 map<string, map<string, string>> get_ssl_info() {
 
     map<string, map<string, string>> info;
 
+    // 定义需要检测的URL和对应的证书指纹
     map<string, string> url_info{
             {"https://www.baidu.com",  "0D822C9A905AEFE98F3712C0E02630EE95332C455FE7745DF08DBC79F4B0A149"},
             {"https://www.jd.com",     "109CC20D1518DC00F3CEEE91A8AE4AF45E878C9556E611A1DC90C301366A63C2"},
             {"https://www.taobao.com", "3D4949784246FFF7529B6B82DF7E544BF9BAD834141D2167634E5B62A1D885B5"},
     };
 
+    // 检测每个URL的SSL证书指纹
     for (auto &item: url_info) {
         LOGI("=== Testing URL: %s ===", item.first.c_str());
 
@@ -92,6 +106,7 @@ map<string, map<string, string>> get_ssl_info() {
         LOGI("=== Testing2 URL: %s ===", item.first.c_str());
     }
 
+    // 检测地理位置信息
     string location = get_location();
     if (location.empty()) {
         LOGW("get_location failed");

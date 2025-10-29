@@ -13,6 +13,11 @@
 #include "zHttps.h"
 
 // HttpsRequest方法实现
+/**
+ * 解析URL
+ * 从完整的HTTPS URL中提取主机名、端口号和路径
+ * 只支持HTTPS协议，确保安全性
+ */
 void HttpsRequest::parseUrl() {
     LOGD("parseUrl called for URL: %s", url.c_str());
     // 强制只支持HTTPS的URL解析
@@ -52,6 +57,12 @@ void HttpsRequest::parseUrl() {
     LOGI("parseUrl: parsed host=%s, port=%d, path=%s", host.c_str(), port, path.c_str());
 }
 
+/**
+ * 构建HTTP请求
+ * 根据解析的URL信息构建完整的HTTP请求字符串
+ * 包括请求行、头部和可选的请求体
+ * @return 构建的HTTP请求字符串
+ */
 string HttpsRequest::buildRequest() const {
     LOGD("buildRequest called");
     string request = method + " " + path + " HTTP/1.1\r\n";
@@ -85,13 +96,24 @@ string HttpsRequest::buildRequest() const {
 }
 
 // zHttps方法实现
+/**
+ * 构造函数
+ * 初始化HTTPS客户端，设置默认超时时间
+ * 不在构造函数中初始化mbedtls资源，而是在需要时初始化
+ * @param timeout_seconds 默认超时时间（秒）
+ */
 zHttps::zHttps(int timeout_seconds) : initialized(false), default_timeout_seconds(timeout_seconds) {
     LOGD("Constructor called with timeout: %d seconds", timeout_seconds);
     // 不在构造函数中初始化mbedtls资源，而是在需要时初始化
     // 这样可以避免资源泄漏和状态污染
 }
 
-// 移动构造函数
+/**
+ * 移动构造函数
+ * 高效地移动另一个zHttps对象的资源
+ * 避免不必要的资源复制，提高性能
+ * @param other 要移动的zHttps对象
+ */
 zHttps::zHttps(zHttps&& other) noexcept 
     : initialized(other.initialized)
     , default_timeout_seconds(other.default_timeout_seconds)
@@ -120,7 +142,13 @@ zHttps::zHttps(zHttps&& other) noexcept
     mbedtls_entropy_init(&other.entropy);
 }
 
-// 移动赋值运算符
+/**
+ * 移动赋值运算符
+ * 高效地移动另一个zHttps对象的资源到当前对象
+ * 先清理当前对象的资源，然后移动新资源
+ * @param other 要移动的zHttps对象
+ * @return 当前对象的引用
+ */
 zHttps& zHttps::operator=(zHttps&& other) noexcept {
     LOGD("Move assignment operator called");
     
@@ -157,22 +185,43 @@ zHttps& zHttps::operator=(zHttps&& other) noexcept {
     return *this;
 }
 
+/**
+ * 设置默认超时时间
+ * 为后续的HTTPS请求设置默认的超时时间
+ * @param timeout_seconds 超时时间（秒）
+ */
 void zHttps::setTimeout(int timeout_seconds) {
     LOGD("setTimeout called with %d", timeout_seconds);
     default_timeout_seconds = timeout_seconds;
     LOGI("Default timeout set to %d seconds", timeout_seconds);
 }
 
+/**
+ * 获取默认超时时间
+ * 返回当前设置的默认超时时间
+ * @return 默认超时时间（秒）
+ */
 int zHttps::getTimeout() const {
     LOGD("getTimeout called");
     return default_timeout_seconds;
 }
 
+/**
+ * 析构函数
+ * 自动清理所有mbedtls资源
+ * 确保没有资源泄漏
+ */
 zHttps::~zHttps() {
     LOGD("Destructor called");
     cleanup();
 }
 
+/**
+ * 初始化mbedtls
+ * 初始化所有mbedtls相关的资源，包括SSL上下文、证书、随机数生成器等
+ * 加载系统CA证书用于证书验证
+ * @return true表示初始化成功，false表示失败
+ */
 bool zHttps::initialize() {
     LOGD("initialize called");
     if (initialized) {
@@ -211,6 +260,15 @@ bool zHttps::initialize() {
     return true;
 }
 
+/**
+ * 添加证书固定
+ * 为指定的主机名添加证书固定信息，用于防止中间人攻击
+ * 通过验证证书的序列号、指纹和主题来确保连接的安全性
+ * @param hostname 主机名
+ * @param expected_serial 期望的证书序列号
+ * @param expected_fingerprint 期望的证书SHA256指纹
+ * @param expected_subject 期望的证书主题（可选）
+ */
 void zHttps::addPinnedCertificate(const string& hostname,
                                   const string& expected_serial,
                                   const string& expected_fingerprint,
@@ -230,6 +288,13 @@ void zHttps::addPinnedCertificate(const string& hostname,
     LOGI("Added pinned certificate for %s", hostname.c_str());
 }
 
+/**
+ * 提取证书信息
+ * 从mbedtls证书对象中提取各种证书信息
+ * 包括序列号、指纹、主题、颁发者、有效期等
+ * @param cert mbedtls证书对象
+ * @return 证书信息结构体
+ */
 CertificateInfo zHttps::extractCertificateInfo(const mbedtls_x509_crt* cert) {
     LOGD("extractCertificateInfo called");
     CertificateInfo info;
@@ -289,6 +354,14 @@ CertificateInfo zHttps::extractCertificateInfo(const mbedtls_x509_crt* cert) {
     return info;
 }
 
+/**
+ * 验证证书固定
+ * 验证服务器证书是否与预定义的固定证书匹配
+ * 通过比较序列号、指纹和主题来确保证书的真实性
+ * @param cert mbedtls证书对象
+ * @param hostname 主机名
+ * @return true表示验证通过，false表示失败
+ */
 bool zHttps::verifyCertificatePinning(const mbedtls_x509_crt* cert, const string& hostname) {
     LOGD("verifyCertificatePinning called for hostname: %s", hostname.c_str());
     auto it = pinned_certificates.find(hostname);
@@ -334,6 +407,13 @@ bool zHttps::verifyCertificatePinning(const mbedtls_x509_crt* cert, const string
     return true;
 }
 
+/**
+ * 执行HTTPS请求
+ * 执行完整的HTTPS请求流程，包括连接建立、TLS握手、证书验证、请求发送和响应接收
+ * 支持超时控制、证书固定验证和详细的错误处理
+ * @param request HTTPS请求对象
+ * @return HTTPS响应对象
+ */
 HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     HttpsResponse response;
 
@@ -785,6 +865,13 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     return response;
 }
 
+/**
+ * 获取证书序列号（十六进制）
+ * 将证书的序列号转换为十六进制字符串格式
+ * @param cert mbedtls证书对象
+ * @param buffer 输出缓冲区
+ * @param buffer_size 缓冲区大小
+ */
 void zHttps::getCertificateSerialHex(const mbedtls_x509_crt* cert, char* buffer, size_t buffer_size) {
     size_t pos = 0;
     for (size_t i = 0; i < cert->serial.len && pos < buffer_size - 3; i++) {
@@ -795,12 +882,26 @@ void zHttps::getCertificateSerialHex(const mbedtls_x509_crt* cert, char* buffer,
     }
 }
 
+/**
+ * 获取证书SHA256指纹
+ * 计算证书的SHA256指纹
+ * @param cert mbedtls证书对象
+ * @param fingerprint 输出指纹缓冲区（32字节）
+ * @return 0表示成功，其他值表示失败
+ */
 int zHttps::getCertificateFingerprintSha256(const mbedtls_x509_crt* cert, unsigned char* fingerprint) {
     const mbedtls_md_info_t* md_info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
     if (md_info == NULL) return -1;
     return mbedtls_md(md_info, cert->raw.p, cert->raw.len, fingerprint);
 }
 
+/**
+ * 解析HTTPS响应
+ * 解析原始HTTP响应字符串，提取状态码、头部和响应体
+ * 支持分块传输编码的响应体处理
+ * @param raw_response 原始响应字符串
+ * @param response 解析后的响应对象
+ */
 void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& response) {
     LOGD("=== parseHttpsResponse 开始 ===");
     LOGD("raw_response 长度: %zu", raw_response.length());
@@ -993,7 +1094,12 @@ void zHttps::parseHttpsResponse(const string& raw_response, HttpsResponse& respo
     }
 }
 
-// 处理分块传输编码的辅助方法
+/**
+ * 处理分块传输编码的响应体
+ * 解析分块传输编码的响应体，将分块数据合并为完整的响应体
+ * 支持标准的HTTP分块传输编码格式
+ * @param body 分块编码的响应体字符串
+ */
 void zHttps::processChunkedBody(string& body) {
     LOGI("Processing chunked body, original length: %zu", body.length());
     LOGI("Original body: '%s'", body.c_str());
@@ -1065,6 +1171,11 @@ void zHttps::processChunkedBody(string& body) {
     LOGI("Final body: '%s'", body.c_str());
 }
 
+/**
+ * 清理资源
+ * 释放所有mbedtls相关的资源
+ * 确保没有资源泄漏
+ */
 void zHttps::cleanup() {
     LOGD("cleanup called");
     if (initialized) {
@@ -1080,6 +1191,13 @@ void zHttps::cleanup() {
     }
 }
 
+/**
+ * 检查是否超时
+ * 检查从指定开始时间到现在是否已经超过了超时时间
+ * @param start_time 开始时间
+ * @param timeout_seconds 超时时间（秒）
+ * @return true表示已超时，false表示未超时
+ */
 bool zHttps::isTimeoutReached(time_t start_time, int timeout_seconds) {
     LOGD("isTimeoutReached called with start_time: %ld, timeout_seconds: %d", start_time, timeout_seconds);
     time_t current_time = time(nullptr);
@@ -1089,6 +1207,15 @@ bool zHttps::isTimeoutReached(time_t start_time, int timeout_seconds) {
 }
 
 // Socket连接相关方法实现
+/**
+ * 带超时的socket连接
+ * 建立到指定主机和端口的TCP连接，支持超时控制
+ * 使用非阻塞socket和select实现超时机制
+ * @param host 主机名
+ * @param port 端口号
+ * @param timeout_seconds 超时时间（秒）
+ * @return socket文件描述符，失败返回-1
+ */
 int zHttps::connectWithTimeout(const string& host, int port, int timeout_seconds) {
     LOGD("connectWithTimeout called with host: %s, port: %d, timeout_seconds: %d", host.c_str(), port, timeout_seconds);
 
@@ -1158,6 +1285,11 @@ int zHttps::connectWithTimeout(const string& host, int port, int timeout_seconds
     return sockfd;
 }
 
+/**
+ * 关闭socket连接
+ * 关闭指定的socket文件描述符
+ * @param sockfd socket文件描述符
+ */
 void zHttps::closeSocket(int sockfd) {
     LOGD("closeSocket called with sockfd: %d", sockfd);
     close(sockfd);

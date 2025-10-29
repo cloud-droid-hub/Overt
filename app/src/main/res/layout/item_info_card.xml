@@ -1,4 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    信息卡片布局文件 - 单个安全检测结果的展示卡片
+    
+    布局说明：
+    1. 使用CardView作为卡片容器，提供Material Design风格
+    2. 内部使用LinearLayout垂直排列内容
+    3. 包含标题和动态添加的检测结果项
+    4. 支持主题适配和风险等级颜色显示
+    
+    组件结构：
+    - CardView：卡片容器，提供圆角和阴影效果
+    - LinearLayout：内容容器，垂直排列子元素
+    - TextView：标题显示，标识检测类型
+    
+    设计特点：
+    - 简洁的卡片设计，突出内容展示
+    - 支持动态内容添加（检测结果项）
+    - 适配不同主题和屏幕尺寸
+    - 提供良好的视觉层次
+-->
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -7,6 +27,12 @@
     app:cardElevation="0dp"
     app:cardUseCompatPadding="false">
 
+    <!-- 
+        卡片内容容器
+        功能：承载卡片的所有内容元素
+        特点：垂直排列，支持动态添加子元素
+        样式：12dp内边距，提供合适的内容间距
+    -->
     <LinearLayout
         android:id="@+id/card_content"
         android:layout_width="match_parent"
@@ -14,6 +40,13 @@
         android:orientation="vertical"
         android:padding="12dp">
 
+        <!-- 
+            卡片标题
+            功能：显示检测类型名称（如"Root检测"、"进程检测"）
+            特点：大字体、粗体，突出显示
+            样式：16sp字体，8dp下边距，支持图标显示
+            注意：文字颜色会在代码中动态设置以适配主题
+        -->
         <TextView
             android:id="@+id/card_title"
             android:layout_width="match_parent"

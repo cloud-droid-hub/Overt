@@ -1,4 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Overt安全检测工具 - 主界面布局文件
+    
+    布局说明：
+    1. 采用垂直LinearLayout作为根容器
+    2. 包含固定的标题栏和可滚动的卡片容器
+    3. 支持主题适配（浅色/夜间模式）
+    4. 使用Material Design设计风格
+    
+    组件结构：
+    - 标题栏：显示应用名称"Overt"
+    - 卡片容器：承载所有检测结果卡片，支持滚动
+    
+    设计特点：
+    - 响应式布局，适配不同屏幕尺寸
+    - 主题自适应，支持系统主题切换
+    - 简洁明了，突出检测结果展示
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -6,7 +24,12 @@
     android:orientation="vertical"
     android:background="?android:attr/windowBackground">
 
-    <!-- 固定的标题栏 -->
+    <!-- 
+        固定的标题栏
+        功能：显示应用名称，提供品牌标识
+        特点：固定在顶部，不随内容滚动
+        样式：大字体、粗体、居中对齐
+    -->
     <TextView
         android:id="@+id/title_bar"
         android:layout_width="match_parent"
@@ -19,7 +42,12 @@
         android:padding="16dp"
         android:background="?android:attr/windowBackground" />
 
-    <!-- 可滚动的信息卡片容器 -->
+    <!-- 
+        可滚动的信息卡片容器
+        功能：承载所有安全检测结果卡片
+        特点：占据剩余空间，支持垂直滚动
+        实现：使用FrameLayout作为容器，内部由InfoCardContainer管理滚动
+    -->
     <FrameLayout
         android:id="@+id/card_container"
         android:layout_width="match_parent"

@@ -13,53 +13,103 @@ import org.json.JSONObject;
 import java.util.Iterator;
 
 /**
- * 信息卡片类
- * 负责单个卡片的显示和样式设置
+ * 信息卡片类 - 安全检测结果的可视化展示组件
+ * 
+ * 功能说明：
+ * 1. 负责单个检测结果卡片的显示和样式设置
+ * 2. 支持动态主题切换（浅色/夜间模式）
+ * 3. 根据风险等级显示不同的颜色和符号
+ * 4. 提供灵活的样式定制功能
+ * 5. 自动适配不同屏幕尺寸和密度
+ * 
+ * 设计特点：
+ * - 采用Material Design卡片设计风格
+ * - 支持风险等级可视化（安全√、警告⚠、错误×）
+ * - 自动适配系统主题（浅色/夜间模式）
+ * - 提供丰富的样式定制选项
+ * - 支持动态内容更新
+ * 
+ * 使用场景：
+ * - 显示Root检测结果
+ * - 展示调试工具检测状态
+ * - 呈现系统完整性检查结果
+ * - 展示网络和进程检测信息
+ * 
+ * 数据格式：
+ * 接收JSONObject格式的数据，每个检测项包含：
+ * - risk: 风险等级（"safe"、"warn"、"error"）
+ * - explain: 检测结果说明
  */
 public class InfoCard {
-    private Context context;
-    private String title;
-    private JSONObject info;
-    private CardView cardView;
-    private LinearLayout cardContent;
-    private TextView titleView;
+    // 基础组件
+    private Context context;                    // Android上下文，用于资源访问
+    private String title;                       // 卡片标题，标识检测类型
+    private JSONObject info;                    // 卡片数据，JSON格式的检测结果
+    private CardView cardView;                  // 卡片视图容器
+    private LinearLayout cardContent;           // 卡片内容布局
+    private TextView titleView;                 // 标题文本视图
     
-    // 边框属性
-    private int borderWidth = 1; // 边框宽度，单位dp
-    private int lightBorderColor = 0xFF888888; // 浅色模式边框颜色
-    private int darkBorderColor = 0xFF333333; // 夜间模式边框颜色
+    // 边框样式属性
+    private int borderWidth = 1;                // 边框宽度，单位dp
+    private int lightBorderColor = 0xFF888888;  // 浅色模式边框颜色（灰色）
+    private int darkBorderColor = 0xFF333333;   // 夜间模式边框颜色（深灰色）
     
-    // 字体颜色属性
-    private int lightTextColor = 0xFF000000; // 浅色模式字体颜色（黑色）
-    private int darkTextColor = 0xFFE0E0E0; // 夜间模式字体颜色（暗白色）
+    // 文字颜色属性
+    private int lightTextColor = 0xFF000000;    // 浅色模式字体颜色（黑色）
+    private int darkTextColor = 0xFFE0E0E0;     // 夜间模式字体颜色（浅白色）
 
     /**
-     * 构造函数（使用默认边框设置）
-     * @param context 上下文
-     * @param title 标题
-     * @param info 信息数据
+     * 构造函数（使用默认样式设置）
+     * 
+     * 功能说明：
+     * 1. 创建信息卡片实例，使用默认的样式配置
+     * 2. 自动初始化卡片视图和内容
+     * 3. 应用默认的边框和颜色设置
+     * 
+     * 使用场景：
+     * - 快速创建标准样式的卡片
+     * - 不需要自定义样式的场景
+     * - 批量创建多个卡片时
+     * 
+     * @param context Android上下文，用于资源访问和视图创建
+     * @param title 卡片标题，用于标识检测类型（如"Root检测"）
+     * @param info 检测结果数据，JSON格式，包含各项检测结果
      */
     public InfoCard(Context context, String title, JSONObject info) {
         this.context = context;
         this.title = title;
         this.info = info;
-        // 使用默认边框设置
-        this.borderWidth = 1;
-        this.lightBorderColor = 0xFF888888;
-        this.darkBorderColor = 0xFF333333;
+        
+        // 使用默认样式设置
+        this.borderWidth = 1;                    // 1dp边框宽度
+        this.lightBorderColor = 0xFF888888;      // 浅色模式：灰色边框
+        this.darkBorderColor = 0xFF333333;       // 夜间模式：深灰色边框
+        
+        // 初始化卡片视图
         initCardView();
     }
 
     /**
-     * 构造函数（带边框设置）
-     * @param context 上下文
-     * @param title 标题
-     * @param info 信息数据
-     * @param borderWidth 边框宽度（dp）
-     * @param lightBorderColor 浅色模式边框颜色
-     * @param darkBorderColor 夜间模式边框颜色
-     * @param lightTextColor 浅色模式字体颜色
-     * @param darkTextColor 夜间模式字体颜色
+     * 构造函数（支持自定义样式设置）
+     * 
+     * 功能说明：
+     * 1. 创建信息卡片实例，支持完全自定义的样式配置
+     * 2. 允许指定边框宽度、颜色和文字颜色
+     * 3. 支持浅色和夜间模式的不同样式设置
+     * 
+     * 使用场景：
+     * - 需要特殊样式的卡片
+     * - 主题定制需求
+     * - 品牌色彩要求
+     * 
+     * @param context Android上下文，用于资源访问和视图创建
+     * @param title 卡片标题，用于标识检测类型
+     * @param info 检测结果数据，JSON格式
+     * @param borderWidth 边框宽度，单位dp（建议1-3dp）
+     * @param lightBorderColor 浅色模式边框颜色，ARGB格式
+     * @param darkBorderColor 夜间模式边框颜色，ARGB格式
+     * @param lightTextColor 浅色模式文字颜色，ARGB格式
+     * @param darkTextColor 夜间模式文字颜色，ARGB格式
      */
     public InfoCard(Context context, String title, JSONObject info, 
                    int borderWidth, int lightBorderColor, int darkBorderColor,
@@ -67,33 +117,54 @@ public class InfoCard {
         this.context = context;
         this.title = title;
         this.info = info;
+        
+        // 应用自定义样式设置
         this.borderWidth = borderWidth;
         this.lightBorderColor = lightBorderColor;
         this.darkBorderColor = darkBorderColor;
         this.lightTextColor = lightTextColor;
         this.darkTextColor = darkTextColor;
+        
+        // 初始化卡片视图
         initCardView();
     }
 
     /**
      * 初始化卡片视图
+     * 
+     * 功能说明：
+     * 1. 加载卡片布局文件，创建基础视图结构
+     * 2. 获取各个子组件的引用
+     * 3. 按顺序执行样式设置和内容填充
+     * 4. 完成卡片的完整初始化
+     * 
+     * 执行流程：
+     * 1. 加载布局 → 2. 获取组件引用 → 3. 设置标题 → 4. 应用样式 → 5. 填充内容
+     * 
+     * 注意事项：
+     * - 必须在构造函数中调用
+     * - 依赖context和info数据
+     * - 会触发所有子组件的初始化
      */
     private void initCardView() {
-        // 加载卡片布局
+        // 1. 加载卡片布局文件
+        // 使用LayoutInflater从XML布局文件创建视图层次结构
         cardView = (CardView) LayoutInflater.from(context).inflate(R.layout.item_info_card, null, false);
-        cardContent = cardView.findViewById(R.id.card_content);
-        titleView = cardView.findViewById(R.id.card_title);
+        
+        // 2. 获取子组件引用
+        cardContent = cardView.findViewById(R.id.card_content);  // 内容容器
+        titleView = cardView.findViewById(R.id.card_title);      // 标题文本视图
 
-        // 设置标题
+        // 3. 设置卡片标题
         setupTitle();
         
-        // 设置风险等级样式
+        // 4. 设置风险等级相关的样式
         setupRiskLevelStyle();
         
-        // 设置边框
+        // 5. 设置卡片边框样式
         setupBorder();
         
-        // 添加信息项
+        // 6. 添加检测结果信息项
         addInfoItems();
     }
 

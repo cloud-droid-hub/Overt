@@ -5,24 +5,52 @@
 
 #include "zThread.h"
 
-// 构造函数
+/**
+ * 构造函数 - 创建线程实例
+ * 
+ * 功能说明：
+ * 1. 初始化线程基本属性（ID、名称、索引）
+ * 2. 创建线程同步对象（互斥锁、条件变量）
+ * 3. 初始化执行相关成员变量
+ * 4. 设置初始状态为未运行
+ * 
+ * 设计特点：
+ * - 使用RAII管理同步对象，自动清理资源
+ * - 采用智能指针避免手动内存管理
+ * - 提供详细的初始化日志
+ * 
+ * @param index 线程索引，用于标识和日志记录
+ * @param name 线程名称，便于调试和监控
+ */
 zThread::zThread(size_t index, const string& name)
-    : m_threadId(nullptr)
-    , m_threadName(name)
-    , m_threadIndex(index)
-    , m_taskMutex(std::make_unique<std::mutex>())
-    , m_taskCV(std::make_unique<std::condition_variable>())
-    , m_executeFunc(nullptr)
-    , m_executeFuncArg(nullptr)
-    , m_task(nullptr)
-    , m_isTaskRunning(false)
-    , m_isThreadRunning(false)
+    : m_threadId(nullptr)                                    // 线程ID，由pthread_create设置
+    , m_threadName(name)                                     // 线程名称
+    , m_threadIndex(index)                                   // 线程索引
+    , m_taskMutex(std::make_unique<std::mutex>())           // 任务互斥锁，RAII管理
+    , m_taskCV(std::make_unique<std::condition_variable>()) // 任务条件变量，RAII管理
+    , m_executeFunc(nullptr)                                 // 执行函数指针
+    , m_executeFuncArg(nullptr)                              // 执行函数参数
+    , m_task(nullptr)                                        // 任务对象指针
+    , m_isTaskRunning(false)                                 // 任务运行状态
+    , m_isThreadRunning(false)                               // 线程运行状态
 {
     // std::mutex 和 std::condition_variable 会自动初始化
     LOGI("zThread[%zu] '%s' created with RAII mutex and condition variable", m_threadIndex, m_threadName.c_str());
 }
 
-// 析构函数
+/**
+ * 析构函数 - 清理线程资源
+ * 
+ * 功能说明：
+ * 1. 确保线程已完全停止
+ * 2. 等待线程结束并清理资源
+ * 3. 记录销毁日志
+ * 
+ * 资源管理：
+ * - 自动调用stop()确保线程停止
+ * - std::unique_ptr自动清理同步对象
+ * - 不需要手动清理pthread资源
+ */
 zThread::~zThread() {
     // 确保线程已停止
     stop();
@@ -31,8 +59,29 @@ zThread::~zThread() {
     LOGI("zThread[%zu] '%s' destroyed", m_threadIndex, m_threadName.c_str());
 }
 
-// 启动线程
+/**
+ * 启动线程
+ * 
+ * 功能说明：
+ * 1. 检查线程是否已经在运行
+ * 2. 创建pthread线程
+ * 3. 设置线程入口函数
+ * 4. 更新线程运行状态
+ * 
+ * 线程创建：
+ * - 使用pthread_create创建POSIX线程
+ * - 线程入口为threadEntry静态函数
+ * - 传递this指针作为线程参数
+ * 
+ * 错误处理：
+ * - 检查pthread_create返回值
+ * - 失败时重置运行状态
+ * - 记录详细的错误日志
+ * 
+ * @return true表示启动成功，false表示启动失败
+ */
 bool zThread::start() {
+    // 检查线程是否已经在运行
     if (m_isThreadRunning) {
         LOGW("zThread[%zu] already running", m_threadIndex);
         return false;
@@ -40,7 +89,7 @@ bool zThread::start() {
     
     m_isThreadRunning = true;  // 标记线程开始运行
     
-    // 创建线程
+    // 创建pthread线程
     int result = pthread_create((pthread_t*)&m_threadId, nullptr, threadEntry, this);
     if (result != 0) {
         LOGE("Failed to create thread[%zu]: %d", m_threadIndex, result);

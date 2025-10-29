@@ -13,6 +13,12 @@
 
 #include "zTimeInfo.h"
 
+/**
+ * 获取最早文件信息
+ * 遍历/proc/mounts文件，找到系统中最早创建的文件
+ * 用于检测系统启动时间和文件创建时间
+ * @return 最早文件的zFile对象
+ */
 zFile get_earliest_file() {
     // 将 /proc/self/maps 作为默认值
     zFile earliest_file("/proc/self/maps");
@@ -86,6 +92,13 @@ zFile get_earliest_file() {
     return earliest_file;
 }
 
+/**
+ * 计算时间差
+ * 计算当前时间与指定时间戳之间的时间差
+ * 返回格式化的时间差字符串
+ * @param timestamp 要比较的时间戳
+ * @return 格式化的时间差字符串
+ */
 string get_time_diff(long timestamp) {
     LOGD("get_time_diff: called with timestamp=%ld", timestamp);
 
@@ -124,6 +137,11 @@ string get_time_diff(long timestamp) {
     return string(time_str);
 }
 
+/**
+ * 通过系统调用获取启动时间
+ * 使用sysinfo系统调用获取系统运行时间，计算启动时间
+ * @return 系统启动时间戳，失败返回-1
+ */
 long get_boot_time_by_syscall() {
     struct sysinfo info;
     LOGD("get_boot_time_by_syscall: starting...");
@@ -149,10 +167,21 @@ long get_boot_time_by_syscall() {
     return boot_time;
 }
 
+/**
+ * 获取本地当前时间
+ * 获取系统本地时间戳
+ * @return 当前时间戳
+ */
 long get_local_current_time() {
     return time(nullptr);
 }
 
+/**
+ * 获取远程当前时间
+ * 通过HTTPS请求获取远程服务器时间
+ * 使用拼多多API获取服务器时间，用于检测本地时间是否被篡改
+ * @return 远程服务器时间戳，失败返回-1
+ */
 long get_remote_current_time() {
     string pinduoduo_time_url = "https://api.pinduoduo.com/api/server/_stm";
     string pinduoduo_time_fingerprint_sha256 = "604D2DE1AD32FF364041831DE23CBFC2C48AD5DEF8E665103691B6472D07D4D0";
@@ -188,6 +217,12 @@ long get_remote_current_time() {
 }
 
 
+/**
+ * 获取时间信息的主函数
+ * 检测系统时间、启动时间等时间相关信息
+ * 主要用于检测时间篡改、系统重启等异常情况
+ * @return 包含检测结果的Map，格式：{检测项目 -> {风险等级, 说明}}
+ */
 map<string, map<string, string>> get_time_info() {
     LOGI("get_time_info: starting...");
 

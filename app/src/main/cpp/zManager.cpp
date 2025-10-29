@@ -32,10 +32,19 @@
 #include <cmath>
 
 
-// 静态成员变量初始化
+/**
+ * 静态成员变量初始化
+ * 单例实例指针，初始化为nullptr
+ * 采用懒加载模式，首次调用getInstance()时创建
+ */
 zManager* zManager::instance = nullptr;
 
-// 设备信息存储Map初始化
+/**
+ * 设备信息存储Map初始化
+ * 三层嵌套的Map结构，用于存储所有检测结果
+ * 结构：检测类别 -> 检测项目 -> 属性名 -> 属性值
+ * 线程安全：通过shared_mutex保护
+ */
 map<string, map<string, map<string, string>>> zManager::device_info;
 
 /**
@@ -132,9 +141,48 @@ const map<string, map<string, string>> zManager::get_info(const string& key){
 };
 
 
+/**
+ * 周期性任务管理循环
+ * 
+ * 功能说明：
+ * 1. 管理所有安全检测任务的周期性执行
+ * 2. 通过线程池调度任务执行
+ * 3. 提供异常处理和错误恢复机制
+ * 4. 实现任务的自动重试和监控
+ * 
+ * 任务类型：
+ * - root_state_info: Root状态检测
+ * - proc_info: 进程信息检测
+ * - tee_info: TEE环境检测
+ * - class_loader_info: 类加载器检测
+ * - linker_info: 链接器信息检测
+ * - package_info: 包信息检测
+ * - system_setting_info: 系统设置检测
+ * - system_prop_info: 系统属性检测
+ * - signature_info: 签名信息检测
+ * - port_info: 端口信息检测
+ * - time_info: 时间信息检测
+ * - ssl_info: SSL证书检测
+ * - local_network_info: 本地网络检测
+ * - logcat_info: 系统日志检测
+ * - side_channel_info: 侧信道检测
+ * 
+ * 执行机制：
+ * - 无限循环，持续监控任务状态
+ * - 检查任务是否已在线程池中运行
+ * - 未运行的任务会被添加到线程池
+ * - 每个周期后等待指定时间间隔
+ * 
+ * 异常处理：
+ * - 捕获标准异常和未知异常
+ * - 异常时短暂等待后继续执行
+ * - 确保任务管理循环不会因异常而停止
+ */
 void zManager::round_tasks(){
     LOGI("add_tasks: starting periodic task management loop");
+    
     // 定义所有需要周期性执行的任务
+    // 使用函数指针数组存储任务名称和对应的更新函数
     vector<pair<string, void(zManager::*)()>> periodic_tasks = {
             {"root_state_info", &zManager::update_root_state_info},
             {"proc_info", &zManager::update_proc_info},
@@ -154,11 +202,13 @@ void zManager::round_tasks(){
     };
     LOGI("add_tasks: initialized %zu periodic tasks", periodic_tasks.size());
     
+    // 主循环：持续监控和管理任务
     while (true) {
         try {
             // 检查每个任务是否需要执行
             for(const auto& task : periodic_tasks) {
                 const string& task_name = task.first;
+                // 如果任务未在线程池中运行，则添加任务
                 if(!zThreadPool::getInstance()->hasTaskName(task_name)){
                      zThreadPool::getInstance()->addTask(task_name, zManager::getInstance(), task.second);
                 }
@@ -177,26 +227,89 @@ void zManager::round_tasks(){
     LOGI("add_tasks: periodic task management loop stopped");
 };
 
+/**
+ * 更新SSL信息检测结果
+ * 
+ * 功能说明：
+ * 1. 收集SSL证书和连接信息
+ * 2. 检测SSL证书异常和配置问题
+ * 3. 更新设备信息存储
+ * 4. 通知Java层更新UI
+ * 
+ * 检测内容：
+ * - SSL证书有效性
+ * - 证书链完整性
+ * - 加密算法强度
+ * - 连接安全性
+ */
 void zManager::update_ssl_info(){
     // 收集SSL信息 - 检测SSL证书异常
     update_device_info("ssl_info", get_ssl_info());
     notice_java("ssl_info");
 };
 
+/**
+ * 更新本地网络信息检测结果
+ * 
+ * 功能说明：
+ * 1. 扫描本地网络中的设备
+ * 2. 检测同一网络中的其他Overt设备
+ * 3. 分析网络拓扑和连接状态
+ * 4. 更新设备信息存储
+ * 5. 通知Java层更新UI
+ * 
+ * 检测内容：
+ * - 网络设备列表
+ * - 设备类型和操作系统
+ * - 网络连接状态
+ * - 安全风险评估
+ */
 void zManager::update_local_network_info(){
-// 收集本地网络信息 - 检测同一网络中的其他Overt设备
+    // 收集本地网络信息 - 检测同一网络中的其他Overt设备
     zManager::getInstance()->update_device_info("local_network_info", get_local_network_info());
     notice_java("local_network_info");
 };
 
+/**
+ * 更新进程信息检测结果
+ * 
+ * 功能说明：
+ * 1. 收集当前运行的进程信息
+ * 2. 检测Frida等调试工具注入的进程
+ * 3. 分析进程权限和状态
+ * 4. 更新设备信息存储
+ * 5. 通知Java层更新UI
+ * 
+ * 检测内容：
+ * - 进程列表和状态
+ * - 调试工具特征检测
+ * - 进程权限分析
+ * - 异常进程识别
+ */
 void zManager::update_proc_info(){
-// 收集任务信息 - 检测Frida等调试工具注入的进程
+    // 收集任务信息 - 检测Frida等调试工具注入的进程
     zManager::getInstance()->update_device_info("proc_info", get_proc_info());
     notice_java("proc_info");
 };
 
+/**
+ * 更新Root状态检测结果
+ * 
+ * 功能说明：
+ * 1. 检测设备是否被Root
+ * 2. 检查Root相关文件和目录
+ * 3. 分析系统权限状态
+ * 4. 更新设备信息存储
+ * 5. 通知Java层更新UI
+ * 
+ * 检测内容：
+ * - su文件检测
+ * - 系统属性检查
+ * - 挂载点分析
+ * - 权限状态验证
+ */
 void zManager::update_root_state_info(){
-// 收集Root文件信息 - 检测Root相关文件
+    // 收集Root文件信息 - 检测Root相关文件
     zManager::getInstance()->update_device_info("root_state_info", get_root_state_info());
     notice_java("root_state_info");
 };
@@ -270,17 +383,50 @@ void zManager::update_signature_info(){
     notice_java("signature_info");
 };
 
+/**
+ * 通知Java层更新UI
+ * 
+ * 功能说明：
+ * 1. 将Native层的检测结果传递给Java层
+ * 2. 通过JNI调用Java层的静态方法
+ * 3. 实现Native层到Java层的数据通信
+ * 4. 触发UI更新显示最新的检测结果
+ * 
+ * 执行流程：
+ * 1. 获取JNI环境
+ * 2. 查找MainActivity类
+ * 3. 获取回调方法ID
+ * 4. 获取检测结果数据
+ * 5. 转换为JSON格式
+ * 6. 创建Java字符串对象
+ * 7. 调用Java层方法
+ * 8. 处理异常和清理资源
+ * 
+ * 线程安全：
+ * - 使用静态互斥锁保护整个函数
+ * - 确保多线程环境下的安全调用
+ * - 避免JNI调用的竞态条件
+ * 
+ * 错误处理：
+ * - 检查JNI环境有效性
+ * - 验证类和方法查找结果
+ * - 处理Java层异常
+ * - 清理JNI局部引用
+ * 
+ * @param title 检测类型标题，用于标识检测结果
+ */
 void zManager::notice_java(string title){
     LOGI("notice_java: %s", title.c_str());
 
     // 添加线程安全保护
+    // 使用静态互斥锁确保多线程环境下的安全调用
     static std::mutex notice_java_mutex;
     std::lock_guard<std::mutex> lock(notice_java_mutex);
 
     LOGI("notice_java: lock by %s ", title.c_str());
 
+    // 获取JNI环境
     JNIEnv *env = zJavaVm::getInstance()->getEnv();
-
     if(env == nullptr){
         LOGE("notice_java: env is null");
         return;
@@ -294,6 +440,9 @@ void zManager::notice_java(string title){
     }
 
     // 获取Java层的回调方法ID
+    // 方法签名：(Ljava/lang/String;Ljava/lang/String;)V
+    // 参数：标题字符串，数据字符串
+    // 返回：void
     jmethodID method_id = env->GetStaticMethodID(activity_class, "onCardInfoUpdated", "(Ljava/lang/String;Ljava/lang/String;)V");
     if (method_id == nullptr){
         LOGE("notice_java: method_id onCardInfoUpdated is null");
@@ -303,22 +452,22 @@ void zManager::notice_java(string title){
     // 使用读锁安全地获取设备信息
     map<string, map<string, string>> card_data = get_info(title);
 
+    // 将C++数据转换为JSON格式
     zJson card_data_json = card_data;
-
     string card_data_str = card_data_json.dump();
     LOGE("card_data_str:%s", card_data_str.c_str());
 
-    // 创建Java字符串
+    // 创建Java字符串对象 - 标题
     jstring title_jstr = env->NewStringUTF(title.c_str());
     if (title_jstr == nullptr) {
         LOGE("notice_java: Failed to create title string");
         return;
     }
 
-    // 创建Java字符串
+    // 创建Java字符串对象 - 数据
     jstring card_data_jstr = env->NewStringUTF(card_data_str.c_str());
     if (card_data_jstr == nullptr) {
-        LOGE("notice_java: Failed to create title string");
+        LOGE("notice_java: Failed to create data string");
         return;
     }
 
@@ -333,7 +482,7 @@ void zManager::notice_java(string title){
         env->ExceptionClear();
     }
 
-    // 清理局部引用
+    // 清理JNI局部引用，防止内存泄漏
     env->DeleteLocalRef(title_jstr);
     env->DeleteLocalRef(card_data_jstr);
 
@@ -353,29 +502,56 @@ void zManager::clear_device_info(){
     LOGI("clear_device_info");
 };
 
+/**
+ * 获取大核心CPU列表
+ * 
+ * 功能说明：
+ * 1. 扫描所有CPU核心的频率信息
+ * 2. 识别具有最高频率的大核心
+ * 3. 返回大核心的ID列表
+ * 4. 用于线程性能优化和CPU绑定
+ * 
+ * 实现原理：
+ * - 读取/sys/devices/system/cpu/cpuX/cpufreq/cpuinfo_max_freq文件
+ * - 比较所有核心的最大频率
+ * - 将具有最高频率的核心标记为大核心
+ * - 支持big.LITTLE架构的CPU
+ * 
+ * 使用场景：
+ * - 线程性能优化
+ * - CPU亲和性设置
+ * - 高优先级任务调度
+ * - 性能敏感操作
+ * 
+ * @return 大核心CPU ID列表
+ */
 vector<int> zManager::get_big_core_list() {
     LOGI("get_big_core_list called");
     const int cpuCount = std::thread::hardware_concurrency();
 
-    vector<int> big_cores;
-    int max_freq = 0;
-    vector<int> freqs;
+    vector<int> big_cores;      // 大核心列表
+    int max_freq = 0;           // 最大频率
+    vector<int> freqs;          // 各核心频率数组
 
     LOGD("Scanning CPU frequencies for %d CPUs", cpuCount);
+    
+    // 扫描所有CPU核心的频率
     for (int cpu = 0; cpu < cpuCount; ++cpu) {
-
+        // 构建频率文件路径
         string path = string_format("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", cpu);
 
         LOGV("Checking CPU %d frequency file: %s", cpu, path.c_str());
 
+        // 读取频率文件
         zFile cpuinfo_max_freq_file(path);
-
         string cpu_freq_str = cpuinfo_max_freq_file.readAllText();
         LOGE("freq_str %s", cpu_freq_str.c_str());
 
+        // 转换为整数频率值
         int cpu_freq = atoi(cpu_freq_str.c_str());
         LOGE("cpu_freq %d", cpu_freq);
 
+        // 存储频率并更新最大值
         freqs[cpu] = cpu_freq;
         if (cpu_freq > max_freq) {
             max_freq = cpu_freq;
@@ -386,6 +562,7 @@ vector<int> zManager::get_big_core_list() {
     LOGI("Max frequency found: %d kHz", max_freq);
     LOGD("Identifying big cores with max frequency...");
 
+    // 识别具有最大频率的大核心
     for (int i = 0; i < cpuCount; ++i) {
         if (freqs[i] == max_freq) {
             big_cores.push_back(i);
@@ -398,10 +575,46 @@ vector<int> zManager::get_big_core_list() {
 }
 
 
+/**
+ * 获取当前线程ID
+ * 
+ * 功能说明：
+ * 1. 使用系统调用获取当前线程的ID
+ * 2. 用于线程管理和CPU绑定操作
+ * 3. 提供线程标识符
+ * 
+ * @return 当前线程的ID
+ */
 pid_t zManager::gettid(){
     return __syscall0(SYS_gettid);
 }
 
+/**
+ * 将当前线程绑定到大核心
+ * 
+ * 功能说明：
+ * 1. 识别设备的大核心CPU
+ * 2. 将当前线程绑定到大核心上运行
+ * 3. 提供性能优化和CPU亲和性设置
+ * 4. 支持fallback机制，确保绑定成功
+ * 
+ * 实现流程：
+ * 1. 获取大核心列表
+ * 2. 检查大核心是否可用
+ * 3. 设置CPU亲和性
+ * 4. 验证绑定结果
+ * 5. 提供fallback机制
+ * 
+ * 性能优化：
+ * - 优先使用大核心，提高执行效率
+ * - 避免在小核心上运行性能敏感任务
+ * - 支持big.LITTLE架构优化
+ * 
+ * 错误处理：
+ * - 检查大核心可用性
+ * - 提供CPU 0作为fallback
+ * - 记录详细的错误信息
+ */
 void zManager::bind_self_to_least_used_big_core() {
     LOGI("bind_self_to_least_used_big_core called");
     const int cpuCount = std::thread::hardware_concurrency();
@@ -409,6 +622,7 @@ void zManager::bind_self_to_least_used_big_core() {
     LOGD("Getting list of big cores...");
     vector<int> big_cores = get_big_core_list();
 
+    // 检查是否找到大核心
     if (big_cores.empty()) {
         LOGW("No big cores found, falling back to CPU 0");
         // fallback绑定CPU0
@@ -479,9 +693,38 @@ void zManager::bind_self_to_least_used_big_core() {
     }
 }
 
+/**
+ * 提升线程优先级
+ * 
+ * 功能说明：
+ * 1. 设置当前线程的nice值（优先级）
+ * 2. 提供性能优化和任务调度控制
+ * 3. 支持实时任务和性能敏感操作
+ * 4. 验证设置结果并提供详细反馈
+ * 
+ * nice值说明：
+ * - 范围：-20（最高优先级）到19（最低优先级）
+ * - 默认值：0（普通优先级）
+ * - 负值：提高优先级，需要root权限
+ * - 正值：降低优先级，普通用户可用
+ * 
+ * 权限要求：
+ * - 负nice值需要root权限或CAP_SYS_NICE能力
+ * - 正值nice值普通用户可以使用
+ * - 权限不足时会记录错误信息
+ * 
+ * 使用场景：
+ * - 性能敏感的安全检测任务
+ * - 实时数据处理
+ * - 关键系统监控
+ * - 高优先级后台任务
+ * 
+ * @param nice_priority nice值，范围-20到19
+ */
 void zManager::raise_thread_priority(int nice_priority){
     LOGI("raise_thread_priority called - nice_priority: %d", nice_priority);
 
+    // 验证nice值范围
     if (nice_priority > 19 || nice_priority < -20) {
         LOGE("Invalid nice value: %d (range: -20 to 19)", nice_priority);
         return;
@@ -490,6 +733,7 @@ void zManager::raise_thread_priority(int nice_priority){
     pid_t tid = gettid();
     LOGD("Current thread ID: %d", tid);
 
+    // 设置线程优先级
     int ret = setpriority(PRIO_PROCESS, tid, nice_priority);
     if (ret != 0) {
         LOGE("setpriority failed for thread %d (errno: %d: %s)", tid, errno, strerror(errno));
@@ -497,6 +741,7 @@ void zManager::raise_thread_priority(int nice_priority){
             LOGE("Permission denied: You need root or CAP_SYS_NICE to increase priority (negative nice value)");
         }
     } else {
+        // 验证设置结果
         int actual = getpriority(PRIO_PROCESS, tid);
         LOGI("Successfully set thread %d priority to %d (actual nice: %d)", tid, nice_priority, actual);
     }
