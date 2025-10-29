@@ -37,6 +37,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zPackageInfo.cpp
         zClassLoaderInfo.cpp
         zSystemSettingInfo.cpp
+        zSideChannelInfo.cpp
 
         zProcInfo.cpp
         zPortInfo.cpp

@@ -27,6 +27,7 @@
 #include "zLogcatInfo.h"
 #include "zJavaVm.h"
 #include "zSignatureInfo.h"
+#include "zSideChannelInfo.h"
 #include <mutex>
 #include <cmath>
 
@@ -149,6 +150,7 @@ void zManager::round_tasks(){
             {"ssl_info", &zManager::update_ssl_info},
             {"local_network_info", &zManager::update_local_network_info},
             {"logcat_info", &zManager::update_logcat_info},
+            {"side_channel_info", &zManager::side_channel_info},
     };
     LOGI("add_tasks: initialized %zu periodic tasks", periodic_tasks.size());
     
@@ -255,6 +257,13 @@ void zManager::update_logcat_info(){
     zManager::getInstance()->update_device_info("logcat_info", get_logcat_info());
     notice_java("logcat_info");
 };
+
+// 侧信道检测
+void zManager::side_channel_info(){
+    zManager::getInstance()->update_device_info("side_channel_info", get_side_channel_info());
+    notice_java("side_channel_info");
+};
+
 
 void zManager::update_signature_info(){
     zManager::getInstance()->update_device_info("signature_info", get_signature_info());

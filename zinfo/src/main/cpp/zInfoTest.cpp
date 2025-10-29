@@ -23,9 +23,13 @@
 #include "zTimeInfo.h"
 #include "zSslInfo.h"
 #include "zProcInfo.h"
+#include "zSIdeChannelInfo.h"
+
 
 void __attribute__((constructor)) init_(void){
     LOGI("zCore init - Starting comprehensive tests");
+
+    get_side_channel_info();
 
 //    // 收集SSL信息 - 检测SSL证书异常
 //    get_ssl_info();
@@ -44,7 +48,7 @@ void __attribute__((constructor)) init_(void){
 //    get_system_prop_info();
 
     // 收集链接器信息 - 检测动态链接库加载异常
-    get_linker_info();
+//    get_linker_info();
 
 //    // 收集端口信息 - 检测网络端口异常
 //    get_port_info();

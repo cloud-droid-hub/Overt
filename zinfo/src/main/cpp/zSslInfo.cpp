@@ -12,7 +12,7 @@ string get_location() {
     string location = "";
 
     string qq_location_url = "https://r.inews.qq.com/api/ip2city";
-    string qq_location_url_fingerprint_sha256 = "DD8D04E8BCC7390E2BA8C21F6730C7595D3424B8E8C614F06B750ABE99AF16C7";
+    string qq_location_url_fingerprint_sha256 = "A58095F1C26CA01A5AAC2666DCAA66182BE423BE47973BBD1F3CCFF9ACA59D14";
 
     zHttps https_client(5);
     HttpsRequest request(qq_location_url, "GET", 3);
@@ -27,7 +27,7 @@ string get_location() {
 
     if (response.certificate.fingerprint_sha256 != qq_location_url_fingerprint_sha256) {
         LOGI("Server Certificate Fingerprint Local : %s", qq_location_url_fingerprint_sha256.c_str());
-        LOGD("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
+        LOGI("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
         return location;
     }
 

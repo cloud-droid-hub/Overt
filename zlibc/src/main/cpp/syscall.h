@@ -105,6 +105,8 @@
 #define SYS_newfstatat 79
 #define SYS_fcntl64 221
 #define SYS_gettid 178
+#define SYS_faccessat 48
+#define SYS_fchownat 54
 
 // 系统调用内联函数
 __attribute__((always_inline))

@@ -10,7 +10,4 @@
 
 map<string, map<string, string>> get_logcat_info();
 
-
-
-
 #endif //OVERT_ZLOGCATINFO_H
