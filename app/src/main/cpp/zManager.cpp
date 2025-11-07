@@ -188,6 +188,7 @@ void zManager::round_tasks(){
             {"proc_info", &zManager::update_proc_info},
             {"tee_info", &zManager::update_tee_info},
             {"class_loader_info", &zManager::update_class_loader_info},
+            {"class_info", &zManager::update_class_info},
             {"linker_info", &zManager::update_linker_info},
             {"package_info", &zManager::update_package_info},
             {"system_setting_info", &zManager::update_system_setting_info},
@@ -336,6 +337,12 @@ void zManager::update_class_loader_info(){
 // 收集类加载器信息 - 检测Java层异常
     zManager::getInstance()->update_device_info("class_loader_info", get_class_loader_info());
     notice_java("class_loader_info");
+};
+
+void zManager::update_class_info(){
+// 收集类信息 - 检测Java层异常
+    zManager::getInstance()->update_device_info("class_info", get_class_info());
+    notice_java("class_info");
 };
 
 void zManager::update_package_info(){

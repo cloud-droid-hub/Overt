@@ -263,6 +263,7 @@ public:
     void update_linker_info();
     void update_port_info();
     void update_class_loader_info();
+    void update_class_info();
     void update_package_info();
     void update_system_setting_info();
     void update_tee_info();
