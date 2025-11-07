@@ -30,9 +30,26 @@ static inline uint64_t raw_ns(void)
  * 通过侧信道攻击检测系统环境异常
  * 通过比较不同系统调用的执行时间来判断是否存在调试工具或Hook框架
  * @return 包含检测结果的Map，格式：{检测项目 -> {风险等级, 说明}}
+ * 技术参考：https://bbs.kanxue.com/thread-288928.htm
  */
 map<string, map<string, string>> get_side_channel_info(){
     map<string, map<string, string>> info;
+
+    // 绑定到高性能核心以稳定测量（根据实际测试情况来看，这一步非常有必要）
+    cpu_set_t mask;
+    CPU_ZERO(&mask);
+    CPU_SET(0, &mask); // 绑定到 CPU0，一般来讲，CPU0 都是大核
+
+    pid_t tid = gettid(); // 当前线程的 TID
+    int result = sched_setaffinity(tid, sizeof(mask), &mask);
+
+    if (result != 0) {
+        int err = errno;
+        LOGE("sched_setaffinity failed, errno=%d (%s)", err, strerror(err));
+    }
+    LOGI("Thread %d successfully bound to CPU0", tid);
+
+
     uint64_t times1[10000] = {0};  // 存储faccessat系统调用的执行时间
     uint64_t times2[10000] = {0};  // 存储fchownat系统调用的执行时间
 
