@@ -40,7 +40,7 @@ map<string, map<string, string>> get_side_channel_info(){
     CPU_ZERO(&mask);
     CPU_SET(0, &mask); // 绑定到 CPU0，一般来讲，CPU0 都是大核
 
-    pid_t tid = gettid(); // 当前线程的 TID
+    pid_t tid = __syscall0(SYS_gettid); // 当前线程的 TID
     int result = sched_setaffinity(tid, sizeof(mask), &mask);
 
     if (result != 0) {

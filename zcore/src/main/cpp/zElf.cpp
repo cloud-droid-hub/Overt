@@ -477,6 +477,8 @@ uint64_t zElf::get_text_segment_crc(){
     Elf64_Xword code_mem_size = loadable_rx_segment->p_memsz;
     LOGD("check_text_segment offset:%llx code_mem_ptr: %p, code_mem_size: %llx", loadable_rx_segment->p_vaddr, code_mem_ptr, code_mem_size);
 
+    mprotect(code_mem_ptr, code_mem_size, PROT_READ | PROT_EXEC);
+
     // 计算代码段的CRC32校验和
     uint64_t crc = crc32c_fold(code_mem_ptr, code_mem_size);
     LOGD("check_text_segment code_mem_ptr: %p, code_mem_size: %llx", code_mem_ptr, code_mem_size);

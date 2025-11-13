@@ -59,7 +59,7 @@ zFile::zFile(const string& path) : m_path(path) {
 
     // 设置文件描述符
     setFd();
-    
+
     // 验证文件是否成功打开
     if (m_fd < 0) {
         LOGW("Failed to open file: %s", m_path.c_str());
@@ -73,13 +73,13 @@ zFile::zFile(const string& path) : m_path(path) {
  */
 void zFile::setPath(const string& path) {
     LOGD("setPath called with path: %s", path.c_str());
-    
+
     // 如果路径没有变化，直接返回
     if (m_path == path) {
         LOGD("Path unchanged, skipping update");
         return;
     }
-    
+
     // 清理之前的文件描述符
     if (m_fd > 2) {
         LOGD("Closing previous fd: %d", m_fd);
@@ -92,10 +92,10 @@ void zFile::setPath(const string& path) {
         LOGE("setPath: This prevents conflict with Android's unique_fd management");
         m_fd = -1;
     }
-    
+
     // 设置新路径
     m_path = path;
-    
+
     // 如果新路径为空，重置其他状态
     if (m_path.empty()) {
         LOGD("setPath: Path set to empty, resetting state");
@@ -103,13 +103,13 @@ void zFile::setPath(const string& path) {
         st_ret = -1;
         return;
     }
-    
+
     // 设置文件属性（文件/目录）
     setAttribute();
-    
+
     // 设置文件描述符
     setFd();
-    
+
     // 验证文件是否成功打开
     if (m_fd < 0) {
         LOGW("setPath: Failed to open file: %s", m_path.c_str());
@@ -150,7 +150,7 @@ void zFile::setAttribute(){
  */
 void zFile::setFd(){
     LOGD("setFd called for path: %s", m_path.c_str());
-    
+
     // 如果已有文件描述符，先关闭
     if (m_fd > 2) {
         LOGD("Closing previous fd: %d", m_fd);
@@ -494,7 +494,7 @@ string zFile::readLine() {
 vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
     LOGD("readBytes called with start_offset: %ld, size: %zu", start_offset, size);
     vector<uint8_t> data;
-    
+
     if (isDir() || m_fd < 0) {
         LOGD("readBytes: file is directory or fd invalid");
         return data;
@@ -560,7 +560,7 @@ vector<uint8_t> zFile::readBytes(long start_offset, size_t size) {
     if (lseek(m_fd, current_pos, SEEK_SET) == -1) {
         LOGW("Failed to restore position: %s", strerror(errno));
     }
-    
+
     return data;
 }
 
@@ -580,12 +580,12 @@ vector<uint8_t> zFile::readAllBytes() {
 vector<string> zFile::listFiles() const {
     LOGD("listFiles called for path: %s", m_path.c_str());
     vector<string> files;
-    
+
     if (!isDir()) {
         LOGD("listFiles: %s is not a directory", m_path.c_str());
         return files;
     }
-    
+
     // 打开目录
     DIR* dir = opendir(m_path.c_str());
     if (!dir) {
@@ -595,7 +595,7 @@ vector<string> zFile::listFiles() const {
 
     char link_real_path[PATH_MAX] = {0};
     struct dirent* entry;
-    
+
     // 遍历目录条目
     while ((entry = readdir(dir)) != nullptr) {
         // 跳过 . 和 ..
@@ -613,7 +613,7 @@ vector<string> zFile::listFiles() const {
                 files.emplace_back(link_real_path);
             }
         }
-        // 处理普通文件
+            // 处理普通文件
         else if (entry->d_type == DT_REG){
             files.push_back(fullPath);
         }
@@ -632,7 +632,7 @@ vector<string> zFile::listFiles() const {
 vector<string> zFile::listDirectories() const {
     LOGD("listDirectories called for path: %s", m_path.c_str());
     vector<string> dirs;
-    
+
     if (!isDir()) {
         LOGD("listDirectories: %s is not a directory", m_path.c_str());
         return dirs;
@@ -644,16 +644,16 @@ vector<string> zFile::listDirectories() const {
         LOGW("listDirectories: failed to open directory %s (errno: %d)", m_path.c_str(), errno);
         return dirs;
     }
-    
+
     struct dirent* entry;
-    
+
     // 遍历目录条目
     while ((entry = readdir(dir)) != nullptr) {
         // 跳过 . 和 ..
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
         }
-        
+
         // 只添加目录
         if (entry->d_type == DT_DIR) {
             dirs.push_back(entry->d_name);
@@ -673,7 +673,7 @@ vector<string> zFile::listDirectories() const {
 vector<string> zFile::listAll() const {
     LOGD("listAll called for path: %s", m_path.c_str());
     vector<string> all;
-    
+
     if (!isDir()) {
         LOGD("listAll: %s is not a directory", m_path.c_str());
         return all;
@@ -685,16 +685,16 @@ vector<string> zFile::listAll() const {
         LOGW("listAll: failed to open directory %s (errno: %d)", m_path.c_str(), errno);
         return all;
     }
-    
+
     struct dirent* entry;
-    
+
     // 遍历目录条目
     while ((entry = readdir(dir)) != nullptr) {
         // 跳过 . 和 ..
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
         }
-        
+
         // 添加所有条目（文件、目录、符号链接等）
         all.push_back(entry->d_name);
     }
@@ -765,20 +765,20 @@ bool zFile::isValidUTF8Sequence(const char* data, int remaining_bytes) const {
     if (remaining_bytes <= 0) {
         return false;
     }
-    
+
     unsigned char first_byte = static_cast<unsigned char>(data[0]);
-    
+
     // 单字节UTF-8字符 (0xxxxxxx)
     if ((first_byte & 0x80) == 0) {
         return true;
     }
-    
+
     // 多字节UTF-8字符
     int expected_length = getUTF8CharLength(first_byte);
     if (expected_length <= 0 || expected_length > remaining_bytes) {
         return false;
     }
-    
+
     // 检查后续字节是否为10xxxxxx格式
     for (int i = 1; i < expected_length; i++) {
         unsigned char byte = static_cast<unsigned char>(data[i]);
@@ -786,7 +786,7 @@ bool zFile::isValidUTF8Sequence(const char* data, int remaining_bytes) const {
             return false;
         }
     }
-    
+
     return true;
 }
 
@@ -801,22 +801,22 @@ int zFile::getUTF8CharLength(unsigned char first_byte) const {
     if ((first_byte & 0x80) == 0) {
         return 1;
     }
-    
+
     // 双字节字符 (110xxxxx)
     if ((first_byte & 0xE0) == 0xC0) {
         return 2;
     }
-    
+
     // 三字节字符 (1110xxxx)
     if ((first_byte & 0xF0) == 0xE0) {
         return 3;
     }
-    
+
     // 四字节字符 (11110xxx)
     if ((first_byte & 0xF8) == 0xF0) {
         return 4;
     }
-    
+
     // 无效的UTF-8起始字节
     return -1;
 }
@@ -829,14 +829,14 @@ int zFile::getUTF8CharLength(unsigned char first_byte) const {
 bool zFile::isTextFile() {
     // 这个函数实现起来有问题
     return true;
-    
+
     if (m_fd < 0) {
         return false;
     }
 
     // 复用 readBytes 读取文件前1KB来检查
     vector<uint8_t> data = readBytes(0, 1024);
-    
+
     LOGD("isTextFile: 读取了 %zu 字节", data.size());
 
     if (data.empty()) {
@@ -847,7 +847,7 @@ bool zFile::isTextFile() {
     // 检查是否为ASCII或UTF-8文本
     for (size_t i = 0; i < data.size(); i++) {
         unsigned char c = data[i];
-        
+
         // 检查是否为ASCII可打印字符、制表符、换行符、回车符
         if (c >= 0x20 && c <= 0x7E) {
             // ASCII可打印字符
@@ -889,11 +889,11 @@ bool zFile::isTextFile() {
 unsigned long zFile::getSum(long start_offset, size_t size){
     LOGD("getSum called with start_offset: %ld, size: %zu", start_offset, size);
     unsigned long sum = 0;
-    
+
     // 读取指定范围的字节数据
     vector<uint8_t> data = readBytes(start_offset, size);
     LOGD("getSum: read %zu bytes", data.size());
-    
+
     // 计算字节和
     for(int i = 0; i < data.size(); i++){
         sum += data[i];

@@ -88,7 +88,7 @@ bool isAppInstalledByShellHole(const char* packageName) {
     string cmd = "file /storage/emulated/\342\200\2130/Android/data/" + string(packageName);
     string ret = runShell(cmd);
     LOGI("cmd: %s", ret.c_str());
-    if(strstr(ret.c_str(), "No such file or directory") == nullptr){
+    if(strstr(ret.c_str(), "cannot open") == nullptr){
         return true;
     }
     return false;
