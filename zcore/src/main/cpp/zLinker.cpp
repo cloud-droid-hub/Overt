@@ -9,6 +9,7 @@
 #include "zLog.h"
 #include "zFile.h"
 #include "zLinker.h"
+#include "zProcMaps.h"
 #include <mutex>
 
 // 静态单例实例指针
@@ -72,8 +73,8 @@ zLinker::zLinker() : zElf() {
     // 解析节头表
     parse_section_table();
 
-    // 获取linker64在内存中的基地址
-    this->elf_mem_ptr = get_maps_base("linker64");
+    // 获取linker64在 maps 中的基地址
+    this->elf_mem_ptr = (char*)zProcMaps().find_so_by_name("linker64")->address_range_start;
     if (this->elf_mem_ptr == nullptr) {
         LOGE("Failed to get linker64 maps base");
         return;
@@ -214,7 +215,7 @@ bool zLinker::check_lib_crc(const char* so_name){
     LOGI("check_lib_hash elf_lib_file: %p crc: %lu", elf_lib_file.elf_file_ptr, elf_lib_file_crc);
 
     // 获取共享库的内存版本zElf对象
-    zElf elf_lib_mem = zElf((void*)zLinker::get_maps_base(so_name));
+    zElf elf_lib_mem = zElf(zProcMaps().find_so_by_name(so_name)->address_range_start);
     // 计算内存版本的CRC校验和
     uint64_t elf_lib_mem_crc = elf_lib_mem.get_elf_header_crc() + 
                                elf_lib_mem.get_program_header_crc() + 

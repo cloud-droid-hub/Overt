@@ -25,6 +25,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zTee.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zBroadCast.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zFile.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zProcMaps.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zShell.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zZip.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zSha256.cpp

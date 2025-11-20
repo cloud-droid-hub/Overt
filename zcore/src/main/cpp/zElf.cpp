@@ -17,6 +17,7 @@
 #include "zStdUtil.h"
 #include "zCrc32.h"
 #include "zElf.h"
+#include "zProcMaps.h"
 
 /**
  * 默认构造函数
@@ -70,7 +71,7 @@ zElf::zElf(char *elf_file_name) : zFile(elf_file_name) {
     if (strncmp(elf_file_name, "lib", 3) == 0) {
         // 内存视图：从内存映射中获取库的基地址
         link_view = LINK_VIEW::MEMORY_VIEW;
-        this->elf_mem_ptr = get_maps_base(elf_file_name);
+        this->elf_mem_ptr = (char*)zProcMaps().find_so_by_name(elf_file_name)->address_range_start;
         if (this->elf_mem_ptr == nullptr) {
             LOGW("Failed to get maps base for %s", elf_file_name);
             return;
@@ -538,50 +539,6 @@ zElf::~zElf() {
         elf_file_ptr = nullptr;
     }
     // 父类析构函数会自动处理文件描述符
-}
-
-/**
- * 获取共享库在内存中的基地址
- * 通过解析/proc/self/maps文件查找指定共享库的内存基地址
- * @param so_name 共享库名称
- * @return 共享库在内存中的基地址，未找到返回nullptr
- */
-char *zElf::get_maps_base(const char *so_name) {
-    LOGI("get_maps_base so_name:%s", so_name);
-    char *elf_mem_ptr = nullptr;
-    LOGD("elf_mem_ptr:%p", elf_mem_ptr);
-    
-    // 读取/proc/self/maps文件
-    vector<string> lines = get_file_lines("/proc/self/maps");
-    LOGD("get_maps_base lines size:%zu", lines.size());
-    
-    // 遍历每一行
-    for(int i = 0; i < lines.size(); i++){
-        // 检查是否为私有映射且包含指定库名
-        if (!strstr(lines[i].c_str(), "p 00000000 ")) continue;
-        if (!strstr(lines[i].c_str(), so_name)) continue;
-        
-        // 分割地址范围
-        vector<string> split_line = split_str(lines[i], "-");
-        if(split_line.empty()){
-            LOGW("get_maps_base split_line is empty");
-            return nullptr;
-        }
-        LOGD("get_maps_base split_line[0]:%s", split_line[0].c_str());
-        
-        // 转换地址
-        char* start = (char *) (strtoul(split_line[0].c_str(), nullptr, 16));
-        LOGD("get_maps_base start:%p", start);
-        
-        // 验证ELF魔数
-        if (start == nullptr || memcmp(start, "\x7f""ELF", 4) != 0) continue;
-        LOGD("get_maps_base start:%p", start);
-        // elf_mem_ptr = (elf_mem_ptr !=0 && elf_mem_ptr < start) ? elf_mem_ptr : start;
-        elf_mem_ptr = start;
-    }
-
-    LOGI("elf_mem_ptr:%p", elf_mem_ptr);
-    return elf_mem_ptr;
 }
 
 /**

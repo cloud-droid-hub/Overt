@@ -202,19 +202,33 @@ bool isVpnEnable(JNIEnv *env, jobject context) {
     if (connMgr == nullptr) return JNI_FALSE;
 
     jclass connCls = env->GetObjectClass(connMgr);
-    jmethodID getActiveNetwork = env->GetMethodID(connCls, "getActiveNetwork", "()Landroid/net/Network;");
-    jobject network = env->CallObjectMethod(connMgr, getActiveNetwork);
-    if (network == nullptr) return JNI_FALSE;
+
+    // 获取所有网络（包含 active network）
+    jmethodID getAllNetworks = env->GetMethodID(connCls, "getAllNetworks", "()[Landroid/net/Network;");
+    jobjectArray networks = static_cast<jobjectArray>(env->CallObjectMethod(connMgr, getAllNetworks));
+    if (networks == nullptr) return JNI_FALSE;
 
     jmethodID getCaps = env->GetMethodID(connCls, "getNetworkCapabilities", "(Landroid/net/Network;)Landroid/net/NetworkCapabilities;");
-    jobject caps = env->CallObjectMethod(connMgr, getCaps, network);
-    if (caps == nullptr) return JNI_FALSE;
 
-    jclass capsCls = env->GetObjectClass(caps);
-    jmethodID hasTransport = env->GetMethodID(capsCls, "hasTransport", "(I)Z");
     const int TRANSPORT_VPN = 4;
-    jboolean result = env->CallBooleanMethod(caps, hasTransport, TRANSPORT_VPN);
-    return result;
+
+    jsize count = env->GetArrayLength(networks);
+    for (jsize i = 0; i < count; i++) {
+        jobject network = env->GetObjectArrayElement(networks, i);
+        if (network == nullptr) continue;
+
+        jobject caps = env->CallObjectMethod(connMgr, getCaps, network);
+        if (caps == nullptr) continue;
+
+        jclass capsCls = env->GetObjectClass(caps);
+        jmethodID hasTransport = env->GetMethodID(capsCls, "hasTransport", "(I)Z");
+
+        if (env->CallBooleanMethod(caps, hasTransport, TRANSPORT_VPN)) {
+            return JNI_TRUE;  // ✓ 检测到 VPN
+        }
+    }
+
+    return JNI_FALSE;
 }
 
 // 判断是否设置锁屏密码

@@ -6,6 +6,7 @@
 #include "zStd.h"
 #include "zManager.h"
 #include "zThreadPool.h"
+#include "zProcMaps.h"
 
 // 0 zConfig
 // 1 zLog															        依赖等级 0

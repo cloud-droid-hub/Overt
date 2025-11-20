@@ -122,7 +122,6 @@ map<string, map<string, string>> get_system_prop_info() {
             {"persist.sys.usb.config",      {"mtp", "ptp", "none", ""}},    // USB配置
             {"persist.security.adbinput",   {"0"}},                         // ADB输入应关闭
             {"sys.usap.enable",             {"true"}},
-            {"dalvik.vm.usap_pool_enabled", {"true"}},
     };
 
     // 检查属性值是否正确

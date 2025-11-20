@@ -68,6 +68,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zTee.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zBroadCast.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zFile.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zProcMaps.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zTask.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zThread.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zThreadPool.cpp
@@ -76,13 +77,13 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zSha256.cpp
 
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zRootStateInfo.cpp
-        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zProcInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSystemPropInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLinkerInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zTimeInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zPackageInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zClassLoaderInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSystemSettingInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zProcInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zPortInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zTeeInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSslInfo.cpp

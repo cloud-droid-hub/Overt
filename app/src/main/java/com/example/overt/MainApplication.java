@@ -2,12 +2,7 @@ package com.example.overt;
 
 import android.app.Application;
 import android.content.Context;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
 import android.util.Log;
-
-import java.util.List;
 
 /**
  * 主应用程序类 - Overt安全检测工具的Application入口
@@ -89,5 +84,8 @@ public class MainApplication extends Application {
         
         // 应用程序级别的初始化可以在这里进行
         // 例如：初始化全局配置、设置默认值等
+
     }
+
+
 }

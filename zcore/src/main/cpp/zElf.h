@@ -80,8 +80,6 @@ public:
     unsigned long long find_symbol_offset_by_dynamic(const char *symbol_name);
     unsigned long long find_symbol_offset_by_section(const char *symbol_name);
 
-    static char* get_maps_base(const char* so_name);
-
     static int is_link_view(uintptr_t base_addr);
 
     uint64_t get_elf_header_crc();
