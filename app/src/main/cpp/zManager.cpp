@@ -184,12 +184,13 @@ void zManager::round_tasks(){
     // 定义所有需要周期性执行的任务
     // 使用函数指针数组存储任务名称和对应的更新函数
     vector<pair<string, void(zManager::*)()>> periodic_tasks = {
-            {"root_state_info", &zManager::update_root_state_info},
+            {"linker_info", &zManager::update_linker_info},
             {"proc_info", &zManager::update_proc_info},
+
+            {"root_state_info", &zManager::update_root_state_info},
             {"tee_info", &zManager::update_tee_info},
             {"class_loader_info", &zManager::update_class_loader_info},
             {"class_info", &zManager::update_class_info},
-            {"linker_info", &zManager::update_linker_info},
             {"package_info", &zManager::update_package_info},
             {"system_setting_info", &zManager::update_system_setting_info},
             {"system_prop_info", &zManager::update_system_prop_info},

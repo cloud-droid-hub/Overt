@@ -34,7 +34,7 @@ zElf::zElf() : zFile() {
  * @param elf_mem_addr 内存中的ELF文件基地址
  */
 zElf::zElf(void *elf_mem_addr) : zFile() {
-    LOGD("Constructor called with elf_mem_addr: %p", elf_mem_addr);
+    LOGI("Constructor called with elf_mem_addr: %p", elf_mem_addr);
     link_view = LINK_VIEW::MEMORY_VIEW;
     this->elf_mem_ptr = (char *) elf_mem_addr;
     parse_elf_head();

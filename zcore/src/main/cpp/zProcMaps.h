@@ -9,7 +9,7 @@
 #include "zStd.h"
 #include "zFile.h"
 
-struct maps_line_t {
+struct MapSegment {
     void* address_range_start;              // 地址范围开始
     void* address_range_end;                // 地址范围结束
     string permissions;                     // 权限标志（如r--p, r-xp等）
@@ -19,27 +19,25 @@ struct maps_line_t {
     string file_path;                       // 文件路径
 };
 
-struct maps_so_t {
+struct LibraryMapping {
     void* address_range_start;              // 地址范围开始
     void* address_range_end;                // 地址范围结束
     string device_major_minor;              // 设备号（主设备号:次设备号）
     string inode;                           // 节点号
     string file_path;                       // 文件路径
-    vector<maps_line_t> lines;              // 映射行信息
+    vector<MapSegment> segments;            // 映射段信息
 };
 
 class zProcMaps{
 public :
 
-    vector<maps_line_t> maps_line_vector = {};
-    vector<maps_so_t> maps_so_vector = {};
-    map<string, maps_so_t> maps_so_maps = {};
+    map<string, LibraryMapping> loaded_libraries = {};
 
     zProcMaps();
 
     ~zProcMaps(){};
 
-    maps_so_t* find_so_by_name(string so_name);
+    LibraryMapping* find_so_by_name(string so_name);
 
 };
 

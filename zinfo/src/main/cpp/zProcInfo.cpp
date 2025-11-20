@@ -29,18 +29,18 @@ map<string, map<string, string>> get_maps_info() {
     };
 
     for (string lib_name: check_lib_list) {
-        maps_so_t* maps_so = maps.find_so_by_name(lib_name);
-        if(maps_so == nullptr) continue;
+        LibraryMapping* library = maps.find_so_by_name(lib_name);
+        if(library == nullptr) continue;
         // 检查映射数量是否正确（正常情况下应该有4个映射）
-        if(maps_so->lines.size() != 4) {
+        if(library->segments.size() != 4) {
             info[lib_name]["risk"] = "error";
             info[lib_name]["explain"] = "reference count error";
         }
         // 检查权限是否正确（正常情况下应该是r--p, r-xp, r--p, rw-p）
-        else if (maps_so->lines[0].permissions != "r--p" ||
-                 (maps_so->lines[1].permissions != "r-xp" && maps_so->lines[1].permissions != "--xp") ||
-                 (maps_so->lines[2].permissions != "r--p" && maps_so->lines[2].permissions != "rw-p") ||
-                 (maps_so->lines[3].permissions != "rw-p" && maps_so->lines[3].permissions != "r--p")) {
+        else if (library->segments[0].permissions != "r--p" ||
+                 (library->segments[1].permissions != "r-xp" && library->segments[1].permissions != "--xp") ||
+                 (library->segments[2].permissions != "r--p" && library->segments[2].permissions != "rw-p") ||
+                 (library->segments[3].permissions != "rw-p" && library->segments[3].permissions != "r--p")) {
             info[lib_name]["risk"] = "error";
             info[lib_name]["explain"] = "permissions error";
         }
