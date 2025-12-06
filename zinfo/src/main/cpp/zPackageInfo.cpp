@@ -66,10 +66,10 @@ bool isAppInstalledByPath(const char* packageName) {
             "/data/data",
             "/data/user/0",
             "/data/user_de/0",
-            "/storage/emulated/0/Android/data/"
+            "/storage/emulated/0/Android/data"
     };
     for(string dir : dir_list){
-        string path = "/storage/emulated/0/Android/data/" + string(packageName);
+        string path = dir  + "/" + string(packageName);
         if(zFile(path).exists()) {
             return true;
         }
@@ -78,8 +78,20 @@ bool isAppInstalledByPath(const char* packageName) {
 }
 
 /**
- * 通过Shell命令检测应用是否已安装
- * 使用file命令检查应用数据目录，通过命令输出判断应用是否存在
+ * 通过路径漏洞越权检测应用是否已安装
+ * 这是一种绕过某些检测机制的辅助检测方法
+ * @param packageName 要检测的包名
+ * @return true表示应用已安装，false表示未安装
+ */
+bool isAppInstalledByPathHole(const char* packageName) {
+    string path = "/sdcard/android/\u200bdata/" + string(packageName);
+    if(zFile(path).exists()) {
+        return true;
+    }
+    return false;
+}
+/**
+ * 通过Shell命令越权漏洞检测应用是否已安装
  * 这是一种绕过某些检测机制的辅助检测方法
  * @param packageName 要检测的包名
  * @return true表示应用已安装，false表示未安装
@@ -249,6 +261,9 @@ map<string, map<string, string>> get_package_info(JNIEnv *env, jobject context){
         }else if(isAppInstalledByPath(package_name.c_str())){
             info[package_name]["risk"] = "error";
             info[package_name]["explain"] = "black package name but install[file] " + app_name;
+        }else if(isAppInstalledByPathHole(package_name.c_str())){
+            info[package_name]["risk"] = "error";
+            info[package_name]["explain"] = "black package name but install[path hole] " + app_name;
         }else if(isAppInstalledByShellHole(package_name.c_str())){
             info[package_name]["risk"] = "error";
             info[package_name]["explain"] = "black package name but install[shell hole] " + app_name;
@@ -257,14 +272,13 @@ map<string, map<string, string>> get_package_info(JNIEnv *env, jobject context){
 
     // 检查白名单应用是否未安装
     for (auto &[package_name, app_name] : white_map) {
-        bool is_installed_by_path = isAppInstalledByPath(package_name.c_str());
         bool is_installed_by_context = isAppInstalledByContext(env, context,package_name.c_str());
+        bool is_installed_by_path = isAppInstalledByPath(package_name.c_str());
         if(!is_installed_by_path && !is_installed_by_context){
             info[package_name]["risk"] = "warn";
             info[package_name]["explain"] = "white package name but uninstall " + app_name;
         }
     }
-
     return info;
 };
 

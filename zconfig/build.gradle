@@ -15,7 +15,6 @@ android {
         ndk{
             abiFilters 'arm64-v8a'
         }
-         
     }
     externalNativeBuild {
         cmake {
@@ -39,7 +38,6 @@ dependencies {
 
     implementation libs.appcompat
     implementation libs.material
-    implementation libs.activity
     implementation libs.constraintlayout
 
 }

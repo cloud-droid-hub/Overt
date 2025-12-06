@@ -11,13 +11,12 @@ android {
         applicationId "com.example.overt"
         minSdk 23
         targetSdk 34
-        versionCode 54
-        versionName "1.54"
+        versionCode 88
+        versionName "1.88"
         ndk{
             abiFilters 'arm64-v8a'
         }
     }
-
     buildTypes {
         release {
             minifyEnabled false
