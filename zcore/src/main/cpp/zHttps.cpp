@@ -592,7 +592,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     if (ret != 0) {
         mbedtls_strerror(ret, error_buf, sizeof(error_buf));
         response.error_message = "TLS handshake failed: " + string(error_buf);
-        LOGE("TLS handshake failed: %s", error_buf);
+        LOGE("TLS handshake failed: %d %s", ret, error_buf);
         // RequestResources会在析构时自动清理
         return response;
     }
@@ -1217,12 +1217,12 @@ bool zHttps::isTimeoutReached(time_t start_time, int timeout_seconds) {
  * @return socket文件描述符，失败返回-1
  */
 int zHttps::connectWithTimeout(const string& host, int port, int timeout_seconds) {
-    LOGD("connectWithTimeout called with host: %s, port: %d, timeout_seconds: %d", host.c_str(), port, timeout_seconds);
+    LOGI("connectWithTimeout called with host: %s, port: %d, timeout_seconds: %d", host.c_str(), port, timeout_seconds);
 
     // Linux/Android实现
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
-        LOGE("Socket creation failed");
+        LOGE("Socket creation failed: %s (errno=%d)", strerror(errno), errno);
         return -1;
     }
 
@@ -1237,6 +1237,8 @@ int zHttps::connectWithTimeout(const string& host, int port, int timeout_seconds
         close(sockfd);
         return -1;
     }
+    LOGI("Resolved hostname: %s IP address: %s (type=%d)", host.c_str(), inet_ntoa(*((struct in_addr*)server->h_addr)), server->h_addrtype);
+
 
     struct sockaddr_in serv_addr;
     memset(&serv_addr, 0, sizeof(serv_addr));
@@ -1272,14 +1274,29 @@ int zHttps::connectWithTimeout(const string& host, int port, int timeout_seconds
             close(sockfd);
             return -1;
         }
+
+        // 关键修复：检查SO_ERROR确认连接是否真正成功
+        int so_error = 0;
+        socklen_t len = sizeof(so_error);
+        if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &so_error, &len) < 0) {
+            LOGE("Failed to get socket error: %s (errno=%d)", strerror(errno), errno);
+            close(sockfd);
+            return -1;
+        }
+        if (so_error != 0) {
+            LOGE("Connection failed with error: %s (errno=%d)", strerror(so_error), so_error);
+            close(sockfd);
+            return -1;
+        }
+
     } else if (ret < 0) {
-        LOGE("Connection failed");
+        LOGE("Connection failed(ret < 0): %s (errno=%d)", strerror(errno), errno);
         close(sockfd);
         return -1;
     }
 
     // 设置阻塞模式
-    fcntl(sockfd, F_SETFL, flags);
+    // fcntl(sockfd, F_SETFL, flags);
 
     LOGI("Connection established successfully with sockfd: %d", sockfd);
     return sockfd;

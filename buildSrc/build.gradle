@@ -1,0 +1,13 @@
+plugins {
+    id 'java-gradle-plugin'
+}
+
+gradlePlugin {
+    plugins {
+        greeting {
+            id = 'com.heiko.buildsrc.plugin' //这里是插件的ID
+            implementationClass = 'com.heiko.buildsrc.MyPlugin' //这里是包名+类名
+        }
+    }
+}
+

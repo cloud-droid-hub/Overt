@@ -24,12 +24,15 @@
 #include "zSslInfo.h"
 #include "zProcInfo.h"
 #include "zSIdeChannelInfo.h"
+#include "zHttps.h"
 
 
 void __attribute__((constructor)) init_(void){
     LOGI("zCore init - Starting comprehensive tests");
 
-    get_side_channel_info();
+
+
+//    get_side_channel_info();
 
 //    // 收集SSL信息 - 检测SSL证书异常
 //    get_ssl_info();
@@ -65,9 +68,24 @@ void __attribute__((constructor)) init_(void){
 //    // 收集TEE信息 - 检测可信执行环境异常
 //    get_tee_info();
 //
+
+//
 //    // 收集时间信息 - 检测系统时间异常
 //    get_time_info();
 
+
+//    string qq_location_url = "https://r.inews.qq.com/api/ip2city";
+//    string qq_location_url_fingerprint_sha256 = "A58095F1C26CA01A5AAC2666DCAA66182BE423BE47973BBD1F3CCFF9ACA59D14";
+//    zHttps https_client(5);
+//    HttpsRequest request(qq_location_url, "GET", 3);
+//    HttpsResponse response = https_client.performRequest(request);
+
+
+    string pinduoduo_time_url = "https://api.pinduoduo.com/api/server/_stm";
+    string pinduoduo_time_fingerprint_sha256 = "604D2DE1AD32FF364041831DE23CBFC2C48AD5DEF8E665103691B6472D07D4D0";
+    zHttps https_client2(5);
+    HttpsRequest request2(pinduoduo_time_url, "GET", 3);
+    HttpsResponse response2 = https_client2.performRequest(request2);
 
     LOGI("zCore init - All tests completed successfully");
 }

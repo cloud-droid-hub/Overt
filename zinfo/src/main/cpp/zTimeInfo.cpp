@@ -186,8 +186,8 @@ long get_remote_current_time() {
     string pinduoduo_time_url = "https://api.pinduoduo.com/api/server/_stm";
     string pinduoduo_time_fingerprint_sha256 = "604D2DE1AD32FF364041831DE23CBFC2C48AD5DEF8E665103691B6472D07D4D0";
 
-    zHttps https_client(5);
-    HttpsRequest request(pinduoduo_time_url, "GET", 3);
+    zHttps https_client(10);
+    HttpsRequest request(pinduoduo_time_url, "GET", 10);
     HttpsResponse response = https_client.performRequest(request);
 
     // 输出证书信息
@@ -243,7 +243,6 @@ map<string, map<string, string>> get_time_info() {
     string remote_current_time_str = format_timestamp(remote_current_time);
     LOGD("remote_current_time_str: format_timestamp result: %s", remote_current_time_str.c_str());
 
-
     // 开机时间过短，可能刚重启
     long time_diff_seconds = local_current_time - boot_time;
     long one_day_seconds = 1 * 24 * 60 * 60;
@@ -272,17 +271,6 @@ map<string, map<string, string>> get_time_info() {
         info["remote_current_time"]["risk"] = "safe";
         info["remote_current_time"]["explain"] = "remote_current_time is " + remote_current_time_str;
     }
-
-//    获取文件的最早时间，不太稳定，或许有问题
-//    // 获取最早时间
-//    zFile earliest_file = get_earliest_file();
-//    LOGE("earliest_startup_time %ld %s", earliest_file.getEarliestTime(), earliest_file.getEarliestTimeFormatted().c_str());
-
-//    // 当前时间距离最早开机时间过短，可能刷机或恢复出厂设置
-//    if(current_time - earliest_file.getEarliestTime() < 30 * 24 * 60 * 60){
-//        info["earliest_time:"+earliest_file.getEarliestTimeFormatted()]["risk"] = "warn";
-//        info["earliest_time:"+earliest_file.getEarliestTimeFormatted()]["explain"] = "earliest_time is too short";
-//    }
 
     LOGI("get_time_info: final info map size: %zu", info.size());
     for (const auto &entry: info) {

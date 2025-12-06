@@ -19,4 +19,4 @@ activity = { group = "androidx.activity", name = "activity", version.ref = "acti
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
-
+myPlugin = { id = "com.heiko.buildsrc.plugin" }
