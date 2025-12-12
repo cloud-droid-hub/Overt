@@ -2,6 +2,8 @@
 // Created by liuxi on 2025/10/29.
 //
 
+#include <sched.h>
+#include <cerrno>
 #include "zSideChannelInfo.h"
 #include "syscall.h"
 #include "zLog.h"
@@ -20,7 +22,6 @@ static inline uint64_t raw_ns(void)
             "mrs %0, cntvct_el0\n\t"// 读虚拟计数器 → 纳秒
             "isb sy\n\t"            // 再次屏障，确保准确性
             : "=r"(ns));
-
     return ns;
 }
 

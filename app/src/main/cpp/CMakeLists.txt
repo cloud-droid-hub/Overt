@@ -18,8 +18,8 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -flto")
 
-# 设置编译类型为 MinSizeRel（Release 的最小尺寸版本）
-set(CMAKE_BUILD_TYPE MinSizeRel)
+# 设置编译类型为 MinSizeRel（Release 的最小尺寸版本）这个选项似乎兼容性不太好 换个 ndk 版本就编译不过了
+#set(CMAKE_BUILD_TYPE MinSizeRel)
 
 # 额外的体积优化选项
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fomit-frame-pointer -fno-unwind-tables -fno-asynchronous-unwind-tables")

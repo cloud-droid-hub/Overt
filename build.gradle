@@ -2,3 +2,40 @@
 plugins {
     alias(libs.plugins.androidApplication) apply false
 }
+
+// 从 local.properties 读取 NDK 版本
+def getNdkVersion() {
+    def localPropertiesFile = file('local.properties')
+    if (localPropertiesFile.exists()) {
+        def properties = new Properties()
+        localPropertiesFile.withInputStream { properties.load(it) }
+        def ndkDir = properties.getProperty('ndk.dir')
+        if (ndkDir != null && !ndkDir.isEmpty()) {
+            // 使用正则表达式提取版本号（最后一个路径段）
+            def matcher = (ndkDir =~ /[\/\\]([^\/\\]+)$/)
+            if (matcher.find()) {
+                def version = matcher.group(1)
+                println "Detected NDK version from local.properties: ${version}"
+                return version
+            }
+        }
+    }
+    // 如果无法读取，返回 null
+    return null
+}
+
+def ndkVersionFromProps = getNdkVersion()
+
+// 统一为所有使用 Android 插件的子模块设置 NDK 版本
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                // 只有在成功读取到版本时才设置
+                if (ndkVersionFromProps != null) {
+                    ndkVersion ndkVersionFromProps
+                }
+            }
+        }
+    }
+}
