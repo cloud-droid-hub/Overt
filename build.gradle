@@ -10,17 +10,15 @@ def getNdkVersion() {
         def properties = new Properties()
         localPropertiesFile.withInputStream { properties.load(it) }
         def ndkDir = properties.getProperty('ndk.dir')
-        if (ndkDir != null && !ndkDir.isEmpty()) {
-            // 使用正则表达式提取版本号（最后一个路径段）
-            def matcher = (ndkDir =~ /[\/\\]([^\/\\]+)$/)
-            if (matcher.find()) {
-                def version = matcher.group(1)
-                println "Detected NDK version from local.properties: ${version}"
-                return version
-            }
+        if (ndkDir?.trim()) {                       // 非空判断
+            // 1. 取最后一级目录
+            def folder = ndkDir.replace('\\', '/').split('/').last()
+            // 2. 去掉可能的后缀，只保留纯版本号
+            def version = folder.split('_')[0]   // 21.1.6352462
+            println "Detected NDK version from local.properties: ${version}"
+            return version
         }
     }
-    // 如果无法读取，返回 null
     return null
 }
 

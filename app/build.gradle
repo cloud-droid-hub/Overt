@@ -10,11 +10,22 @@ android {
         applicationId "com.example.overt"
         minSdk 23
         targetSdk 34
-        versionCode 126
-        versionName "1.126"
+        versionCode 196
+        versionName "1.196"
         ndk{
             abiFilters 'arm64-v8a'
         }
+        // 测试了一下 ollvm 编译
+        // externalNativeBuild {
+        //     cmake {
+        //         cppFlags "-std=c++14", "-frtti", "-fexceptions", "-DANDROID_TOOLCHAIN=clang", "-ffunction-sections", "-fdata-sections",
+        //                 "-mllvm", "-irobf-cse",
+        //                 "-mllvm", "-irobf-indbr",
+        //                 "-mllvm", "-irobf-icall",
+        //                 "-mllvm", "-irobf-indgv",
+        //                 "-mllvm", "-irobf-cff"
+        //     }
+        // }
     }
     buildTypes {
         release {

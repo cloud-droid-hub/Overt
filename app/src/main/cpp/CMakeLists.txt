@@ -14,9 +14,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffunction-sections -fdata-sections -fvi
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--gc-sections")
 
 # 开启 LTO（可选）进一步减小体积
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -flto")
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto")
+#set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -flto")
 
 # 设置编译类型为 MinSizeRel（Release 的最小尺寸版本）这个选项似乎兼容性不太好 换个 ndk 版本就编译不过了
 #set(CMAKE_BUILD_TYPE MinSizeRel)
@@ -35,8 +35,8 @@ elseif(ANDROID_ABI STREQUAL "armeabi-v7a")
 endif()
 
 # 禁用调试信息和符号表
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s")
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s")
 
 # 链接时符号处理 - 隐藏静态库符号
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--strip-all")
