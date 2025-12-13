@@ -24,7 +24,6 @@ string get_location() {
     HttpsRequest request(qq_location_url, "GET", 3);
     HttpsResponse response = https_client.performRequest(request);
 
-
     // 输出证书信息
     if (!response.error_message.empty()) {
         LOGW("Server error_message is not empty");
@@ -76,7 +75,6 @@ map<string, map<string, string>> get_ssl_info() {
     // 定义需要检测的URL和对应的证书指纹
     map<string, string> url_info{
             {"https://www.baidu.com",  "0D822C9A905AEFE98F3712C0E02630EE95332C455FE7745DF08DBC79F4B0A149"},
-            {"https://www.jd.com",     "109CC20D1518DC00F3CEEE91A8AE4AF45E878C9556E611A1DC90C301366A63C2"},
             {"https://www.taobao.com", "3D4949784246FFF7529B6B82DF7E544BF9BAD834141D2167634E5B62A1D885B5"},
     };
 
