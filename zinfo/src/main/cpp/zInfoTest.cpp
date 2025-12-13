@@ -23,7 +23,7 @@
 #include "zTimeInfo.h"
 #include "zSslInfo.h"
 #include "zProcInfo.h"
-#include "zSIdeChannelInfo.h"
+#include "zSideChannelInfo.h"
 #include "zHttps.h"
 
 
