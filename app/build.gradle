@@ -10,8 +10,8 @@ android {
         applicationId "com.example.overt"
         minSdk 26
         targetSdk 34
-        versionCode 528
-        versionName "1.528"
+        versionCode 529
+        versionName "1.529"
         ndk{
             abiFilters 'arm64-v8a'
         }
