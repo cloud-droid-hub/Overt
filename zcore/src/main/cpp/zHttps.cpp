@@ -4,7 +4,8 @@
 
 
 #include <errno.h>
-
+#include <fcntl.h>
+#include <sys/select.h>
 #include "zLog.h"
 #include "zLibc.h"
 #include "zLibcUtil.h"
@@ -15,46 +16,76 @@
 // HttpsRequest方法实现
 /**
  * 解析URL
- * 从完整的HTTPS URL中提取主机名、端口号和路径
- * 只支持HTTPS协议，确保安全性
+ * 从完整的HTTP/HTTPS URL中提取主机名、端口号和路径
+ * 支持HTTP和HTTPS协议
  */
 void HttpsRequest::parseUrl() {
     LOGD("parseUrl called for URL: %s", url.c_str());
-    // 强制只支持HTTPS的URL解析
-    if (url.substr(0, 8) != "https://") {
-        LOGD("parseUrl: URL is not HTTPS, skipping");
+    
+    // 检查协议类型
+    if (url.substr(0, 8) == "https://") {
+        is_https = true;
+        port = 443; // 默认HTTPS端口
+        // 移除协议部分
+        string url_without_protocol = url.substr(8);
+        
+        // 查找主机名和路径的分隔符
+        size_t path_start = url_without_protocol.find('/');
+        if (path_start != string::npos) {
+            host = url_without_protocol.substr(0, path_start);
+            path = url_without_protocol.substr(path_start);
+        } else {
+            host = url_without_protocol;
+            path = "/";
+        }
+        
+        // 检查主机名是否包含端口
+        size_t port_start = host.find(':');
+        if (port_start != string::npos) {
+            string port_str = host.substr(port_start + 1);
+            try {
+                port = atoi(port_str.c_str());
+                host = host.substr(0, port_start);
+            } catch (const std::exception& e) {
+                LOGW("Invalid port number: %s", port_str.c_str());
+                port = 443; // 默认HTTPS端口
+            }
+        }
+    } else if (url.substr(0, 7) == "http://") {
+        is_https = false;
+        port = 80; // 默认HTTP端口
+        // 移除协议部分
+        string url_without_protocol = url.substr(7);
+        
+        // 查找主机名和路径的分隔符
+        size_t path_start = url_without_protocol.find('/');
+        if (path_start != string::npos) {
+            host = url_without_protocol.substr(0, path_start);
+            path = url_without_protocol.substr(path_start);
+        } else {
+            host = url_without_protocol;
+            path = "/";
+        }
+        
+        // 检查主机名是否包含端口
+        size_t port_start = host.find(':');
+        if (port_start != string::npos) {
+            string port_str = host.substr(port_start + 1);
+            try {
+                port = atoi(port_str.c_str());
+                host = host.substr(0, port_start);
+            } catch (const std::exception& e) {
+                LOGW("Invalid port number: %s", port_str.c_str());
+                port = 80; // 默认HTTP端口
+            }
+        }
+    } else {
+        LOGW("parseUrl: URL is not HTTP or HTTPS, skipping");
         return;
     }
 
-    // 移除协议部分
-    string url_without_protocol = url.substr(8);
-
-    // 查找主机名和路径的分隔符
-    size_t path_start = url_without_protocol.find('/');
-    if (path_start != string::npos) {
-        host = url_without_protocol.substr(0, path_start);
-        path = url_without_protocol.substr(path_start);
-    } else {
-        host = url_without_protocol;
-        path = "/";
-    }
-
-    // 检查主机名是否包含端口
-    size_t port_start = host.find(':');
-    if (port_start != string::npos) {
-        string port_str = host.substr(port_start + 1);
-        try {
-            port = atoi(port_str.c_str());
-            host = host.substr(0, port_start);
-        } catch (const std::exception& e) {
-            LOGW("Invalid port number: %s", port_str.c_str());
-            port = 443; // 默认HTTPS端口
-        }
-    } else {
-        port = 443; // 默认HTTPS端口
-    }
-
-    LOGI("parseUrl: parsed host=%s, port=%d, path=%s", host.c_str(), port, path.c_str());
+    LOGI("parseUrl: parsed protocol=%s, host=%s, port=%d, path=%s", 
+         is_https ? "HTTPS" : "HTTP", host.c_str(), port, path.c_str());
 }
 
 /**
@@ -69,7 +100,8 @@ string HttpsRequest::buildRequest() const {
     request += "Host: ";
     request += host;
     // 只有在非默认端口时才添加端口号
-    if (port != 443) {
+    int default_port = is_https ? 443 : 80;
+    if (port != default_port) {
         request += ":";
         request += to_string(port);
     }
@@ -83,15 +115,26 @@ string HttpsRequest::buildRequest() const {
     }
     if (!body.empty()) {
         request += "Content-Length: ";
-        request += to_string(body.length());
+        request += to_string(body.size());
         request += "\r\n";
     }
     request += "\r\n";
     if (!body.empty()) {
-        request += body;
+        // 将 vector<uint8_t> 转换为 string
+        // 注意：string 可以安全地存储二进制数据（包括 \0 字符）
+        // append() 会追加所有字节，不会因为遇到 \0 而停止
+        request.append(reinterpret_cast<const char*>(body.data()), body.size());
     }
-    LOGI("buildRequest: request data=%s", request.c_str());
-    LOGI("buildRequest: request length=%zu", request.length());
+    // 注意：如果 body 包含二进制数据，日志输出可能不完整
+    // 只输出请求头部分用于调试
+    size_t header_end = request.find("\r\n\r\n");
+    if (header_end != string::npos) {
+        string header_part = request.substr(0, header_end);
+        LOGI("buildRequest: request headers:\n%s", header_part.c_str());
+    } else {
+        LOGI("buildRequest: request length=%zu bytes (body size: %zu bytes)", 
+             request.length(), body.size());
+    }
     return request;
 }
 
@@ -425,12 +468,21 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     RequestResources resources;
     LOGI("Starting HTTPS request with timeout: %d seconds", timer.timeout_seconds);
 
-    // 安全检查：确保只使用HTTPS协议，但允许任意端口
-    if (request.url.substr(0, 8) != "https://") {
-        response.error_message = "Only HTTPS URLs are supported";
-        LOGE("Security Error: Only HTTPS protocol is allowed");
+    // 检查协议类型
+    if (!request.is_https && request.url.substr(0, 7) != "http://") {
+        response.error_message = "Only HTTP and HTTPS URLs are supported";
+        LOGE("Error: Only HTTP and HTTPS protocols are allowed");
         return response;
     }
+    
+    // 如果是HTTP请求，使用简单的HTTP处理
+    if (!request.is_https) {
+        LOGI("Starting HTTP request to %s", request.host.c_str());
+        return performHttpRequest(request, timer);
+    }
+    
+    // HTTPS请求继续使用原有的mbedtls实现
+    LOGI("Starting HTTPS request to %s", request.host.c_str());
 
     // 初始化mbedtls（如果需要）
     if (!initialized) {
@@ -1310,4 +1362,236 @@ int zHttps::connectWithTimeout(const string& host, int port, int timeout_seconds
 void zHttps::closeSocket(int sockfd) {
     LOGD("closeSocket called with sockfd: %d", sockfd);
     close(sockfd);
+}
+
+/**
+ * 执行HTTP请求（非HTTPS）
+ * 使用简单的socket连接发送HTTP请求并接收响应
+ * 不支持TLS/SSL，仅用于HTTP协议
+ * @param request HTTP请求对象
+ * @param timer 请求计时器
+ * @return HTTP响应对象
+ */
+HttpsResponse zHttps::performHttpRequest(const HttpsRequest& request, RequestTimer& timer) {
+    HttpsResponse response;
+    
+    // HTTP请求不需要SSL验证
+    response.ssl_verification_passed = false;
+    response.certificate_pinning_passed = false;
+    
+    LOGI("Starting HTTP request with timeout: %d seconds", timer.timeout_seconds);
+    
+    // 检查超时
+    if (timer.isTimeout()) {
+        response.error_message = "Connection timeout before establishing connection";
+        LOGE("Connection timeout before establishing connection");
+        return response;
+    }
+    
+    // 建立TCP连接
+    int sockfd = connectWithTimeout(request.host, request.port, timer.timeout_seconds);
+    if (sockfd < 0) {
+        response.error_message = "Connection failed";
+        LOGE("Connection failed");
+        return response;
+    }
+    
+    // 标记连接建立完成
+    timer.markConnection();
+    LOGI("Connection established successfully in %d seconds", timer.getConnectionDuration());
+    
+    // 构建HTTP请求
+    string http_request = request.buildRequest();
+    LOGI("Sending HTTP request...");
+    
+    // 检查超时
+    if (timer.isTimeout()) {
+        response.error_message = "Request timeout before sending";
+        LOGE("Request timeout before sending");
+        closeSocket(sockfd);
+        return response;
+    }
+    
+    // 发送HTTP请求
+    ssize_t sent = send(sockfd, http_request.c_str(), http_request.length(), 0);
+    if (sent < 0 || static_cast<size_t>(sent) != http_request.length()) {
+        response.error_message = "Failed to send HTTP request";
+        LOGE("Failed to send HTTP request: %s", strerror(errno));
+        closeSocket(sockfd);
+        return response;
+    }
+    
+    // 标记发送完成
+    timer.markSend();
+    LOGI("Request sent successfully in %d seconds", timer.getSendDuration());
+    
+    // 标记握手完成（HTTP不需要TLS握手，但为了计时器一致性）
+    timer.markHandshake();
+    
+    // 读取响应
+    LOGI("Reading HTTP response...");
+    char response_buf[4096];
+    string full_response;
+    int read_count = 0;
+    const int max_reads = 100; // HTTP可能需要更多次读取
+    const int max_total_bytes = 64 * 1024; // 最大64KB响应
+    bool found_headers = false;
+    bool response_complete = false;
+    
+    // 设置socket接收超时
+    struct timeval timeout;
+    timeout.tv_sec = timer.timeout_seconds;
+    timeout.tv_usec = 0;
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    
+    do {
+        // 检查超时
+        if (timer.isTimeout()) {
+            response.error_message = "Response read timeout";
+            LOGE("Response read timeout after %d seconds", timer.timeout_seconds);
+            break;
+        }
+        
+        ssize_t ret = recv(sockfd, response_buf, sizeof(response_buf) - 1, 0);
+        read_count++;
+        
+        if (ret > 0) {
+            response_buf[ret] = '\0';
+            full_response += string(response_buf, ret);
+            LOGI("Read %zd bytes, total: %zu bytes", ret, full_response.length());
+            
+            // 检查是否找到HTTP头
+            if (!found_headers &&
+                (full_response.find("\r\n\r\n") != string::npos ||
+                 full_response.find("\n\n") != string::npos)) {
+                found_headers = true;
+                LOGI("Found HTTP headers, continuing to read body...");
+            }
+            
+            // 检查响应是否完整
+            if (found_headers && !response_complete) {
+                size_t header_end = full_response.find("\r\n\r\n");
+                if (header_end == string::npos) {
+                    header_end = full_response.find("\n\n");
+                }
+                
+                if (header_end != string::npos) {
+                    string headers = full_response.substr(0, header_end);
+                    
+                    // 检查是否有Content-Length
+                    size_t content_length_pos = headers.find("Content-Length:");
+                    if (content_length_pos != string::npos) {
+                        size_t value_start = headers.find_first_not_of(" \t", content_length_pos + 15);
+                        if (value_start != string::npos) {
+                            size_t value_end = headers.find("\r\n", value_start);
+                            if (value_end == string::npos) {
+                                value_end = headers.find("\n", value_start);
+                            }
+                            
+                            if (value_end != string::npos && value_end > value_start) {
+                                string length_str = headers.substr(value_start, value_end - value_start);
+                                try {
+                                    int expected_length = atoi(length_str.c_str());
+                                    size_t body_length = full_response.length() - header_end - 4;
+                                    
+                                    if (body_length >= static_cast<size_t>(expected_length)) {
+                                        LOGI("Response body complete (Content-Length: %d, actual: %zu)",
+                                             expected_length, body_length);
+                                        response_complete = true;
+                                    }
+                                } catch (const std::exception& e) {
+                                    LOGE("Failed to parse Content-Length: %s", e.what());
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 检查是否有Transfer-Encoding: chunked
+                    if (headers.find("Transfer-Encoding: chunked") != string::npos) {
+                        if (full_response.find("\r\n0\r\n\r\n") != string::npos) {
+                            LOGI("Chunked response complete");
+                            response_complete = true;
+                        }
+                    }
+                    
+                    // 检查Connection: close
+                    if (headers.find("Connection: close") != string::npos &&
+                        static_cast<size_t>(ret) < sizeof(response_buf) - 1) {
+                        LOGI("Connection: close detected, response likely complete");
+                        response_complete = true;
+                    }
+                }
+            }
+            
+            // 检查是否超过最大响应大小
+            if (full_response.length() > max_total_bytes) {
+                LOGI("Response too large, stopping at %zu bytes", full_response.length());
+                break;
+            }
+        } else if (ret == 0) {
+            LOGI("Connection closed by peer (EOF)");
+            response_complete = true;
+            break;
+        } else {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                LOGI("Socket would block, stopping");
+                break;
+            } else {
+                response.error_message = "Read failed: " + string(strerror(errno));
+                LOGE("Read error: %s", strerror(errno));
+                break;
+            }
+        }
+        
+        // 防止无限循环
+        if (read_count > max_reads) {
+            LOGI("Reached max read count (%d), stopping", max_reads);
+            break;
+        }
+        
+        // 如果响应已完成，停止读取
+        if (response_complete) {
+            LOGI("Response marked as complete, stopping");
+            break;
+        }
+    } while (true);
+    
+    // 关闭socket
+    closeSocket(sockfd);
+    
+    // 标记接收完成
+    timer.markReceive();
+    LOGI("Response reading completed in %d seconds", timer.getReceiveDuration());
+    
+    LOGI("Finished reading response, total bytes: %zu, read attempts: %d, found headers: %s, complete: %s",
+         full_response.length(), read_count, found_headers ? "yes" : "no", response_complete ? "yes" : "no");
+    
+    // 检查响应是否有效
+    if (full_response.empty()) {
+        response.error_message = "No response received";
+        LOGE("No response received");
+        return response;
+    }
+    
+    // 检查是否至少找到了HTTP头
+    if (!found_headers) {
+        response.error_message = "No valid HTTP headers found";
+        LOGE("No valid HTTP headers found");
+        return response;
+    }
+    
+    // 解析HTTP响应
+    parseHttpsResponse(full_response, response);
+    
+    // 标记请求完成
+    timer.finish();
+    LOGI("=== Request Timing Summary ===");
+    LOGI("Connection: %d seconds", timer.getConnectionDuration());
+    LOGI("Send Request: %d seconds", timer.getSendDuration());
+    LOGI("Receive Response: %d seconds", timer.getReceiveDuration());
+    LOGI("Total Duration: %d seconds", timer.getTotalDuration());
+    
+    LOGI("HTTP request completed successfully");
+    
+    return response;
 }

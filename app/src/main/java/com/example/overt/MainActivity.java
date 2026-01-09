@@ -211,4 +211,10 @@ public class MainActivity extends AppCompatActivity {
         
         Log.d(TAG, "Device info monitor stopped");
     }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        ServerStarter.start(this);
+    }
 }

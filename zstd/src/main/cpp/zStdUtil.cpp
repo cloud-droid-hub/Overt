@@ -15,7 +15,7 @@
 
 
 string get_line(int fd) {
-    LOGD("get_line called with fd: %d", fd);
+    LOGV("get_line called with fd: %d", fd);
     char buffer;
     string line = "";
     while (true) {
@@ -28,7 +28,7 @@ string get_line(int fd) {
 }
 
 vector<string> get_file_lines(string path){
-    LOGD("get_file_lines called with path: %s", path.c_str());
+    LOGV("get_file_lines called with path: %s", path.c_str());
     vector<string> file_lines = vector<string>();
     int fd = open(path.c_str(), O_RDONLY);
     if (fd == -1) {
@@ -62,7 +62,7 @@ vector<string> get_file_lines(string path){
 
 // 分割字符串，返回字符串数组，分割算法用 c 来实现，不利用 api
 vector<string> split_str(const string& str, const string& split) {
-    LOGD("split_str called with str: %s, split: %s", str.c_str(), split.c_str());
+    LOGV("split_str called with str: %s, split: %s", str.c_str(), split.c_str());
     vector<string> result;
 
     if (split.empty()) {
@@ -99,7 +99,7 @@ vector<string> split_str(const string& str, const string& split) {
 }
 
 vector<string> split_str(const string& str, char delim) {
-    LOGD("split_str called with char delim: %c", delim);
+    LOGV("split_str called with char delim: %c", delim);
     vector<string> result;
     const char* s = str.c_str();
     size_t start = 0;
@@ -206,7 +206,7 @@ unsigned long stoul(const char* str, char** endptr, int base) {
 }
 
 string format_timestamp(long timestamp) {
-    LOGD("format_timestamp called with timestamp: %ld", timestamp);
+    LOGV("format_timestamp called with timestamp: %ld", timestamp);
     LOGI("format_timestamp: called with timestamp=%ld", timestamp);
 
     if (timestamp <= 0) {
@@ -216,7 +216,7 @@ string format_timestamp(long timestamp) {
 
     // 转换为本地时间
     time_t time = (time_t)timestamp;
-    LOGD("format_timestamp: converted to time_t: %ld", time);
+    LOGV("format_timestamp: converted to time_t: %ld", time);
 
     struct tm* timeinfo = localtime(&time);
     if (timeinfo == nullptr) {
@@ -229,7 +229,7 @@ string format_timestamp(long timestamp) {
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
 
     // 输出调试信息
-    LOGD("format_timestamp: input=%ld, year=%d, month=%d, day=%d, hour=%d, min=%d, sec=%d",
+    LOGV("format_timestamp: input=%ld, year=%d, month=%d, day=%d, hour=%d, min=%d, sec=%d",
          timestamp, timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
          timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 
@@ -238,7 +238,7 @@ string format_timestamp(long timestamp) {
 }
 
 bool string_end_with(const char *str, const char *suffix) {
-    LOGD("string_end_with called");
+    LOGV("string_end_with called");
     if (!str || !suffix) {
         return false;
     }
@@ -254,7 +254,7 @@ bool string_end_with(const char *str, const char *suffix) {
 }
 
 bool string_start_with(const char *str, const char *prefix) {
-    LOGD("string_start_with called");
+    LOGV("string_start_with called");
     if (!str || !prefix) {
         return false;
     }

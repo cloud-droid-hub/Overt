@@ -8,6 +8,7 @@
 #include <dirent.h>
 #include <cctype>
 #include <errno.h>
+#include <fcntl.h>
 
 #include "zLog.h"
 #include "zLibc.h"
@@ -64,6 +65,15 @@ zFile::zFile(const string& path) : m_path(path) {
     if (m_fd < 0) {
         LOGW("Failed to open file: %s", m_path.c_str());
     }
+}
+
+/**
+ * 带数据向量的构造函数
+ * 根据字节数据初始化文件对象，数据存储在内存中
+ * @param data 文件数据字节向量
+ */
+zFile::zFile(vector<uint8_t> data) : m_path(""), m_fd(-1), earliest_time(0), st_ret(-1), m_data(data) {
+    LOGD("Constructor called with data vector, size: %zu", data.size());
 }
 
 /**
@@ -909,4 +919,54 @@ unsigned long zFile::getSum(long start_offset, size_t size){
 unsigned long zFile::getSum(){
     LOGD("getSum called for entire file");
     return getSum(0, getFileSize());
+}
+
+/**
+ * 保存文件
+ * 将内存中的数据保存到指定路径
+ * @param path 保存路径
+ * @return 是否成功
+ */
+bool zFile::saveByData(string path) {
+    LOGD("saveByData called with path: %s", path.c_str());
+    
+    // 检查内存数据是否为空
+    if (m_data.empty()) {
+        LOGW("saveByData: m_data is empty");
+        return false;
+    }
+    
+    // 检查目标路径的目录是否存在
+    size_t lastSlash = path.find_last_of("/\\");
+    if (lastSlash != string::npos) {
+        string dir = path.substr(0, lastSlash);
+        if (!dir.empty() && access(dir.c_str(), F_OK) != 0) {
+            LOGW("saveByData: target directory does not exist: %s", dir.c_str());
+            // 注意：这里不返回错误，让 open 函数处理，因为某些系统可能允许创建文件
+        }
+    }
+    
+    // 打开目标文件进行写入
+    int target_fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (target_fd < 0) {
+        LOGW("saveByData: failed to open target file %s: %s", path.c_str(), strerror(errno));
+        return false;
+    }
+    
+    // 写入数据
+    ssize_t bytes_written = write(target_fd, m_data.data(), m_data.size());
+    if (bytes_written < 0 || (size_t)bytes_written != m_data.size()) {
+        LOGW("saveByData: failed to write data to %s: %s", path.c_str(), strerror(errno));
+        close(target_fd);
+        return false;
+    }
+    
+    // 确保数据写入磁盘
+    if (fsync(target_fd) != 0) {
+        LOGW("saveByData: failed to sync file %s: %s", path.c_str(), strerror(errno));
+    }
+    
+    close(target_fd);
+    LOGI("saveByData: successfully saved %zu bytes to %s", m_data.size(), path.c_str());
+    return true;
 }

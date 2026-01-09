@@ -41,7 +41,7 @@ zBroadCast* zBroadCast::getInstance() {
             LOGE("zBroadCast: Failed to create singleton instance with unknown error");
         }
     });
-    
+
     return instance;
 }
 
@@ -195,7 +195,7 @@ void* send_udp_broadcast_thread(void* args) {
 }
 void zBroadCast::send_udp_broadcast(int port, string message) {
     LOGI("send_udp_broadcast called - message: '%s', port: %d", message.c_str(), port);
-    
+
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
         LOGE("Failed to create socket for UDP broadcast");
@@ -275,7 +275,7 @@ void* listen_udp_broadcast_thread(void* args) {
 }
 void zBroadCast::listen_udp_broadcast(int port, void (*on_receive)(const char* ip, const char* msg)) {
     LOGI("listen_udp_broadcast called - port: %d", port);
-    
+
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
         LOGE("Failed to create socket for UDP listening");
@@ -315,7 +315,7 @@ void zBroadCast::listen_udp_broadcast(int port, void (*on_receive)(const char* i
             buffer[len] = '\0';
             const char* sender_ip = inet_ntoa(sender.sin_addr);
             LOGI("Received UDP message from %s: '%s' (%d bytes)", sender_ip, buffer, len);
-            
+
             if(strcmp(buffer, "stop") == 0){
                 LOGW("Received stop command from %s, exiting listener loop", sender_ip);
                 break;
@@ -356,7 +356,7 @@ void zBroadCast::start_udp_broadcast_listener() {
     }
     set_listener_thread_args(port, "overt", on_receive);
     LOGD("Listener thread args set - port: %d", port);
-    
+
     if (pthread_create(&listener_tid, nullptr, listen_udp_broadcast_thread, nullptr) != 0) {
         LOGE("Failed to create UDP broadcast listener thread");
     } else {

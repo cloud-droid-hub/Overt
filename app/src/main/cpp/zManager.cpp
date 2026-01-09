@@ -28,6 +28,7 @@
 #include "zJavaVm.h"
 #include "zSignatureInfo.h"
 #include "zSideChannelInfo.h"
+#include "zIsoloatedProcess.h"
 #include <mutex>
 #include <cmath>
 
@@ -186,7 +187,6 @@ void zManager::round_tasks(){
     vector<pair<string, void(zManager::*)()>> periodic_tasks = {
             {"linker_info", &zManager::update_linker_info},
             {"proc_info", &zManager::update_proc_info},
-
             {"root_state_info", &zManager::update_root_state_info},
             {"tee_info", &zManager::update_tee_info},
             {"class_loader_info", &zManager::update_class_loader_info},
@@ -201,6 +201,7 @@ void zManager::round_tasks(){
             {"local_network_info", &zManager::update_local_network_info},
             {"logcat_info", &zManager::update_logcat_info},
             {"side_channel_info", &zManager::side_channel_info},
+            {"isoloated_process_info", &zManager::update_isoloated_process_info},
 
     };
     LOGI("add_tasks: initialized %zu periodic tasks", periodic_tasks.size());
@@ -271,6 +272,11 @@ void zManager::update_local_network_info(){
     // 收集本地网络信息 - 检测同一网络中的其他Overt设备
     zManager::getInstance()->update_device_info("local_network_info", get_local_network_info());
     notice_java("local_network_info");
+};
+
+void zManager::update_isoloated_process_info(){
+    zManager::getInstance()->update_device_info("isoloated_process_info", get_isoloated_process_info());
+    notice_java("isoloated_process_info");
 };
 
 /**

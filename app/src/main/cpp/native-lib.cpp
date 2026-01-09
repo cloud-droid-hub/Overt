@@ -7,6 +7,9 @@
 #include "zManager.h"
 #include "zThreadPool.h"
 #include "zProcMaps.h"
+#include "zProcInfo.h"
+#include "zJson.h"
+#include "zBinder.h"
 
 // 0 zConfig
 // 1 zLog															        依赖等级 0
@@ -16,11 +19,24 @@
 // 5 zMapsInfo zProcInfo zPackageInfo ...								    依赖等级 0、1、2、3、4
 // 6 zManager                                                               依赖等级 0、1、2、3、4、5
 
+static string get_process_name(){
+    zFile file = zFile("/proc/self/cmdline");
+    return file.readAllText();
+    for(string line : file.readAllLines()){
+        return line;
+    }
+    return "";
+}
+
 void __attribute__((constructor)) init_(void){
     LOGI("init_ start");
-
-    zThreadPool::getInstance()->addTask("round_tasks", zManager::getInstance(), &zManager::round_tasks);
-
+    string processName = get_process_name();
+    if(string_end_with(processName.c_str(), ".Server")){
+        LOGI("1111111111111");
+    }else{
+        LOGI("222222222222222");
+        zThreadPool::getInstance()->addTask("round_tasks", zManager::getInstance(), &zManager::round_tasks);
+    }
     LOGI("init_ over");
 }
 
@@ -38,3 +54,40 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     return JNI_VERSION_1_6;
 }
 
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_example_overt_ServerStarter_getSharedMemoryFd(JNIEnv *env, jclass clazz) {
+    // TODO: implement getSharedMemoryFd()
+    zBinder* binder = zBinder::getInstance();
+    if (!binder->isInitialized()) {
+        // 如果还没初始化，尝试初始化
+        int fd = binder->createSharedMemory();
+        return fd;
+    }
+    return binder->getFd();
+}
+
+std::string fdListenerCallback(std::string msg){
+    if(msg == "hello"){
+        map<string, map<string, string>> info = get_proc_info();
+        zJson json = info;
+        return json.dump().c_str();
+    }
+    return "";
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_example_overt_Server_startFdListener(JNIEnv *env, jobject thiz, jint fd) {
+    // TODO: implement startFdListener()
+
+    // 映射共享内存
+    zBinder* binder = zBinder::getInstance();
+
+    // 启动 isolated 进程的消息处理循环线程
+    binder->startServerMessageLoop(fd, fdListenerCallback);
+
+    LOGI("Fd listener started successfully");
+    return 0;
+}

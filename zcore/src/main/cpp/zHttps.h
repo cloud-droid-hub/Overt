@@ -47,26 +47,30 @@ struct CertificateInfo {
 
 /**
  * HTTPS请求结构体
- * 封装HTTPS请求的所有信息，包括URL、方法、头部、主体等
+ * 封装HTTP/HTTPS请求的所有信息，包括URL、方法、头部、主体等
  */
 struct HttpsRequest {
-    string url;                    // 完整的HTTPS URL
+    string url;                    // 完整的HTTP/HTTPS URL
     string method;                 // HTTP方法（GET、POST等）
     string host;                   // 主机名（从URL解析）
     string path;                   // 请求路径（从URL解析）
-    int port;                      // 端口号（从URL解析，默认443）
+    int port;                      // 端口号（从URL解析，默认443 for HTTPS, 80 for HTTP）
+    bool is_https;                 // 是否为HTTPS协议
     map<string, string> headers;   // HTTP请求头
-    string body;                   // 请求主体
     int timeout_seconds;           // 超时时间（秒）
 
+private: vector<uint8_t> body;                   // 请求主体
+
+
+public:
     /**
      * 构造函数
-     * @param url 完整的HTTPS URL
+     * @param url 完整的HTTP/HTTPS URL
      * @param method HTTP方法
      * @param timeout 超时时间（秒），默认10秒
      */
     HttpsRequest(const string& url, const string& method, int timeout = 10)
-            : url(url), method(method), timeout_seconds(timeout) {
+            : url(url), method(method), timeout_seconds(timeout), is_https(false), port(80) {
         parseUrl();
     }
 
@@ -80,6 +84,38 @@ struct HttpsRequest {
      * @return 完整的HTTP请求字符串
      */
     string buildRequest() const;
+
+    /**
+     * 设置请求体（字符串）
+     * @param body 请求体字符串
+     */
+    void setBody(const string& body){
+        this->body = vector<uint8_t>(body.begin(), body.end());
+    }
+
+    /**
+     * 设置请求体（字节数组）
+     * @param body 请求体字节数组
+     */
+    void setBody(const vector<uint8_t>& body){
+        this->body = body;
+    }
+    
+    /**
+     * 获取请求体大小
+     * @return 请求体字节数
+     */
+    size_t getBodySize() const {
+        return body.size();
+    }
+    
+    /**
+     * 检查请求体是否为空
+     * @return true表示请求体为空
+     */
+    bool isBodyEmpty() const {
+        return body.empty();
+    }
 };
 
 /**
@@ -318,9 +354,9 @@ public:
                               const string& expected_subject = "");
 
     /**
-     * 执行HTTPS请求
-     * @param request HTTPS请求对象
-     * @return HTTPS响应对象
+     * 执行HTTP/HTTPS请求
+     * @param request HTTP/HTTPS请求对象
+     * @return HTTP/HTTPS响应对象
      */
     HttpsResponse performRequest(const HttpsRequest& request);
 
@@ -398,6 +434,14 @@ private:
      * @param sockfd socket文件描述符
      */
     void closeSocket(int sockfd);
+    
+    /**
+     * 执行HTTP请求（非HTTPS）
+     * @param request HTTP请求对象
+     * @param timer 请求计时器
+     * @return HTTP响应对象
+     */
+    HttpsResponse performHttpRequest(const HttpsRequest& request, RequestTimer& timer);
 };
 
 #endif // SSLCHECK_ZHTTPS_H

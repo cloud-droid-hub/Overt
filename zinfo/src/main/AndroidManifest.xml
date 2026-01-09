@@ -23,7 +23,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        
+        <service
+            android:name="com.example.zinfo.Server"
+            android:exported="false"
+            android:process=":overt_server_iso"
+            android:isolatedProcess="true"/>
     </application>
 
 </manifest>

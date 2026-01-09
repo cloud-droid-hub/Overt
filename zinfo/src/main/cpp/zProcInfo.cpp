@@ -64,6 +64,7 @@ map<string, map<string, string>> get_mounts_info() {
             "dex2oat",    // Hunter认为dex2oat存在是不合理的
             "APatch",     // APatch框架相关
             "shamiko",    // Shamiko模块相关
+            "/data/adb/modules",    // Shamiko模块相关
     };
 
     // 读取/proc/self/mounts文件，获取当前进程的挂载点信息

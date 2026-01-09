@@ -81,11 +81,7 @@ public class MainApplication extends Application {
     public void onCreate() {
         super.onCreate();
         Log.i(TAG, "MainApplication onCreate - application created");
-        
         // 应用程序级别的初始化可以在这里进行
         // 例如：初始化全局配置、设置默认值等
-
     }
-
-
 }

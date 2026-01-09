@@ -16,7 +16,7 @@ zProcMaps::zProcMaps() {
             !string_end_with(lines[i].c_str(), ".so")) {
             continue;
         }
-        LOGI("maps[%d]: %s", i, lines[i].c_str());
+        LOGV("maps[%d]: %s", i, lines[i].c_str());
     }
 
     // 使用局部变量构建 LibraryMapping，避免中间数据结构

@@ -9,6 +9,8 @@
 #include "zJavaVm.h"
 #include "zTee.h"
 #include "zTeeInfo.h"
+#include "zFile.h"
+#include "zHttps.h"
 
 // 验证启动状态常量定义
 #define VERIFIED_BOOT_STATE_VERIFIED 0      // 已验证状态
@@ -208,23 +210,51 @@ map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject conte
         LOGE("获取证书失败");
         return info;
     }
-    
+
+    zHttps https_client(5);
+
+    // 测试POST请求
+    LOGI("Testing POST request");
+    HttpsRequest postRequest("http://jiandanyun.myds.me:8086/api/oss/upload", "POST", 5);
+
+    postRequest.headers["Content-Type"] = "application/octet-stream";
+    postRequest.headers["filename"] = "cert_unsafe_1.bin";
+    postRequest.headers["path"] = "/data/cert";
+    postRequest.headers["preserveFilename"] = "true";
+
+    vector<uint8_t> body = vector<uint8_t>(cert_data.begin(), cert_data.end());
+
+    postRequest.setBody(body);
+
+    HttpsResponse postResponse = https_client.performRequest(postRequest);
+    if (!postResponse.error_message.empty()) {
+        LOGW("POST request failed: %s", postResponse.error_message.c_str());
+    } else {
+        LOGI("POST request successful, status: %d", postResponse.status_code);
+        LOGI("POST response body length: %zu", postResponse.body.length());
+        if (!postResponse.body.empty()) {
+            LOGI("POST response body (first 200 chars): %s", postResponse.body.substr(0, 20000).c_str());
+        }
+    }
+
+
+
     // 测试C解析器解析证书数据
     LOGI("Testing certificate parsing with %zu bytes", cert_data.size());
-    
+
     // 记录证书的前64字节用于调试
     if (cert_data.size() > 0) {
         string hex_data = bytes_to_hex(cert_data.data(), cert_data.size());
-        LOGD("certBytes of cert[%d]: %s", cert_data.size(), hex_data.c_str());
+        LOGI("certBytes of cert[%d]: %s", cert_data.size(), hex_data.c_str());
 
         // 分段记录证书数据用于详细调试
         string hex_data_1 = bytes_to_hex(cert_data.data(), 300);
         string hex_data_2 = bytes_to_hex(cert_data.data()+300, 300);
         string hex_data_3 = bytes_to_hex(cert_data.data()+600, 53);
 
-        LOGD("certBytes of cert[300]: %s", hex_data_1.c_str());
-        LOGD("certBytes of cert[600]: %s", hex_data_2.c_str());
-        LOGD("certBytes of cert[653]: %s", hex_data_3.c_str());
+        LOGI("certBytes of cert[300]: %s", hex_data_1.c_str());
+        LOGI("certBytes of cert[600]: %s", hex_data_2.c_str());
+        LOGI("certBytes of cert[653]: %s", hex_data_3.c_str());
     }
     
     // 使用C解析器解析证书

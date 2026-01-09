@@ -6,6 +6,8 @@ project("zInfo")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(ANDROID_PLATFORM android-26)
+
 include_directories(${CMAKE_SOURCE_DIR}/../../../../zconfig/src/main/cpp)
 include_directories(${CMAKE_SOURCE_DIR}/../../../../zlog/src/main/cpp)
 include_directories(${CMAKE_SOURCE_DIR}/../../../../zlibc/src/main/cpp)
@@ -29,8 +31,10 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zShell.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zZip.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zSha256.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zBinder.cpp
 
         zLocalNetworkInfo.cpp
+        zIsoloatedProcess.cpp
         zRootStateInfo.cpp
         zSystemPropInfo.cpp
         zLinkerInfo.cpp

@@ -27,10 +27,14 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name="com.example.overt.Server"
+            android:exported="false"
+            android:process=":overt_server_iso"
+            android:isolatedProcess="true"/>
     </application>
 
 </manifest>

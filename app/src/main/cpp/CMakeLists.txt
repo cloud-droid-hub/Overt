@@ -6,6 +6,8 @@ project("overt")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(ANDROID_PLATFORM android-26)
+
 # 基础优化选项
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections -fvisibility=hidden -Os")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffunction-sections -fdata-sections -fvisibility=hidden -Os")
@@ -75,6 +77,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zShell.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zZip.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zSha256.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zBinder.cpp
 
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zRootStateInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSystemPropInfo.cpp
@@ -88,9 +91,11 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zTeeInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSslInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLocalNetworkInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zIsoloatedProcess.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLogcatInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSignatureInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSideChannelInfo.cpp
+
 
         zManager.cpp
 

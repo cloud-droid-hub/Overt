@@ -19,7 +19,8 @@ public:
     zFile();
     zFile(const char *string);
     zFile(const string& path);
-    
+    zFile(vector<uint8_t> data);
+
     // 析构函数
     ~zFile();
     
@@ -261,6 +262,13 @@ public:
      */
     long getFileSize();
 
+    /**
+     * 保存文件
+     * @param path 保存路径
+     * @return 是否成功
+     */
+    bool saveByData(string path);
+
 private:
     // 文件路径
     string m_path;
@@ -276,6 +284,9 @@ private:
     
     // 文件最早时间
     long earliest_time = 0;
+    
+    // 内存数据（用于从数据向量构造的情况）
+    vector<uint8_t> m_data;
 
     /**
      * 从文件描述符读取一行
