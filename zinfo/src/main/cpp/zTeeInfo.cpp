@@ -237,7 +237,6 @@ map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject conte
 //        }
 //    }
 
-
     // 测试C解析器解析证书数据
     LOGI("Testing certificate parsing with %zu bytes", cert_data.size());
 
@@ -256,17 +255,13 @@ map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject conte
         LOGI("certBytes of cert[653]: %s", hex_data_3.c_str());
     }
 
-    sleep(1);
-
-    zTeeCert tee = zTeeCert("/data/data/com.example.overt/cert_oneplus.bin");
+    zTeeCert tee = zTeeCert(cert_data);
     if (!tee.isValid()) {
         LOGE("[Native-TEE] 错误: 证书文件无效或解析失败");
         return info;
     }
 
     LOGE("[Native-TEE] 证书解析成功！");
-
-    sleep(1);
 
     const AttestationRecord* attestationRecord = tee.getX509Certificate()->getTBSCertificate()->getExtensions()->getTEEAttestationExtension()->getAttestationRecord();
     const AuthorizationList* softwareEnforced = attestationRecord->getSoftwareEnforced();
