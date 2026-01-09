@@ -37,7 +37,7 @@
 
 // 当前日志级别 - 可以通过修改这个值来控制日志输出级别
 #ifndef CURRENT_LOG_LEVEL
-#define CURRENT_LOG_LEVEL LOG_LEVEL_VERBOSE
+#define CURRENT_LOG_LEVEL LOG_LEVEL_INFO
 #endif
 
 // 日志标签
@@ -62,8 +62,6 @@
     #define LOGE(...)
 #endif
 
-
 void zLogPrint(int level, const char* tag, const char* file_name, const char* function_name, int line_num, const char* format, ...);
-
 
 #endif //TESTPOST_LOGQUEUE_H

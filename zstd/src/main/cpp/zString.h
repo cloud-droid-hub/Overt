@@ -1045,8 +1045,9 @@ namespace nonstd {
 
         size_type find(const CharT* s, size_type pos, size_type n) const noexcept {
             if (pos >= size_ || n == 0) return npos;
+            if (n > size_) return npos;  // 防止无符号数下溢
             
-            for (size_t i = pos; i <= size_ - n; ++i) {
+            for (size_t i = pos; i + n <= size_; ++i) {
                 bool found = true;
                 for (size_t j = 0; j < n; ++j) {
                     if (data_[i + j] != s[j]) {
@@ -1061,8 +1062,7 @@ namespace nonstd {
 
         size_type find(const CharT* s, size_type pos = 0) const noexcept {
             if (!s) return npos;
-            size_t len = 0;
-            while (s[len] != CharT(0)) ++len; // Use CharT(0) instead of CharT()
+            size_t len = Traits::length(s);
             return find(s, pos, len);
         }
 
@@ -1080,7 +1080,10 @@ namespace nonstd {
 
         size_type rfind(const CharT* s, size_type pos, size_type n) const noexcept {
             if (n == 0) return pos;
+            if (size_ == 0) return npos;  // 空字符串无法匹配
+            if (n > size_) return npos;    // 防止无符号数下溢
             if (pos >= size_) pos = size_ - 1;
+            if (pos < n - 1) return npos;  // pos 位置无法容纳 n 个字符
             
             for (size_t i = pos; i >= n - 1; --i) {
                 bool found = true;
@@ -1091,6 +1094,7 @@ namespace nonstd {
                     }
                 }
                 if (found) return i - n + 1;
+                if (i == 0) break;  // 防止下溢（虽然理论上不会到达这里）
             }
             return npos;
         }

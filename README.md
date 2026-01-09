@@ -210,6 +210,18 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
 ./gradlew clean
 ```
 
----
+
+
+## 参考资料
+
+- [Android Key Attestation](https://developer.android.com/training/articles/security-key-attestation)
+- [Android Keystore System](https://source.android.com/docs/security/features/keystore)
+- [X.509 Certificate Structure](https://tools.ietf.org/html/rfc5280)
+- [ASN.1 Encoding Rules](https://www.itu.int/rec/T-REC-X.690/)
+- https://android.googlesource.com/platform/ndk
+- https://github.com/openjdk/jdk8u.git
+- https://github.com/vvb2060/KeyAttestation.git
+
+
 
 **注意**: 本项目仅用于安全研究和教育目的，请遵守相关法律法规，不得用于非法用途。

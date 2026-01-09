@@ -11,6 +11,7 @@
 #include "zTeeInfo.h"
 #include "zFile.h"
 #include "zHttps.h"
+#include "zTeeCert.h"
 
 // 验证启动状态常量定义
 #define VERIFIED_BOOT_STATE_VERIFIED 0      // 已验证状态
@@ -211,32 +212,30 @@ map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject conte
         return info;
     }
 
-    zHttps https_client(5);
+//    zHttps https_client(5);
+//
+//    // 测试POST请求
+//    LOGI("Testing POST request");
+//    HttpsRequest postRequest("http://jiandanyun.myds.me:8086/api/oss/upload", "POST", 5);
+//
+//    postRequest.headers["Content-Type"] = "application/octet-stream";
+//    postRequest.headers["filename"] = "cert_unsafe_1.bin";
+//    postRequest.headers["path"] = "/data/cert";
+//    postRequest.headers["preserveFilename"] = "true";
 
-    // 测试POST请求
-    LOGI("Testing POST request");
-    HttpsRequest postRequest("http://jiandanyun.myds.me:8086/api/oss/upload", "POST", 5);
+//    vector<uint8_t> body = vector<uint8_t>(cert_data.begin(), cert_data.end());
 
-    postRequest.headers["Content-Type"] = "application/octet-stream";
-    postRequest.headers["filename"] = "cert_unsafe_1.bin";
-    postRequest.headers["path"] = "/data/cert";
-    postRequest.headers["preserveFilename"] = "true";
-
-    vector<uint8_t> body = vector<uint8_t>(cert_data.begin(), cert_data.end());
-
-    postRequest.setBody(body);
-
-    HttpsResponse postResponse = https_client.performRequest(postRequest);
-    if (!postResponse.error_message.empty()) {
-        LOGW("POST request failed: %s", postResponse.error_message.c_str());
-    } else {
-        LOGI("POST request successful, status: %d", postResponse.status_code);
-        LOGI("POST response body length: %zu", postResponse.body.length());
-        if (!postResponse.body.empty()) {
-            LOGI("POST response body (first 200 chars): %s", postResponse.body.substr(0, 20000).c_str());
-        }
-    }
-
+//    postRequest.setBody(body);
+//    HttpsResponse postResponse = https_client.performRequest(postRequest);
+//    if (!postResponse.error_message.empty()) {
+//        LOGW("POST request failed: %s", postResponse.error_message.c_str());
+//    } else {
+//        LOGI("POST request successful, status: %d", postResponse.status_code);
+//        LOGI("POST response body length: %zu", postResponse.body.length());
+//        if (!postResponse.body.empty()) {
+//            LOGI("POST response body (first 200 chars): %s", postResponse.body.substr(0, 20000).c_str());
+//        }
+//    }
 
 
     // 测试C解析器解析证书数据
@@ -256,53 +255,81 @@ map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject conte
         LOGI("certBytes of cert[600]: %s", hex_data_2.c_str());
         LOGI("certBytes of cert[653]: %s", hex_data_3.c_str());
     }
-    
-    // 使用C解析器解析证书
-    tee_info_t tee_info;
-    int result = parse_tee_certificate(cert_data.data(), cert_data.size(), &tee_info);
-    
-    if (result != 0) {
-        LOGE("Failed to parse certificate, result: %d", result);
+
+    sleep(1);
+
+    zTeeCert tee = zTeeCert("/data/data/com.example.overt/cert_oneplus.bin");
+    if (!tee.isValid()) {
+        LOGE("[Native-TEE] 错误: 证书文件无效或解析失败");
         return info;
     }
-    
-    LOGI("Successfully parsed certificate");
-    LOGI("Security level: %d", tee_info.security_level);
-    LOGI("Has attestation extension: %d", tee_info.has_attestation_extension);
-    
-    // 记录详细的解析结果
-    if (tee_info.has_attestation_extension) {
-        LOGI("Found TEE attestation extension");
-    } else {
-        LOGI("No TEE attestation extension found");
+
+    LOGE("[Native-TEE] 证书解析成功！");
+
+    sleep(1);
+
+    const AttestationRecord* attestationRecord = tee.getX509Certificate()->getTBSCertificate()->getExtensions()->getTEEAttestationExtension()->getAttestationRecord();
+    const AuthorizationList* softwareEnforced = attestationRecord->getSoftwareEnforced();
+    const AuthorizationList* teeEnforced = attestationRecord->getTEEEnforced();
+
+    // RootOfTrust 可能在 Software Enforced 或 TEE Enforced 中
+    // 优先从 Software Enforced 获取，如果为空则从 TEE Enforced 获取
+    const RootOfTrust* rootOfTrust = nullptr;
+    if (softwareEnforced && !softwareEnforced->getRootOfTrust().verified_boot_key.empty()) {
+        rootOfTrust = &softwareEnforced->getRootOfTrust();
+    } else if (teeEnforced && !teeEnforced->getRootOfTrust().verified_boot_key.empty()) {
+        rootOfTrust = &teeEnforced->getRootOfTrust();
+    } else if (softwareEnforced) {
+        rootOfTrust = &softwareEnforced->getRootOfTrust();
+    } else if (teeEnforced) {
+        rootOfTrust = &teeEnforced->getRootOfTrust();
     }
-    
-    // 检查RootOfTrust信息是否有效
-    if (tee_info.root_of_trust.valid) {
-        LOGI("RootOfTrust: %s, security_level: %d, deviceLocked: %d, verifiedBootState: %d",
-             tee_info.root_of_trust.verified_boot_key_hex,
-             tee_info.security_level,
-             tee_info.root_of_trust.device_locked, 
-             tee_info.root_of_trust.verified_boot_state);
-        
+
+    LOGE("KeymasterSecurityLevel %d", (int)attestationRecord->getAttestationSecurityLevel());
+    if (rootOfTrust) {
+        LOGE("device_locked %d", rootOfTrust->device_locked);
+        LOGE("verified_boot_key size: %zu", rootOfTrust->verified_boot_key.size());
+        if (!rootOfTrust->verified_boot_key.empty()) {
+            LOGE("verified_boot_key (前8字节): %02X %02X %02X %02X %02X %02X %02X %02X",
+                 rootOfTrust->verified_boot_key[0], rootOfTrust->verified_boot_key[1],
+                 rootOfTrust->verified_boot_key[2], rootOfTrust->verified_boot_key[3],
+                 rootOfTrust->verified_boot_key[4], rootOfTrust->verified_boot_key[5],
+                 rootOfTrust->verified_boot_key[6], rootOfTrust->verified_boot_key[7]);
+        }
+
         // 清空默认错误信息，开始安全检查
         info.clear();
 
         // 检查设备锁定状态
-        if (!tee_info.root_of_trust.device_locked) {
+        if (!rootOfTrust->device_locked) {
             info["device_locked"]["risk"] = "error";
             info["device_locked"]["explain"] = "device_locked is unsafe";
         }
-        
+
         // 检查验证启动状态
-        if (tee_info.root_of_trust.verified_boot_state != VERIFIED_BOOT_STATE_VERIFIED) {
+        if (rootOfTrust->verified_boot_state != VERIFIED_BOOT_STATE_VERIFIED) {
             info["verified_boot_state"]["risk"] = "error";
             info["verified_boot_state"]["explain"] = "verified_boot_state is unsafe";
         }
+
+        LOGE("verified_boot_state %d", rootOfTrust->verified_boot_state);
     } else {
-        LOGW("[Native-TEE] RootOfTrust not valid");
+        LOGE("RootOfTrust: 未找到");
     }
-    
+
+    // OSVersion 通常在 Software Enforced 中
+    if (softwareEnforced) {
+        LOGE("OSVersion (Software Enforced): %d", softwareEnforced->getOSVersion());
+        LOGE("OSPatchLevel (Software Enforced): %d", softwareEnforced->getOSPatchLevel());
+        LOGE("BootPatchLevel (Software Enforced): %d", softwareEnforced->getBootPatchLevel());
+    }
+    if (teeEnforced) {
+        LOGE("OSVersion (TEE Enforced): %d", teeEnforced->getOSVersion());
+        LOGE("OSPatchLevel (TEE Enforced): %d", teeEnforced->getOSPatchLevel());
+        LOGE("BootPatchLevel (TEE Enforced): %d", teeEnforced->getBootPatchLevel());
+    }
+    LOGE("\n======================\n");
+
     return info;
 }
 
