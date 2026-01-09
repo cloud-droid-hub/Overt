@@ -24,6 +24,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zClassLoader.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zCrc32.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zJavaVm.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zTeeCert.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zTee.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zBroadCast.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zFile.cpp
