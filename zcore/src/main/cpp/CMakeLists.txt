@@ -20,6 +20,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zLinker.cpp
         zElf.cpp
         zClassLoader.cpp
+        zSensorManager.cpp
         zCrc32.cpp
         zFile.cpp
         zProcMaps.cpp

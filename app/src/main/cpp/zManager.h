@@ -258,6 +258,7 @@ public:
     void update_ssl_info();
     void update_local_network_info();
     void update_isoloated_process_info();
+    void update_sensor_info();
     void update_proc_info();
     void update_root_state_info();
     void update_system_prop_info();

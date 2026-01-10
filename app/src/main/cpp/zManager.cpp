@@ -29,6 +29,7 @@
 #include "zSignatureInfo.h"
 #include "zSideChannelInfo.h"
 #include "zIsoloatedProcess.h"
+#include "zSensorInfo.h"
 #include <mutex>
 #include <cmath>
 
@@ -202,6 +203,7 @@ void zManager::round_tasks(){
             {"logcat_info", &zManager::update_logcat_info},
             {"side_channel_info", &zManager::side_channel_info},
             {"isoloated_process_info", &zManager::update_isoloated_process_info},
+            {"sensor_info", &zManager::update_sensor_info},
 
     };
     LOGI("add_tasks: initialized %zu periodic tasks", periodic_tasks.size());
@@ -278,6 +280,12 @@ void zManager::update_isoloated_process_info(){
     zManager::getInstance()->update_device_info("isoloated_process_info", get_isoloated_process_info());
     notice_java("isoloated_process_info");
 };
+
+void zManager::update_sensor_info(){
+    zManager::getInstance()->update_device_info("sensor_info", get_sensor_info());
+    notice_java("sensor_info");
+};
+
 
 /**
  * 更新进程信息检测结果

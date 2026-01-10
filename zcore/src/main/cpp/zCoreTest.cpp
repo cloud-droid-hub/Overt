@@ -30,8 +30,6 @@ void recordTestResult(bool passed, bool warning = false) {
     }
 }
 
-
-
 // HTTPS模块测试函数
 void test_https_module() {
     LOGI("=== HTTPS Module Tests START ===");
@@ -192,6 +190,7 @@ void test_https_module() {
 
 #include "zZip.h"
 #include "zSha256.h"
+#include "zSensorManager.h"
 #include <dlfcn.h>
 #include <regex>
 
@@ -296,6 +295,17 @@ void __attribute__((constructor)) init_(void) {
 
     // zUdpSocket functionality removed
 
-    sleep(1111);
+    zSensorManager* manager = zSensorManager::getInstance();
+
+    if (!manager) {
+        LOGW("Failed to get sensor manager instance");
+        return;
+    }
+
+    LOGI("=== JNI_OnLoad: zSensorManager RiskScore %d", manager->getRiskScore());
+
+    // 打印检测结果
+    manager->printDetectionResults();
+
     return;
 }

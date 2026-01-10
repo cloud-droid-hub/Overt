@@ -26,6 +26,7 @@
 #include "zSideChannelInfo.h"
 #include "zHttps.h"
 #include "zBinder.h"
+#include "zSensorInfo.h"
 
 static string get_process_name(){
     zFile file = zFile("/proc/self/cmdline");
@@ -34,6 +35,8 @@ static string get_process_name(){
 
 void __attribute__((constructor)) init_(void){
     LOGI("zInfo init - Starting comprehensive tests");
+
+    get_sensor_info();
 
 //    string processName = get_process_name();
 //    LOGI("processName: %s", processName.c_str());
@@ -76,7 +79,7 @@ void __attribute__((constructor)) init_(void){
 //    get_root_file_info();
 //
 //     收集挂载点信息 - 检测异常的文件系统挂载
-    get_proc_info();
+//    get_proc_info();
 //
 //    // 收集系统属性信息 - 检测系统配置异常
 //    get_system_prop_info();

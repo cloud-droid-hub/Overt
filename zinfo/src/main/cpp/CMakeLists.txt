@@ -33,6 +33,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zZip.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zSha256.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zBinder.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zSensorManager.cpp
 
         zLocalNetworkInfo.cpp
         zIsoloatedProcess.cpp
@@ -44,6 +45,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zClassLoaderInfo.cpp
         zSystemSettingInfo.cpp
         zSideChannelInfo.cpp
+        zSensorInfo.cpp
 
         zProcInfo.cpp
         zPortInfo.cpp
