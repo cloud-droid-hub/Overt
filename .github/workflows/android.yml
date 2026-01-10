@@ -37,7 +37,39 @@ jobs:
         git tag -fa latest -m "Latest build from main"
         git push origin latest --force
 
-    # 2. 创建/覆盖 Release，上传 APK
+    # 2. 删除历史 APK
+    - name: Delete old APK files from Release
+      run: |
+        # 获取 latest Release 的信息
+        RELEASE_RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/tags/latest" || echo "")
+        
+        if [ -n "$RELEASE_RESPONSE" ] && [ "$(echo "$RELEASE_RESPONSE" | jq -r '.message // empty')" != "Not Found" ]; then
+          # 获取 Release ID
+          RELEASE_ID=$(echo "$RELEASE_RESPONSE" | jq -r '.id // empty')
+          
+          if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
+            # 获取所有 assets
+            ASSETS=$(echo "$RELEASE_RESPONSE" | jq -r '.assets[]? | "\(.id)|\(.name)"' || echo "")
+            
+            if [ -n "$ASSETS" ]; then
+              echo "$ASSETS" | while IFS='|' read -r asset_id asset_name; do
+                if [[ "$asset_name" == *.apk ]]; then
+                  echo "删除 APK: $asset_name (ID: $asset_id)"
+                  curl -s -X DELETE \
+                    -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                    "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id" || true
+                fi
+              done
+            fi
+          fi
+        else
+          echo "Release 'latest' 不存在，跳过删除步骤"
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # 3. 创建/覆盖 Release，上传 APK
     - name: Upload to Release
       uses: softprops/action-gh-release@v2
       with:
