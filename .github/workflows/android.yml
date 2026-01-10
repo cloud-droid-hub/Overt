@@ -26,8 +26,8 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug
+    - name: Build Release APK
+      run: ./gradlew app:assembleRelease
 
     # 1. 强制把 latest tag 移到当前提交
     - name: Move latest tag
@@ -43,8 +43,8 @@ jobs:
       with:
         tag_name: latest
         name: Latest Build
-        body: "自动构建的最新 Debug 版，每次 push 会覆盖。"
-        files: app/build/outputs/apk/debug/*.apk
+        body: "自动构建的最新 Release 版，每次 push 会覆盖。"
+        files: app/build/outputs/apk/release/*.apk
         draft: false
         prerelease: false
       env:

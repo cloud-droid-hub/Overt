@@ -10,8 +10,8 @@ android {
         applicationId "com.example.overt"
         minSdk 26
         targetSdk 34
-        versionCode 540
-        versionName "1.540"
+        versionCode 605
+        versionName "1.605"
         ndk{
             abiFilters 'arm64-v8a'
         }
@@ -27,10 +27,29 @@ android {
         //     }
         // }
     }
+    signingConfigs {
+        release {
+            storeFile file('../overt.jks')
+            storePassword '123123'
+            keyAlias 'key0'
+            keyPassword '123123'
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+        debug {
+            storeFile file('../overt.jks')
+            storePassword '123123'
+            keyAlias 'key0'
+            keyPassword '123123'
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
         applicationVariants.all {
             variant ->
@@ -68,24 +87,6 @@ android {
     buildFeatures {
         viewBinding true
         aidl true
-    }
-    signingConfigs {
-        release {
-            storeFile file('../overt.jks')
-            storePassword '123123'
-            keyAlias 'key0'
-            keyPassword '123123'
-            v1SigningEnabled true
-            v2SigningEnabled true
-        }
-        debug {
-            storeFile file('../overt.jks')
-            storePassword '123123'
-            keyAlias 'key0'
-            keyPassword '123123'
-            v1SigningEnabled true
-            v2SigningEnabled true
-        }
     }
 }
 

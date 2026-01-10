@@ -75,7 +75,6 @@ map<string, map<string, string>> get_ssl_info() {
     // 定义需要检测的URL和对应的证书指纹
     map<string, string> url_info{
             {"https://www.baidu.com",  "0D822C9A905AEFE98F3712C0E02630EE95332C455FE7745DF08DBC79F4B0A149"},
-            {"https://www.taobao.com", "3D4949784246FFF7529B6B82DF7E544BF9BAD834141D2167634E5B62A1D885B5"},
     };
 
     // 检测每个URL的SSL证书指纹

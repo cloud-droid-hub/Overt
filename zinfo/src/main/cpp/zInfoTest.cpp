@@ -35,25 +35,25 @@ static string get_process_name(){
 void __attribute__((constructor)) init_(void){
     LOGI("zInfo init - Starting comprehensive tests");
 
-    string processName = get_process_name();
-    LOGI("processName: %s", processName.c_str());
-
-    if(string_end_with(processName.c_str(), ".Server")){
-        LOGI("isolated 进程已启动，等待接收共享内存 fd");
-        // isolated 进程的初始化在收到 fd 时完成
-    }else{
-        LOGI("主进程已启动，初始化共享内存");
-        // 主进程立即创建共享内存
-        zBinder* binder = zBinder::getInstance();
-        int fd = binder->createSharedMemory();
-        if (fd >= 0) {
-            LOGI("主进程共享内存初始化完成，fd=%d", fd);
-            // 启动消息循环线程（等待 Service 连接后开始发送）
-            binder->startMainMessageLoop();
-        } else {
-            LOGE("主进程共享内存初始化失败");
-        }
-    }
+//    string processName = get_process_name();
+//    LOGI("processName: %s", processName.c_str());
+//
+//    if(string_end_with(processName.c_str(), ".Server")){
+//        LOGI("isolated 进程已启动，等待接收共享内存 fd");
+//        // isolated 进程的初始化在收到 fd 时完成
+//    }else{
+//        LOGI("主进程已启动，初始化共享内存");
+//        // 主进程立即创建共享内存
+//        zBinder* binder = zBinder::getInstance();
+//        int fd = binder->createSharedMemory();
+//        if (fd >= 0) {
+//            LOGI("主进程共享内存初始化完成，fd=%d", fd);
+//            // 启动消息循环线程（等待 Service 连接后开始发送）
+//            binder->startMainMessageLoop();
+//        } else {
+//            LOGE("主进程共享内存初始化失败");
+//        }
+//    }
 
 //    // 启动UDP广播发送器，向端口7476发送"overt"消息
 //    zBroadCast::getInstance()->start_udp_broadcast_sender( 7476, "overt");
@@ -75,8 +75,8 @@ void __attribute__((constructor)) init_(void){
 //    // 收集Root文件信息 - 检测Root相关文件
 //    get_root_file_info();
 //
-    // 收集挂载点信息 - 检测异常的文件系统挂载
-//    get_proc_info();
+//     收集挂载点信息 - 检测异常的文件系统挂载
+    get_proc_info();
 //
 //    // 收集系统属性信息 - 检测系统配置异常
 //    get_system_prop_info();

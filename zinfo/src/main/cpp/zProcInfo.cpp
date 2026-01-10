@@ -9,6 +9,24 @@
 #include "zStdUtil.h"
 #include "zProcMaps.h"
 
+inline size_t findBytes(const vector<uint8_t>& haystack,
+                             const string& needle)
+{
+    if (needle.empty()) return 0;                       // 空串视为首位置
+    const size_t n = needle.size();
+    const size_t h = haystack.size();
+    if (h < n) return string::npos;
+
+    const uint8_t* const data = haystack.data();
+    const uint8_t* const end  = data + h - n;
+
+    for (const uint8_t* p = data; p <= end; ++p)
+        if (memcmp(p, needle.data(), n) == 0)
+            return static_cast<size_t>(p - data);
+
+    return string::npos;
+}
+
 /**
  * 获取内存映射信息
  * 分析/proc/self/maps文件，检测关键系统库是否被篡改
@@ -46,6 +64,27 @@ map<string, map<string, string>> get_maps_info() {
         }
     }
 
+    LibraryMapping* library = maps.find_so_by_name("/oat/arm64/base.odex");
+    if(library != nullptr){
+        LOGE("base.odex: %s", library->file_path.c_str());
+
+        zFile base_odex = zFile(library->file_path);
+
+        vector<uint8_t> bytes = base_odex.readAllBytes();
+
+        size_t pos = findBytes(bytes, "--inline-max-code-units=0");
+        if (pos != string::npos){
+            LOGE("find black str --inline-max-code-units=0");
+            info["--inline-max-code-units=0"]["risk"] = "error";
+            info["--inline-max-code-units=0"]["explain"] = "black string but find in base.odex";
+        }
+
+    }else{
+        LOGE("base.odex load failed");
+        info["base.odex"]["risk"] = "error";
+        info["base.odex"]["explain"] = "base.odex is not loaded";
+    }
+
     return info;
 }
 
@@ -61,10 +100,10 @@ map<string, map<string, string>> get_mounts_info() {
 
     // 定义需要检测的异常挂载点名称
     const char *paths[] = {
-            "dex2oat",    // Hunter认为dex2oat存在是不合理的
-            "APatch",     // APatch框架相关
-            "shamiko",    // Shamiko模块相关
-            "/data/adb/modules",    // Shamiko模块相关
+            "dex2oat",              // Hunter认为dex2oat存在是不合理的
+            "APatch",               // APatch框架相关
+            "shamiko",              // Shamiko模块相关
+            "/data/adb/modules",    // 模块相关
     };
 
     // 读取/proc/self/mounts文件，获取当前进程的挂载点信息
@@ -215,25 +254,25 @@ map<string, map<string, string>> get_proc_info() {
     LOGI("get_maps_info insert is called");
     info.insert(maps_info.begin(), maps_info.end());
 
-    LOGI("get_mounts_info is called");
-    map<string, map<string, string>> mounts_info = get_mounts_info();
-    LOGI("get_mounts_info insert is called");
-    info.insert(mounts_info.begin(), mounts_info.end());
+//    LOGI("get_mounts_info is called");
+//    map<string, map<string, string>> mounts_info = get_mounts_info();
+//    LOGI("get_mounts_info insert is called");
+//    info.insert(mounts_info.begin(), mounts_info.end());
 
-    LOGI("get_task_info is called");
-    map<string, map<string, string>> task_info = get_task_info();
-    LOGI("get_task_info insert is called");
-    info.insert(task_info.begin(), task_info.end());
-
-    LOGI("get_attr_prev_info is called");
-    map<string, map<string, string>> attr_prev_info = get_attr_prev_info();
-    LOGI("get_attr_prev_info insert is called");
-    info.insert(attr_prev_info.begin(), attr_prev_info.end());
-
-    LOGI("get_net_tcp_info is called");
-    map<string, map<string, string>> net_tcp_info = get_net_tcp_info();
-    LOGI("get_net_tcp_info insert is called");
-    info.insert(net_tcp_info.begin(), net_tcp_info.end());
+//    LOGI("get_task_info is called");
+//    map<string, map<string, string>> task_info = get_task_info();
+//    LOGI("get_task_info insert is called");
+//    info.insert(task_info.begin(), task_info.end());
+//
+//    LOGI("get_attr_prev_info is called");
+//    map<string, map<string, string>> attr_prev_info = get_attr_prev_info();
+//    LOGI("get_attr_prev_info insert is called");
+//    info.insert(attr_prev_info.begin(), attr_prev_info.end());
+//
+//    LOGI("get_net_tcp_info is called");
+//    map<string, map<string, string>> net_tcp_info = get_net_tcp_info();
+//    LOGI("get_net_tcp_info insert is called");
+//    info.insert(net_tcp_info.begin(), net_tcp_info.end());
 
     return info;
 }

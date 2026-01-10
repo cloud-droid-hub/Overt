@@ -67,7 +67,7 @@ Java_com_example_overt_ServerStarter_getSharedMemoryFd(JNIEnv *env, jclass clazz
 }
 
 std::string fdListenerCallback(std::string msg){
-    if(msg == "hello"){
+    if(msg == "get_isoloated_process_info"){
         map<string, map<string, string>> info = get_proc_info();
         zJson json = info;
         return json.dump().c_str();

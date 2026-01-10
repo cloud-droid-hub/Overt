@@ -69,7 +69,7 @@ string get_local_ip() {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
         LOGE("Failed to create socket for getting local IP");
-        return NULL;
+        return "";
     }
     LOGD("Socket created for IP detection, fd: %d", sock);
 
@@ -78,7 +78,7 @@ string get_local_ip() {
     if (ioctl(sock, SIOCGIFCONF, &ifc) == -1) {
         LOGE("Failed to get interface configuration (errno: %d)", errno);
         close(sock);
-        return NULL;
+        return "";
     }
     LOGD("Interface configuration retrieved successfully");
 
@@ -161,20 +161,22 @@ void zBroadCast::start_local_ip_monitor(){
 }
 
 void zBroadCast::set_local_ip(string local_ip){
-    std::shared_lock<std::shared_mutex> lock(local_ip_mutex);
+    std::unique_lock<std::shared_mutex> lock(local_ip_mutex);
     this->local_ip = local_ip;
 }
 
 string zBroadCast::get_local_ip(){
+    std::shared_lock<std::shared_mutex> lock(local_ip_mutex);
     return local_ip;
 }
 
 void zBroadCast::set_local_ip_c(string local_ip_c){
-    std::shared_lock<std::shared_mutex> lock(local_ip_c_mutex);
+    std::unique_lock<std::shared_mutex> lock(local_ip_c_mutex);
     this->local_ip_c = local_ip_c;
 }
 
 string zBroadCast::get_local_ip_c(){
+    std::shared_lock<std::shared_mutex> lock(local_ip_c_mutex);
     return local_ip_c;
 }
 
@@ -211,14 +213,26 @@ void zBroadCast::send_udp_broadcast(int port, string message) {
     }
     LOGD("Broadcast option set successfully on socket %d", sock);
 
+    string broadcast_ip = get_local_ip_c();
+    if (broadcast_ip.empty()) {
+        LOGE("Broadcast IP is empty, cannot send message");
+        close(sock);
+        return;
+    }
+    
     struct sockaddr_in addr = {0};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     // 使用更通用的广播地址
-    addr.sin_addr.s_addr = inet_addr(get_local_ip_c().c_str());
-    LOGD("Target address configured - IP: %s, Port: %d", get_local_ip_c().c_str(), port);
+    addr.sin_addr.s_addr = inet_addr(broadcast_ip.c_str());
+    if (addr.sin_addr.s_addr == INADDR_NONE) {
+        LOGE("Invalid broadcast IP address: %s", broadcast_ip.c_str());
+        close(sock);
+        return;
+    }
+    LOGD("Target address configured - IP: %s, Port: %d", broadcast_ip.c_str(), port);
 
-    ssize_t sent = sendto(sock, message.c_str(), strlen(message.c_str()), 0, (struct sockaddr*)&addr, sizeof(addr));
+    ssize_t sent = sendto(sock, message.c_str(), message.length(), 0, (struct sockaddr*)&addr, sizeof(addr));
     if (sent < 0) {
         LOGE("Failed to send broadcast message: %s (errno: %d)", message.c_str(), errno);
     } else {
@@ -230,7 +244,12 @@ void zBroadCast::send_udp_broadcast(int port, string message) {
 }
 void zBroadCast::send_udp_broadcast() {
     LOGI("send_udp_broadcast is called");
-    send_udp_broadcast(sender_thread_args.port, sender_thread_args.msg.c_str());
+    ThreadArgs args;
+    {
+        std::shared_lock<std::shared_mutex> lock(sender_thread_args_mutex);
+        args = sender_thread_args;
+    }
+    send_udp_broadcast(args.port, args.msg);
 }
 void zBroadCast::start_udp_broadcast_sender(int port, string msg) {
     LOGI("start_udp_broadcast_sender called - msg: '%s', port: %d", msg.c_str(), port);
@@ -254,7 +273,7 @@ void zBroadCast::start_udp_broadcast_sender() {
     }
 }
 void zBroadCast::set_sender_thread_args(int port, string msg, void (*on_receive)(const char* ip, const char* msg)){
-    std::shared_lock<std::shared_mutex> lock(sender_thread_args_mutex);
+    std::unique_lock<std::shared_mutex> lock(sender_thread_args_mutex);
     sender_thread_args = {port, msg, on_receive};
 }
 
@@ -321,7 +340,8 @@ void zBroadCast::listen_udp_broadcast(int port, void (*on_receive)(const char* i
                 break;
             }
 
-            if(strcmp(sender_ip, this->get_local_ip().c_str()) == 0){
+            string local_ip = zBroadCast::getInstance()->get_local_ip();
+            if(strcmp(sender_ip, local_ip.c_str()) == 0){
                 LOGD("Ignoring message from local IP %s", sender_ip);
             }else{
                 LOGI("Processing message from remote IP %s", sender_ip);
@@ -340,7 +360,12 @@ void zBroadCast::listen_udp_broadcast(int port, void (*on_receive)(const char* i
 }
 void zBroadCast::listen_udp_broadcast() {
     LOGI("listen_udp_broadcast is called");
-    listen_udp_broadcast(listener_thread_args.port, listener_thread_args.on_receive);
+    ThreadArgs args;
+    {
+        std::shared_lock<std::shared_mutex> lock(listener_thread_args_mutex);
+        args = listener_thread_args;
+    }
+    listen_udp_broadcast(args.port, args.on_receive);
 }
 void zBroadCast::start_udp_broadcast_listener(int port, void (*on_receive)(const char* ip, const char* msg)) {
     LOGI("start_udp_broadcast_listener called - port: %d", port);
@@ -368,14 +393,19 @@ void zBroadCast::restart_udp_broadcast_listener() {
     LOGI("restart_udp_broadcast_listener called");
     set_stop_thread_args(port, "stop", nullptr);
     LOGD("Sending stop command to restart listener");
-    zBroadCast::getInstance()->send_udp_broadcast(stop_thread_args.port, stop_thread_args.msg.c_str());
+    ThreadArgs args;
+    {
+        std::shared_lock<std::shared_mutex> lock(stop_thread_args_mutex);
+        args = stop_thread_args;
+    }
+    zBroadCast::getInstance()->send_udp_broadcast(args.port, args.msg);
 }
 void zBroadCast::set_stop_thread_args(int port, string msg, void (*on_receive)(const char* ip, const char* msg)){
-    std::shared_lock<std::shared_mutex> lock(stop_thread_args_mutex);
+    std::unique_lock<std::shared_mutex> lock(stop_thread_args_mutex);
     stop_thread_args = {port, msg, on_receive};
 }
 void zBroadCast::set_listener_thread_args(int port, string msg, void (*on_receive)(const char* ip, const char* msg)) {
-    std::shared_lock<std::shared_mutex> lock(listener_thread_args_mutex);
+    std::unique_lock<std::shared_mutex> lock(listener_thread_args_mutex);
     listener_thread_args = {port, msg, on_receive};
 }
 

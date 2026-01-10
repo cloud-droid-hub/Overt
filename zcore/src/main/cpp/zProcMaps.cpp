@@ -8,12 +8,13 @@
 zProcMaps::zProcMaps() {
     zFile maps = zFile("/proc/self/maps");
     vector<string> lines = maps.readAllLines();
-    LOGI("Read %zu lines from file", lines.size());
+    LOGV("Read %zu lines from file", lines.size());
 
     for(int i = 0; i < lines.size(); i++){
         // 过滤：只处理 .so 和 linker64
         if (!string_end_with(lines[i].c_str(), "linker64") &&
-            !string_end_with(lines[i].c_str(), ".so")) {
+            !string_end_with(lines[i].c_str(), ".so") &&
+            !string_end_with(lines[i].c_str(), ".odex")) {
             continue;
         }
         LOGV("maps[%d]: %s", i, lines[i].c_str());
@@ -25,8 +26,9 @@ zProcMaps::zProcMaps() {
     // 一次遍历：解析并构建 LibraryMapping
     for (size_t i = 0; i < lines.size(); i++) {
         // 过滤：只处理 .so 和 linker64
-        if (!string_end_with(lines[i].c_str(), "linker64") && 
-            !string_end_with(lines[i].c_str(), ".so")) {
+        if (!string_end_with(lines[i].c_str(), "linker64") &&
+            !string_end_with(lines[i].c_str(), ".so") &&
+            !string_end_with(lines[i].c_str(), ".odex")) {
             continue;
         }
 
@@ -84,8 +86,11 @@ zProcMaps::zProcMaps() {
 
     // 构建 loaded_libraries：只保留第一个完整的映射（与 AOSP linker 行为一致）
     for (size_t i = 0; i < temp_library_vector.size(); i++) {
-        // 先过滤：跳过段数小于 4 的库
-        if (temp_library_vector[i].segments.size() < 4) continue;
+        // 先过滤：so 在 maps 中 segments 的数量应该为 4 ， base.odex 应该为 3
+        if (temp_library_vector[i].segments.size() < 3) {
+            LOGE("library: %s segments_size %d", temp_library_vector[i].file_path.c_str(), temp_library_vector[i].segments.size());
+            continue;
+        }
         
         // 只保留第一个完整的映射（避免覆盖，与 AOSP linker 行为一致）
         if (loaded_libraries.find(temp_library_vector[i].file_path) == loaded_libraries.end()) {
