@@ -1038,6 +1038,49 @@ namespace nonstd {
             // 如果 size_ == 0，什么都不做（空字符串已经是正确的）
         }
 
+        // Erase methods
+        basic_string& erase(size_type pos = 0, size_type len = npos) {
+            if (pos > size_) {
+                throw std::out_of_range("basic_string::erase");
+            }
+            size_t actual_len = (len == npos) ? size_ - pos : std::min(len, size_ - pos);
+            if (actual_len == 0) return *this;
+            
+            // Destroy erased elements
+            for (size_t i = pos; i < pos + actual_len; ++i) {
+                alloc_.destroy(&data_[i]);
+            }
+            
+            // Move remaining elements forward
+            for (size_t i = pos + actual_len; i < size_; ++i) {
+                CharT temp = data_[i];
+                alloc_.destroy(&data_[i]);
+                alloc_.construct(&data_[i - actual_len], temp);
+            }
+            
+            // Update null terminator
+            alloc_.destroy(&data_[size_]);
+            size_ -= actual_len;
+            alloc_.construct(&data_[size_], CharT(0));
+            
+            return *this;
+        }
+
+        iterator erase(iterator position) {
+            if (position == end()) return position;
+            size_t pos = position.current - data_;
+            erase(pos, 1);
+            return iterator(data_ + pos);
+        }
+
+        iterator erase(iterator first, iterator last) {
+            if (first == last) return first;
+            size_t pos = first.current - data_;
+            size_t len = last.current - first.current;
+            erase(pos, len);
+            return iterator(data_ + pos);
+        }
+
         // Find methods
         size_type find(const basic_string& str, size_type pos = 0) const noexcept {
             return find(str.data_, pos, str.size_);

@@ -17,6 +17,7 @@ struct MapSegment {
     string device_major_minor;              // 设备号（主设备号:次设备号）
     string inode;                           // 节点号
     string file_path;                       // 文件路径
+    bool is_deleted;
 };
 
 struct LibraryMapping {
@@ -26,6 +27,7 @@ struct LibraryMapping {
     string inode;                           // 节点号
     string file_path;                       // 文件路径
     vector<MapSegment> segments;            // 映射段信息
+    bool is_deleted;
 };
 
 class zProcMaps{

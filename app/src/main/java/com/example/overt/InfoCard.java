@@ -1,7 +1,10 @@
 package com.example.overt;
 
 import android.content.Context;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.text.LineBreaker;
+import android.text.Layout;
 import android.view.LayoutInflater;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -414,8 +417,9 @@ public class InfoCard {
                     } else {
                         continue;
                     }
-                    
-                    textView.setText(riskSymbol + key + ": " + risk + ": " + explain);
+
+                    // breakByChar的效果，每个字符都可以作为换行点 行一定会“塞满才换”
+                    textView.setText(breakByChar(riskSymbol + key + ": " + risk + ": " + explain));
                     textView.setTextSize(14);
 
                     // 根据风险等级设置文字颜色，使用主题颜色适配夜间模式
@@ -557,4 +561,14 @@ public class InfoCard {
     public JSONObject getInfo() {
         return info;
     }
+
+    private static String breakByChar(String src) {
+        StringBuilder sb = new StringBuilder(src.length() * 2);
+        for (int i = 0; i < src.length(); i++) {
+            sb.append(src.charAt(i));
+            sb.append('\u200B'); // 零宽断点
+        }
+        return sb.toString();
+    }
+
 } 

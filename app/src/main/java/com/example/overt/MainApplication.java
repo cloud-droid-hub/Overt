@@ -36,7 +36,7 @@ public class MainApplication extends Application {
      */
     static {
         Log.i(TAG, "MainApplication static - loading native library 'overt'");
-        System.loadLibrary("overt"); // 加载Native库，启动检测功能
+
         Log.i(TAG, "MainApplication static - native library loaded successfully");
     }
 
@@ -83,5 +83,6 @@ public class MainApplication extends Application {
         Log.i(TAG, "MainApplication onCreate - application created");
         // 应用程序级别的初始化可以在这里进行
         // 例如：初始化全局配置、设置默认值等
+        System.loadLibrary("overt"); // 加载Native库，启动检测功能
     }
 }

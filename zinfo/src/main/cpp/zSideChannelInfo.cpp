@@ -83,8 +83,11 @@ map<string, map<string, string>> get_side_channel_info(){
     string explain = string_format("faccessat is slower than fchownat: %d", error_count);
 
     // 如果异常次数超过7000次，则认为环境存在异常
-    if(error_count > 7000){
+    if(error_count > 7000) {
         info["side_channel"]["risk"] = "error";
+        info["side_channel"]["explain"] = explain;
+    }else if(error_count > 5000){
+        info["side_channel"]["risk"] = "warn";
         info["side_channel"]["explain"] = explain;
     }else{
         info["side_channel"]["risk"] = "safe";

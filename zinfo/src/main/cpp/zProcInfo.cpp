@@ -1,6 +1,10 @@
 //
 // Created by lxz on 2025/8/24.
 //
+
+#include <dlfcn.h>
+#include <regex>
+
 #include "zLog.h"
 #include "zLibc.h"
 #include "zFile.h"
@@ -25,6 +29,43 @@ inline size_t findBytes(const vector<uint8_t>& haystack,
             return static_cast<size_t>(p - data);
 
     return string::npos;
+}
+
+// 获取应用私有目录路径
+string get_app_specific_dir_path2() {
+
+    Dl_info dlInfo;
+    dladdr((void *) get_app_specific_dir_path2, &dlInfo);
+    LOGE("dlInfo.dli_fname %s", dlInfo.dli_fname);
+
+    // 这里列举可能获取到的路径
+    // extractNativeLibs=False
+    // android8     /data/app/com.example.zappspecificdirpath-8vHILujCn2tIBffmQy2qEg==/base.apk!/lib/arm64-v8a/libzAppSpecificDirPath.so
+    // android9     /data/app/com.example.zappspecificdirpath-fCRHWTJ-twcmhCP2MtacVQ==/base.apk!/lib/arm64-v8a/libzAppSpecificDirPath.so
+    // android10    /data/app/com.example.zappspecificdirpath-HegrfXlnqnzOLki2G8wEDA==/base.apk!/lib/arm64-v8a/libzAppSpecificDirPath.so
+    // android11    /data/app/~~Qpzn7ScoMn6IN0Ex83T_QQ==/com.example.zappspecificdirpath-ynF7aqmu0fLQVqvsCHoPYg==/base.apk!/lib/arm64-v8a/libzAppSpecificDirPath.so
+    // android12    /data/app/~~f9g8U9zlePuy_WqgZ8okBQ==/com.example.zappspecificdirpath-lig31uP97bB0FBMrJtTc7A==/base.apk!/lib/arm64-v8a/libzAppSpecificDirPath.so
+    // android13    /data/app/~~qkSn5MFpSCiivUU04zV6ww==/com.example.zappspecificdirpath-yAnEGWVCn4flICUYNYgmiQ==/base.apk!/lib/arm64-v8a/libzAppSpecificDirPath.so
+    // android14    /data/app/~~a1c4uFCHhMq_tGlzDd3wNA==/com.example.zappspecificdirpath-tFhsF_RI7oMWWeYFXfX_XA==/base.apk!/lib/arm64-v8a/libzAppSpecificDirPath.so
+
+    // extractNativeLibs=True
+    // android8     /data/app/com.example.zappspecificdirpath-l4CqcuvX1VmXV44is1Rftw==/lib/arm64/libzAppSpecificDirPath.so
+    // android9     /data/app/com.example.zappspecificdirpath-qFP8eTYb71-JAKlgnkTZFw==/lib/arm64/libzAppSpecificDirPath.so
+    // android10    /data/app/com.example.zappspecificdirpath-lInIIiPhrBu1DeyZC5NFtw==/lib/arm64/libzAppSpecificDirPath.so
+    // android11    /data/app/~~DERGEtEs5yQ62LLLf4m2lw==/com.example.zappspecificdirpath-y3Lykr5W_tGIZovYxEccAA==/lib/arm64/libzAppSpecificDirPath.so
+    // android12    /data/app/~~i2VqkZlWtT6SVeMhRovP_w==/com.example.zappspecificdirpath-J1lZTjAtgm0Q4yWK9IQnoQ==/lib/arm64/libzAppSpecificDirPath.so
+    // android13    /data/app/~~XsF13sQwJUJ5gfdYNAaSzQ==/com.example.zappspecificdirpath-f2dL9tXiEeEP_vUbLbuJng==/lib/arm64/libzAppSpecificDirPath.so
+    // android14    /data/app/~~Kk6H0mvaWN4oFARFVd2O5A==/com.example.zappspecificdirpath-CJS-eW_VEWNq3aFObuFSMg==/lib/arm64/libzAppSpecificDirPath.so
+
+    std::cmatch matchs;
+    std::regex rx("(/data/app/.+?==)(?:/base.apk!)*/lib");
+    bool found = std::regex_search((const char *) dlInfo.dli_fname,
+                                   (const char *) dlInfo.dli_fname +
+                                   strlen((char *) dlInfo.dli_fname), matchs, rx);
+    if (found) {
+        return matchs.str(1).c_str();
+    }
+    return "";
 }
 
 /**
@@ -64,25 +105,31 @@ map<string, map<string, string>> get_maps_info() {
         }
     }
 
+    string base_odex_path = "";
+
     LibraryMapping* library = maps.find_so_by_name("/oat/arm64/base.odex");
     if(library != nullptr){
         LOGE("base.odex: %s", library->file_path.c_str());
+        base_odex_path = library->file_path;
+    }else{
+        LOGE("base.odex load failed");
+        info["base.odex"]["risk"] = "error";
+        info["base.odex"]["explain"] = "base.odex is not loaded";
+        base_odex_path = get_app_specific_dir_path2() + "/oat/arm64/base.odex";
+    }
 
-        zFile base_odex = zFile(library->file_path);
-
+    zFile base_odex = zFile(base_odex_path);
+    if(base_odex.exists()){
         vector<uint8_t> bytes = base_odex.readAllBytes();
-
         size_t pos = findBytes(bytes, "--inline-max-code-units=0");
         if (pos != string::npos){
             LOGE("find black str --inline-max-code-units=0");
             info["--inline-max-code-units=0"]["risk"] = "error";
             info["--inline-max-code-units=0"]["explain"] = "black string but find in base.odex";
         }
-
     }else{
-        LOGE("base.odex load failed");
         info["base.odex"]["risk"] = "error";
-        info["base.odex"]["explain"] = "base.odex is not loaded";
+        info["base.odex"]["explain"] = "base.odex is not exists";
     }
 
     return info;
@@ -254,25 +301,25 @@ map<string, map<string, string>> get_proc_info() {
     LOGI("get_maps_info insert is called");
     info.insert(maps_info.begin(), maps_info.end());
 
-//    LOGI("get_mounts_info is called");
-//    map<string, map<string, string>> mounts_info = get_mounts_info();
-//    LOGI("get_mounts_info insert is called");
-//    info.insert(mounts_info.begin(), mounts_info.end());
+    LOGI("get_mounts_info is called");
+    map<string, map<string, string>> mounts_info = get_mounts_info();
+    LOGI("get_mounts_info insert is called");
+    info.insert(mounts_info.begin(), mounts_info.end());
 
-//    LOGI("get_task_info is called");
-//    map<string, map<string, string>> task_info = get_task_info();
-//    LOGI("get_task_info insert is called");
-//    info.insert(task_info.begin(), task_info.end());
-//
-//    LOGI("get_attr_prev_info is called");
-//    map<string, map<string, string>> attr_prev_info = get_attr_prev_info();
-//    LOGI("get_attr_prev_info insert is called");
-//    info.insert(attr_prev_info.begin(), attr_prev_info.end());
-//
-//    LOGI("get_net_tcp_info is called");
-//    map<string, map<string, string>> net_tcp_info = get_net_tcp_info();
-//    LOGI("get_net_tcp_info insert is called");
-//    info.insert(net_tcp_info.begin(), net_tcp_info.end());
+    LOGI("get_task_info is called");
+    map<string, map<string, string>> task_info = get_task_info();
+    LOGI("get_task_info insert is called");
+    info.insert(task_info.begin(), task_info.end());
+
+    LOGI("get_attr_prev_info is called");
+    map<string, map<string, string>> attr_prev_info = get_attr_prev_info();
+    LOGI("get_attr_prev_info insert is called");
+    info.insert(attr_prev_info.begin(), attr_prev_info.end());
+
+    LOGI("get_net_tcp_info is called");
+    map<string, map<string, string>> net_tcp_info = get_net_tcp_info();
+    LOGI("get_net_tcp_info insert is called");
+    info.insert(net_tcp_info.begin(), net_tcp_info.end());
 
     return info;
 }

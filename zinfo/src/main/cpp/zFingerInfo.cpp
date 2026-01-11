@@ -12,7 +12,22 @@
 #include "zLog.h"
 #include "zFile.h"
 #include "zJavaVm.h"
+#include "zTeeCert.h"
 
+string hash16(const string& input) {
+    const char base32[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    uint64_t h = 14695981039346656037ULL;
+    for (unsigned char c : input) {
+        h ^= c;
+        h *= 1099511628211ULL;
+    }
+    string out;
+    out.reserve(16);
+    for (int i = 0; i < 16; ++i) {
+        out.push_back(base32[(h >> (i * 5)) & 0x1F]);
+    }
+    return out;
+}
 
 string get_android_id(JNIEnv* env, jobject context) {
     if (!context) return "";
@@ -231,6 +246,17 @@ string get_app_specific_dir_finger(string path) {
     return "";
 }
 
+string get_boot_id() {
+    zFile boot_id = zFile("/proc/sys/kernel/random/boot_id");
+    if(!boot_id.exists()){
+        return "";
+    }
+    string s = boot_id.readLine();
+    if (!s.empty() && (s.back() == '\n' || s.back() == '\r')) {
+        s.erase(s.find_last_not_of("\r\n") + 1);
+    }
+    return s;
+}
 
 map<string, map<string, string>> get_finger_info() {
     LOGI("get_time_info: starting...");
@@ -243,7 +269,7 @@ map<string, map<string, string>> get_finger_info() {
 
     string store_finger =get_store_finger();
     info["store_finger"]["risk"] = "safe";
-    info["store_finger"]["explain"] = store_finger;
+    info["store_finger"]["explain"] = hash16(store_finger);
 
     string drm_id =get_drm_id();
     if(drm_id.empty()){
@@ -255,13 +281,23 @@ map<string, map<string, string>> get_finger_info() {
     }
 
     string base_apk_path = get_package_base_apk_path(zJavaVm::getInstance()->getEnv(), zJavaVm::getInstance()->getContext(), "com.tencent.mm");
+
     string weixin_finger = get_app_specific_dir_finger(base_apk_path);
     if(weixin_finger.empty()){
         info["weixin_finger"]["risk"] = "warn";
         info["weixin_finger"]["explain"] = "weixin_finger is empty";
     }else{
         info["weixin_finger"]["risk"] = "safe";
-        info["weixin_finger"]["explain"] = weixin_finger;
+        info["weixin_finger"]["explain"] = hash16(base_apk_path);
+    }
+
+    string boot_id = get_boot_id();
+    if(boot_id.empty()){
+        info["boot_id"]["risk"] = "error";
+        info["boot_id"]["explain"] = "boot_id is empty";
+    }else{
+        info["boot_id"]["risk"] = "safe";
+        info["boot_id"]["explain"] = boot_id;
     }
 
     return info;

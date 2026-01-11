@@ -34,7 +34,7 @@ zProcMaps::zProcMaps() {
 
         // 解析行
         vector<string> parts = split_str(lines[i], ' ');
-        if (parts.size() != 6) {
+        if (parts.size() != 6 && parts.size() != 7) {
             LOGE("Line %zu: insufficient parts %s", i + 1, lines[i].c_str());
             continue;
         }
@@ -53,6 +53,7 @@ zProcMaps::zProcMaps() {
         segment.device_major_minor = parts[3];
         segment.inode = parts[4];
         segment.file_path = parts[5];
+        segment.is_deleted = parts.size() == 7 ? true : false;
 
         // 检查是否是新的 SO 映射（通过 ELF 头）
         bool is_new_so = false;
@@ -74,6 +75,7 @@ zProcMaps::zProcMaps() {
             library.file_path = segment.file_path;
             library.device_major_minor = segment.device_major_minor;
             library.inode = segment.inode;
+            library.is_deleted = segment.is_deleted;
             library.segments.push_back(segment);
             temp_library_vector.push_back(library);
         } else if (!temp_library_vector.empty()) {
@@ -101,6 +103,7 @@ zProcMaps::zProcMaps() {
 
 LibraryMapping* zProcMaps::find_so_by_name(string so_name) {
     for (auto it = loaded_libraries.begin(); it != loaded_libraries.end(); it++) {
+        LOGI("loaded_libraries %s", it->first.c_str());
         if(string_end_with(it->first.c_str(), so_name.c_str())){
             LOGI("Find so by name: %s", it->first.c_str());
             return &it->second;

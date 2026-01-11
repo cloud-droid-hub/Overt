@@ -255,7 +255,7 @@ void zManager::round_tasks(){
             }
             // 等待一段时间后再次检查
             LOGD("add_tasks: waiting %d seconds before next cycle", time_interval);
-            sleep(time_interval*10);
+            sleep(time_interval);
         } catch (const std::exception& e) {
             LOGE("add_tasks: exception occurred: %s", e.what());
             sleep(5); // 发生异常时短暂等待
