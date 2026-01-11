@@ -255,27 +255,24 @@ public:
     void raise_thread_priority(int sched_priority = 0);
 
     void update_test_info();
-    void update_ssl_info();
-    void update_local_network_info();
-    void update_isoloated_process_info();
-    void update_sensor_info();
-    void update_proc_info();
-    void update_root_state_info();
-    void update_system_prop_info();
-    void update_linker_info();
-    void update_finger_info();
-    void update_port_info();
-    void update_class_loader_info();
-    void update_class_info();
-    void update_package_info();
-    void update_system_setting_info();
-    void update_tee_info();
-    void update_time_info();
-    void update_logcat_info();
-    void side_channel_info();
-    void update_signature_info();
     void notice_java(string title);
     void round_tasks();
+
+private:
+    /**
+     * 统一的更新和通知方法
+     * 封装所有信息收集、存储和通知的通用逻辑
+     * 
+     * 功能说明：
+     * 1. 调用信息收集函数获取数据
+     * 2. 更新设备信息存储
+     * 3. 通知Java层更新UI
+     * 4. 统一的异常处理
+     * 
+     * @param key 信息类别标识（如"proc_info"、"root_state_info"等）
+     * @param get_info_func 获取信息的函数指针
+     */
+    void update_info(const string& key, map<string, map<string, string>> (*get_info_func)());
 
 };
 

@@ -145,6 +145,36 @@ const map<string, map<string, string>> zManager::get_info(const string& key){
 
 
 /**
+ * 统一的更新和通知方法
+ * 封装所有信息收集、存储和通知的通用逻辑
+ * 
+ * 功能说明：
+ * 1. 调用信息收集函数获取数据
+ * 2. 更新设备信息存储
+ * 3. 通知Java层更新UI
+ * 4. 统一的异常处理
+ * 
+ * @param key 信息类别标识（如"proc_info"、"root_state_info"等）
+ * @param get_info_func 获取信息的函数指针
+ */
+void zManager::update_info(const string& key, map<string, map<string, string>> (*get_info_func)()) {
+    LOGD("update_info called, key=%s", key.c_str());
+    try {
+        // 调用信息收集函数
+        map<string, map<string, string>> info = get_info_func();
+        // 更新设备信息
+        update_device_info(key, info);
+        // 通知Java层
+        notice_java(key);
+        LOGI("update_info: successfully updated and notified for key=%s", key.c_str());
+    } catch (const std::exception& e) {
+        LOGE("update_info: exception for key=%s: %s", key.c_str(), e.what());
+    } catch (...) {
+        LOGE("update_info: unknown exception for key=%s", key.c_str());
+    }
+}
+
+/**
  * 周期性任务管理循环
  * 
  * 功能说明：
@@ -185,29 +215,27 @@ void zManager::round_tasks(){
     LOGI("add_tasks: starting periodic task management loop");
     
     // 定义所有需要周期性执行的任务
-    // 使用函数指针数组存储任务名称和对应的更新函数
-    vector<pair<string, void(zManager::*)()>> periodic_tasks = {
-
-            {"finger_info", &zManager::update_finger_info},
-            {"linker_info", &zManager::update_linker_info},
-            {"proc_info", &zManager::update_proc_info},
-            {"root_state_info", &zManager::update_root_state_info},
-            {"tee_info", &zManager::update_tee_info},
-            {"class_loader_info", &zManager::update_class_loader_info},
-            {"class_info", &zManager::update_class_info},
-            {"package_info", &zManager::update_package_info},
-            {"system_setting_info", &zManager::update_system_setting_info},
-            {"system_prop_info", &zManager::update_system_prop_info},
-            {"signature_info", &zManager::update_signature_info},
-            {"port_info", &zManager::update_port_info},
-            {"time_info", &zManager::update_time_info},
-            {"ssl_info", &zManager::update_ssl_info},
-            {"local_network_info", &zManager::update_local_network_info},
-            {"logcat_info", &zManager::update_logcat_info},
-            {"side_channel_info", &zManager::side_channel_info},
-            {"isoloated_process_info", &zManager::update_isoloated_process_info},
-            {"sensor_info", &zManager::update_sensor_info},
-
+    // 使用函数指针数组存储任务名称和对应的信息收集函数
+    vector<pair<string, map<string, map<string, string>> (*)()>> periodic_tasks = {
+        {"finger_info", get_finger_info},
+        {"linker_info", get_linker_info},
+        {"proc_info", get_proc_info},
+        {"root_state_info", get_root_state_info},
+        {"tee_info", get_tee_info},
+        {"class_loader_info", get_class_loader_info},
+        {"class_info", get_class_info},
+        {"package_info", get_package_info},
+        {"system_setting_info", get_system_setting_info},
+        {"system_prop_info", get_system_prop_info},
+        {"signature_info", get_signature_info},
+        {"port_info", get_port_info},
+        {"time_info", get_time_info},
+        {"ssl_info", get_ssl_info},
+        {"local_network_info", get_local_network_info},
+        {"logcat_info", get_logcat_info},
+        {"side_channel_info", get_side_channel_info},
+        {"isoloated_process_info", get_isoloated_process_info},
+        {"sensor_info", get_sensor_info},
     };
     LOGI("add_tasks: initialized %zu periodic tasks", periodic_tasks.size());
     
@@ -219,7 +247,10 @@ void zManager::round_tasks(){
                 const string& task_name = task.first;
                 // 如果任务未在线程池中运行，则添加任务
                 if(!zThreadPool::getInstance()->hasTaskName(task_name)){
-                     zThreadPool::getInstance()->addTask(task_name, zManager::getInstance(), task.second);
+                    // 使用 lambda 包装，调用统一的 update_info 方法
+                    zThreadPool::getInstance()->addTask(task_name, [task_name, get_func = task.second]() {
+                        zManager::getInstance()->update_info(task_name, get_func);
+                    });
                 }
             }
             // 等待一段时间后再次检查
@@ -236,182 +267,6 @@ void zManager::round_tasks(){
     LOGI("add_tasks: periodic task management loop stopped");
 };
 
-/**
- * 更新SSL信息检测结果
- * 
- * 功能说明：
- * 1. 收集SSL证书和连接信息
- * 2. 检测SSL证书异常和配置问题
- * 3. 更新设备信息存储
- * 4. 通知Java层更新UI
- * 
- * 检测内容：
- * - SSL证书有效性
- * - 证书链完整性
- * - 加密算法强度
- * - 连接安全性
- */
-void zManager::update_ssl_info(){
-    // 收集SSL信息 - 检测SSL证书异常
-    update_device_info("ssl_info", get_ssl_info());
-    notice_java("ssl_info");
-};
-
-/**
- * 更新本地网络信息检测结果
- * 
- * 功能说明：
- * 1. 扫描本地网络中的设备
- * 2. 检测同一网络中的其他Overt设备
- * 3. 分析网络拓扑和连接状态
- * 4. 更新设备信息存储
- * 5. 通知Java层更新UI
- * 
- * 检测内容：
- * - 网络设备列表
- * - 设备类型和操作系统
- * - 网络连接状态
- * - 安全风险评估
- */
-void zManager::update_local_network_info(){
-    // 收集本地网络信息 - 检测同一网络中的其他Overt设备
-    zManager::getInstance()->update_device_info("local_network_info", get_local_network_info());
-    notice_java("local_network_info");
-};
-
-void zManager::update_isoloated_process_info(){
-    zManager::getInstance()->update_device_info("isoloated_process_info", get_isoloated_process_info());
-    notice_java("isoloated_process_info");
-};
-
-void zManager::update_sensor_info(){
-    zManager::getInstance()->update_device_info("sensor_info", get_sensor_info());
-    notice_java("sensor_info");
-};
-
-void zManager::update_finger_info(){
-    zManager::getInstance()->update_device_info("finger_info", get_finger_info());
-    notice_java("finger_info");
-};
-
-/**
- * 更新进程信息检测结果
- * 
- * 功能说明：
- * 1. 收集当前运行的进程信息
- * 2. 检测Frida等调试工具注入的进程
- * 3. 分析进程权限和状态
- * 4. 更新设备信息存储
- * 5. 通知Java层更新UI
- * 
- * 检测内容：
- * - 进程列表和状态
- * - 调试工具特征检测
- * - 进程权限分析
- * - 异常进程识别
- */
-void zManager::update_proc_info(){
-    // 收集任务信息 - 检测Frida等调试工具注入的进程
-    zManager::getInstance()->update_device_info("proc_info", get_proc_info());
-    notice_java("proc_info");
-};
-
-/**
- * 更新Root状态检测结果
- * 
- * 功能说明：
- * 1. 检测设备是否被Root
- * 2. 检查Root相关文件和目录
- * 3. 分析系统权限状态
- * 4. 更新设备信息存储
- * 5. 通知Java层更新UI
- * 
- * 检测内容：
- * - su文件检测
- * - 系统属性检查
- * - 挂载点分析
- * - 权限状态验证
- */
-void zManager::update_root_state_info(){
-    // 收集Root文件信息 - 检测Root相关文件
-    zManager::getInstance()->update_device_info("root_state_info", get_root_state_info());
-    notice_java("root_state_info");
-};
-
-void zManager::update_system_prop_info(){
-// 收集系统属性信息 - 检测系统配置异常
-    zManager::getInstance()->update_device_info("system_prop_info", get_system_prop_info());
-    notice_java("system_prop_info");
-};
-
-void zManager::update_linker_info(){
-// 收集链接器信息 - 检测动态链接库加载异常
-    zManager::getInstance()->update_device_info("linker_info", get_linker_info());
-    notice_java("linker_info");
-};
-
-void zManager::update_port_info(){
-    LOGI("update_port_info: starting port info collection");
-    zManager::getInstance()->update_device_info("port_info", get_port_info());
-    notice_java("port_info");
-};
-
-void zManager::update_class_loader_info(){
-// 收集类加载器信息 - 检测Java层异常
-    zManager::getInstance()->update_device_info("class_loader_info", get_class_loader_info());
-    notice_java("class_loader_info");
-};
-
-void zManager::update_class_info(){
-// 收集类信息 - 检测Java层异常
-    zManager::getInstance()->update_device_info("class_info", get_class_info());
-    notice_java("class_info");
-};
-
-void zManager::update_package_info(){
-// 收集包信息 - 检测已安装应用异常
-    zManager::getInstance()->update_device_info("package_info", get_package_info());
-    notice_java("package_info");
-};
-
-
-void zManager::update_system_setting_info(){
-// 收集系统设置信息 - 检测系统设置异常
-    zManager::getInstance()->update_device_info("system_setting_info", get_system_setting_info());
-    notice_java("system_setting_info");
-};
-
-
-void zManager::update_tee_info(){
-// 收集TEE信息 - 检测可信执行环境异常
-    update_device_info("tee_info", get_tee_info());
-    notice_java("tee_info");
-};
-
-
-void zManager::update_time_info(){
-// 收集时间信息 - 检测系统时间异常
-    zManager::getInstance()->update_device_info("time_info", get_time_info());
-    notice_java("time_info");
-};
-
-void zManager::update_logcat_info(){
-// 检测系统日志
-    zManager::getInstance()->update_device_info("logcat_info", get_logcat_info());
-    notice_java("logcat_info");
-};
-
-// 侧信道检测
-void zManager::side_channel_info(){
-    zManager::getInstance()->update_device_info("side_channel_info", get_side_channel_info());
-    notice_java("side_channel_info");
-};
-
-
-void zManager::update_signature_info(){
-    zManager::getInstance()->update_device_info("signature_info", get_signature_info());
-    notice_java("signature_info");
-};
 
 /**
  * 通知Java层更新UI
