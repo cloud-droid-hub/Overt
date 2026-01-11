@@ -5,7 +5,7 @@
 #include <sched.h>
 #include <cerrno>
 #include "zSideChannelInfo.h"
-#include "syscall.h"
+#include "zSyscall.h"
 #include "zLog.h"
 #include "zStdUtil.h"
 
@@ -41,7 +41,7 @@ map<string, map<string, string>> get_side_channel_info(){
     CPU_ZERO(&mask);
     CPU_SET(0, &mask); // 绑定到 CPU0，一般来讲，CPU0 都是大核
 
-    pid_t tid = __syscall0(SYS_gettid); // 当前线程的 TID
+    pid_t tid = syscall(SYS_gettid); // 当前线程的 TID
     int result = sched_setaffinity(tid, sizeof(mask), &mask);
 
     if (result != 0) {
@@ -57,7 +57,7 @@ map<string, map<string, string>> get_side_channel_info(){
     // 执行10000次faccessat系统调用，记录每次的执行时间
     for(int i = 0; i < 10000; i++){
         uint64_t start_time = raw_ns();
-        __syscall4(SYS_faccessat, 0xFFFFFFFFLL, 0LL, 0xFFFFFFFFLL, 0LL);
+        syscall(SYS_faccessat, 0xFFFFFFFFLL, 0LL, 0xFFFFFFFFLL, 0LL);
         uint64_t end_time = raw_ns();
         times1[i] = end_time - start_time;
     }
@@ -65,7 +65,7 @@ map<string, map<string, string>> get_side_channel_info(){
     // 执行10000次fchownat系统调用，记录每次的执行时间
     for(int i = 0; i < 10000; i++){
         uint64_t start_time = raw_ns();
-        __syscall5(SYS_fchownat, -1, 0LL, 0, 0, -1);
+        syscall(SYS_fchownat, -1, 0LL, 0, 0, -1);
         uint64_t end_time = raw_ns();
         times2[i] = end_time - start_time;
     }

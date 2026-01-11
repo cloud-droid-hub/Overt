@@ -10,7 +10,7 @@
 #include "zLog.h"
 #include "zLibc.h"
 #include "zJavaVm.h"
-#include "syscall.h"
+#include "zSyscall.h"
 
 
 // 静态单例实例指针
@@ -94,7 +94,7 @@ JNIEnv* zJavaVm::getEnv(){
     }
 
     // 获取当前线程ID
-    int tid = __syscall0(SYS_gettid);
+    int tid = syscall(SYS_gettid);
 
     // 先检查是否已经有当前线程的JNIEnv
     {
@@ -454,7 +454,7 @@ void zJavaVm::cleanupCurrentThreadEnv(){
     }
     
     // 获取当前线程ID
-    int tid = __syscall0(SYS_gettid);
+    int tid = syscall(SYS_gettid);
     
     // 从映射表中移除当前线程的JNIEnv
     {

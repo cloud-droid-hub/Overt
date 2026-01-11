@@ -6,7 +6,7 @@
 #include <media/NdkMediaDrm.h>
 #include <sys/sysinfo.h>
 #include <sys/statfs.h>
-#include "syscall.h"
+#include "zSyscall.h"
 #include "zLibc.h"
 #include "zLog.h"
 #include "zFile.h"

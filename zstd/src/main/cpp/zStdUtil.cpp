@@ -8,7 +8,7 @@
 #include <linux/resource.h>
 #include <sys/resource.h>
 
-#include "syscall.h"
+#include "zSyscall.h"
 #include "zLog.h"
 #include "zLibc.h"
 #include "zStdUtil.h"

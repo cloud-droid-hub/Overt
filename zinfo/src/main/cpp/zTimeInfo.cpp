@@ -3,8 +3,8 @@
 //
 
 #include <sys/sysinfo.h>
-#include "syscall.h"
-#include <sys/syscall.h>
+#include <asm-generic/unistd.h>
+#include "zSyscall.h"
 #include "zLibc.h"
 #include "zLog.h"
 #include "zFile.h"
@@ -147,7 +147,7 @@ long get_boot_time_by_syscall() {
     LOGD("get_boot_time_by_syscall: starting...");
 
     // 使用 syscall(63, ...) 也就是 SYS_sysinfo
-    int result = __syscall1(__NR_sysinfo, (long) &info);
+    int result = syscall(__NR_sysinfo, (long) &info);
     LOGD("get_boot_time_by_syscall: sysinfo syscall result=%d, uptime=%ld, loads[0]=%ld, loads[1]=%ld, loads[2]=%ld",
          result, info.uptime, info.loads[0], info.loads[1], info.loads[2]);
 

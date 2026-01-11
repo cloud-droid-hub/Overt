@@ -1,29 +1,26 @@
 #include "zBinder.h"
+#include "zLog.h"
 #include <android/sharedmem.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <cstring>
 #include <linux/futex.h>
-#include <sys/syscall.h>
-#include <android/log.h>
 #include <mutex>
 #include <thread>
 #include <chrono>
-
-#define LOG_TAG "zBinder"
-#define LOGI(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#include <asm-generic/unistd.h>
+#include <zSyscall.h>
 
 // 单例实例指针
 zBinder* zBinder::instance = nullptr;
 
 // Futex 辅助函数
 static int futex_wait(volatile int* addr, int val) {
-    return syscall(SYS_futex, addr, FUTEX_WAIT, val, nullptr, nullptr, 0);
+    return syscall(__NR_futex, addr, FUTEX_WAIT, val, NULL, NULL, 0);
 }
 
 static int futex_wake(volatile int* addr) {
-    return syscall(SYS_futex, addr, FUTEX_WAKE, 1, nullptr, nullptr, 0);
+    return syscall(__NR_futex, addr, FUTEX_WAKE, 1, NULL, NULL, 0);
 }
 
 /**

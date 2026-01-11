@@ -1,4 +1,5 @@
 #include <jni.h>
+#include <bits/glibc-syscalls.h>
 
 #include "zLog.h"
 #include "zLibc.h"
@@ -11,6 +12,8 @@
 #include "zJson.h"
 #include "zBinder.h"
 #include "zShell.h"
+#include "zSyscall.h"
+
 
 // 0 zConfig
 // 1 zLog															        依赖等级 0

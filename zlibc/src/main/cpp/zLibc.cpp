@@ -8,8 +8,8 @@
 #define PAGE_ALIGN(x) (((x) + 0xFFF) & ~0xFFF)
 
 #include "zLog.h"
-#include "syscall.h"
 #include "zLibc.h"
+#include "zSyscall.h"
 
 #if ZLIBC_ENABLE_NONSTD_API
 
@@ -140,7 +140,7 @@ void* zlibc_malloc(size_t size) {
 
     size_t total_size = PAGE_ALIGN(sizeof(MemHeader) + size);
 
-    void* p = (void*)__syscall6(__NR_mmap,
+    void* p = (void*)syscall(__NR_mmap,
                              NULL,
                              total_size,
                              PROT_READ | PROT_WRITE,
@@ -169,7 +169,7 @@ void zlibc_free(void* ptr) {
         return;
     }
 
-    __syscall2(__NR_munmap, (long)header, header->size);
+    syscall(__NR_munmap, (long)header, header->size);
     LOGV("zlibc_free: unmapped %zu bytes at %p", header->size, ptr);
 }
 
@@ -249,7 +249,7 @@ int zlibc_open(const char* pathname, int flags, ...) {
     }
 
     // 使用 openat 系统调用，AT_FDCWD 表示相对于当前工作目录
-    int fd = (int)__syscall4(SYS_openat, AT_FDCWD, (long)pathname, flags, mode);
+    int fd = (int)syscall(SYS_openat, AT_FDCWD, (long)pathname, flags, mode);
     LOGV("open: returned fd=%d", fd);
     return fd;
 }
@@ -257,7 +257,7 @@ int zlibc_open(const char* pathname, int flags, ...) {
 int zlibc_close(int fd) {
     LOGV("zlibc_close called: fd=%d", fd);
 
-    int result = (int)__syscall1(SYS_close, fd);
+    int result = (int)syscall(SYS_close, fd);
     LOGV("close: result=%d", result);
     return result;
 }
@@ -270,7 +270,7 @@ ssize_t zlibc_read(int fd, void *buf, size_t count) {
         return -1;
     }
 
-    ssize_t result = __syscall3(SYS_read, fd, (long)buf, count);
+    ssize_t result = syscall(SYS_read, fd, (long)buf, count);
     LOGV("read: result=%zd", result);
     return result;
 }
@@ -283,7 +283,7 @@ ssize_t zlibc_write(int fd, const void *buf, size_t count) {
         return -1;
     }
 
-    ssize_t result = __syscall3(SYS_write, fd, (long)buf, count);
+    ssize_t result = syscall(SYS_write, fd, (long)buf, count);
     LOGV("write: result=%zd", result);
     return result;
 }
@@ -294,7 +294,7 @@ int zlibc_socket(int domain, int type, int protocol) {
     LOGV("zlibc_socket called: domain=%d, type=%d, protocol=%d", domain, type, protocol);
 
     // socket syscall 参数顺序：domain, type, protocol
-    long sock = __syscall3(SYS_socket, (long)domain, (long)type, (long)protocol);
+    long sock = syscall(SYS_socket, (long)domain, (long)type, (long)protocol);
 
     if (sock < 0) {
         LOGV("socket: syscall failed, errno=%d", -sock);
@@ -309,7 +309,7 @@ int zlibc_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
     LOGV("zlibc_connect called: sockfd=%d, addr=%p, addrlen=%u", sockfd, addr, addrlen);
 
     // connect 参数顺序：sockfd, addr, addrlen
-    long result = __syscall3(SYS_connect, (long)sockfd, (long)addr, (long)addrlen);
+    long result = syscall(SYS_connect, (long)sockfd, (long)addr, (long)addrlen);
 
     if (result < 0) {
         LOGV("connect: syscall failed, errno=%ld", -result);
@@ -355,7 +355,7 @@ int zlibc_fcntl(int fd, int cmd, ...) {
 
     va_end(args);
 
-    long result = __syscall3(SYS_fcntl64, (long)fd, (long)cmd, arg);
+    long result = syscall(SYS_fcntl64, (long)fd, (long)cmd, arg);
 
     if (result < 0) {
         LOGV("fcntl: syscall failed, errno=%ld", -result);
@@ -370,7 +370,7 @@ int zlibc_fcntl(int fd, int cmd, ...) {
 int zlibc_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
     LOGV("zlibc_bind called: sockfd=%d, addr=%p, addrlen=%u", sockfd, addr, addrlen);
 
-    int result = (int)__syscall3(SYS_bind, sockfd, (long)addr, addrlen);
+    int result = (int)syscall(SYS_bind, sockfd, (long)addr, addrlen);
     LOGV("bind: result=%d", result);
     return result;
 }
@@ -378,7 +378,7 @@ int zlibc_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 int zlibc_listen(int sockfd, int backlog) {
     LOGV("zlibc_listen called: sockfd=%d, backlog=%d", sockfd, backlog);
 
-    int result = (int)__syscall2(SYS_listen, sockfd, backlog);
+    int result = (int)syscall(SYS_listen, sockfd, backlog);
     LOGV("listen: result=%d", result);
     return result;
 }
@@ -386,7 +386,7 @@ int zlibc_listen(int sockfd, int backlog) {
 int zlibc_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
     LOGV("zlibc_accept called: sockfd=%d, addr=%p, addrlen=%p", sockfd, addr, addrlen);
 
-    int result = (int)__syscall3(SYS_accept, sockfd, (long)addr, (long)addrlen);
+    int result = (int)syscall(SYS_accept, sockfd, (long)addr, (long)addrlen);
     LOGV("accept: result=%d", result);
     return result;
 }
@@ -399,7 +399,7 @@ time_t zlibc_time(time_t *tloc) {
     // 在 ARM64 上，time 系统调用已被废弃，使用 clock_gettime 替代
     struct timespec ts;
 
-    int result = __syscall2(SYS_clock_gettime, CLOCK_REALTIME, (long)&ts);
+    int result = syscall(SYS_clock_gettime, CLOCK_REALTIME, (long)&ts);
 
 
     if (result != 0) {
@@ -417,7 +417,7 @@ time_t zlibc_time(time_t *tloc) {
 int zlibc_gettimeofday(struct timeval *tv, struct timezone *tz) {
     LOGV("zlibc_gettimeofday called: tv=%p, tz=%p", tv, tz);
 
-    int result = (int)__syscall2(SYS_gettimeofday, (long)tv, (long)tz);
+    int result = (int)syscall(SYS_gettimeofday, (long)tv, (long)tz);
     LOGV("gettimeofday: result=%d", result);
     return result;
 }
@@ -427,7 +427,7 @@ int zlibc_gettimeofday(struct timeval *tv, struct timezone *tz) {
 pid_t zlibc_getpid(void) {
     LOGV("zlibc_getpid called");
 
-    pid_t result = (pid_t)__syscall0(SYS_getpid);
+    pid_t result = (pid_t)syscall(SYS_getpid);
     LOGV("getpid: result=%d", result);
     return result;
 }
@@ -436,7 +436,7 @@ pid_t zlibc_getppid(void) {
     LOGV("zlibc_getppid called");
 
     // getppid系统调用号
-    pid_t result = (pid_t)__syscall0(173); // SYS_getppid
+    pid_t result = (pid_t)syscall(173); // SYS_getppid
     LOGV("getppid: result=%d", result);
     return result;
 }
@@ -446,7 +446,7 @@ pid_t zlibc_getppid(void) {
 int zlibc_kill(pid_t pid, int sig) {
     LOGV("zlibc_kill called: pid=%d, sig=%d", pid, sig);
 
-    int result = (int)__syscall2(SYS_kill, pid, sig);
+    int result = (int)syscall(SYS_kill, pid, sig);
     LOGV("kill: result=%d", result);
     return result;
 }
@@ -681,7 +681,7 @@ char* zlibc_strchr(const char *p, int ch) {
 int zlibc_fstat(int __fd, struct stat* __buf) {
     LOGV("zlibc_fstat called: fd=%d, buf=%p", __fd, __buf);
 
-    int result = __syscall2(SYS_fstat, __fd, (long)__buf);
+    int result = syscall(SYS_fstat, __fd, (long)__buf);
     LOGV("fstat: result=%d", result);
     return result;
 }
@@ -689,7 +689,7 @@ int zlibc_fstat(int __fd, struct stat* __buf) {
 off_t zlibc_lseek(int __fd, off_t __offset, int __whence) {
     LOGV("zlibc_lseek called: fd=%d, offset=%ld, whence=%d", __fd, __offset, __whence);
 
-    off_t result = __syscall3(SYS_lseek, __fd, __offset, __whence);
+    off_t result = syscall(SYS_lseek, __fd, __offset, __whence);
     LOGV("lseek: result=%ld", result);
     return result;
 }
@@ -698,7 +698,7 @@ ssize_t zlibc_readlinkat(int __dir_fd, const char* __path, char* __buf, size_t _
     LOGV("zlibc_readlinkat called: dir_fd=%d, path='%s', buf=%p, buf_size=%zu",
          __dir_fd, __path ? __path : "NULL", __buf, __buf_size);
 
-    ssize_t result = __syscall4(SYS_readlinkat, __dir_fd, (long)__path, (long)__buf, (long)__buf_size);
+    ssize_t result = syscall(SYS_readlinkat, __dir_fd, (long)__path, (long)__buf, (long)__buf_size);
     LOGV("readlinkat: result=%zd", result);
     return result;
 }
@@ -708,7 +708,7 @@ ssize_t zlibc_readlinkat(int __dir_fd, const char* __path, char* __buf, size_t _
 int zlibc_nanosleep(const struct timespec* __request, struct timespec* __remainder) {
     LOGV("zlibc_nanosleep called: request=%p, remainder=%p", __request, __remainder);
 
-    int result = (int)__syscall2(SYS_nanosleep, (long)__request, (long)__remainder);
+    int result = (int)syscall(SYS_nanosleep, (long)__request, (long)__remainder);
     LOGV("nanosleep: result=%d", result);
     return result;
 }
@@ -716,7 +716,7 @@ int zlibc_nanosleep(const struct timespec* __request, struct timespec* __remaind
 int zlibc_mprotect(void* __addr, size_t __size, int __prot) {
     LOGV("zlibc_mprotect called: addr=%p, size=%zu, prot=%d", __addr, __size, __prot);
 
-    int result = (int)__syscall3(SYS_mprotect, (long)__addr, (long)__size, (long)__prot);
+    int result = (int)syscall(SYS_mprotect, (long)__addr, (long)__size, (long)__prot);
     LOGV("mprotect: result=%d", result);
     return result;
 }
@@ -724,7 +724,7 @@ int zlibc_mprotect(void* __addr, size_t __size, int __prot) {
 int zlibc_inotify_init1(int flags) {
     LOGV("zlibc_inotify_init1 called: flags=%d", flags);
 
-    int result = __syscall1(SYS_inotify_init1, flags);
+    int result = syscall(SYS_inotify_init1, flags);
     LOGV("inotify_init1: result=%d", result);
     return result;
 }
@@ -732,7 +732,7 @@ int zlibc_inotify_init1(int flags) {
 int zlibc_inotify_add_watch(int __fd, const char *__path, uint32_t __mask) {
     LOGV("zlibc_inotify_add_watch called: fd=%d, path='%s', mask=%u", __fd, __path ? __path : "NULL", __mask);
 
-    int result = __syscall3(SYS_inotify_add_watch, __fd, (long)__path, (long)__mask);
+    int result = syscall(SYS_inotify_add_watch, __fd, (long)__path, (long)__mask);
     LOGV("inotify_add_watch: result=%d", result);
     return result;
 }
@@ -740,7 +740,7 @@ int zlibc_inotify_add_watch(int __fd, const char *__path, uint32_t __mask) {
 int zlibc_inotify_rm_watch(int __fd, uint32_t __watch_descriptor) {
     LOGV("zlibc_inotify_rm_watch called: fd=%d, watch_descriptor=%u", __fd, __watch_descriptor);
 
-    int result = __syscall2(SYS_inotify_rm_watch, __fd, (long)__watch_descriptor);
+    int result = syscall(SYS_inotify_rm_watch, __fd, (long)__watch_descriptor);
     LOGV("inotify_rm_watch: result=%d", result);
     return result;
 }
@@ -748,7 +748,7 @@ int zlibc_inotify_rm_watch(int __fd, uint32_t __watch_descriptor) {
 int zlibc_tgkill(int __tgid, int __tid, int __signal) {
     LOGV("zlibc_tgkill called: tgid=%d, tid=%d, signal=%d", __tgid, __tid, __signal);
 
-    int result = (int)__syscall3(SYS_tgkill, __tgid, __tid, __signal);
+    int result = (int)syscall(SYS_tgkill, __tgid, __tid, __signal);
     LOGV("tgkill: result=%d", result);
     return result;
 }
@@ -756,7 +756,7 @@ int zlibc_tgkill(int __tgid, int __tid, int __signal) {
 void zlibc_exit(int __status) {
     LOGV("zlibc_exit called: status=%d", __status);
 
-    __syscall1(SYS_exit, __status);
+    syscall(SYS_exit, __status);
     // 这行代码永远不会执行
     return;
 }
@@ -771,7 +771,7 @@ ssize_t zlibc_readlink(const char *pathname, char *buf, size_t bufsiz) {
         LOGV("readlink: NULL arg");
         return -1;
     }
-    ssize_t result = (ssize_t)__syscall3(SYS_readlink, (long)pathname, (long)buf, (long)bufsiz);
+    ssize_t result = (ssize_t)syscall(SYS_readlink, (long)pathname, (long)buf, (long)bufsiz);
     LOGV("readlink: result=%zd", result);
     return result;
 }
@@ -782,7 +782,7 @@ int zlibc_stat(const char* __path, struct stat* __buf) {
         LOGV("stat: NULL arg");
         return -1;
     }
-    int result = (int)__syscall4(SYS_newfstatat, AT_FDCWD, (long)__path, (long)__buf, 0);
+    int result = (int)syscall(SYS_newfstatat, AT_FDCWD, (long)__path, (long)__buf, 0);
     LOGV("stat: result=%d", result);
     return result;
 }
@@ -797,7 +797,7 @@ int zlibc_access(const char* __path, int __mode) {
         return -1;
     }
 
-    long result = __syscall2(SYS_access, (uintptr_t)__path, (long)__mode);
+    long result = syscall(SYS_access, (uintptr_t)__path, (long)__mode);
 
     if (result < 0) {
         errno = -result;

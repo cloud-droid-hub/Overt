@@ -8,7 +8,7 @@
 #include "zStd.h"
 #include "zFile.h"
 #include "zManager.h"
-#include "syscall.h"
+#include "zSyscall.h"
 #include "zSslInfo.h"
 #include "zJson.h"
 #include "zRootStateInfo.h"
@@ -616,7 +616,7 @@ vector<int> zManager::get_big_core_list() {
  * @return 当前线程的ID
  */
 pid_t zManager::gettid(){
-    return __syscall0(SYS_gettid);
+    return syscall(SYS_gettid);
 }
 
 /**
