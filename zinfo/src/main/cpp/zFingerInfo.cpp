@@ -4,6 +4,7 @@
 
 #include <jni.h>
 #include <media/NdkMediaDrm.h>
+#include <regex>
 #include <sys/sysinfo.h>
 #include <sys/statfs.h>
 #include "zSyscall.h"
@@ -159,6 +160,78 @@ string get_drm_id(){
     return hexStr;
 }
 
+string get_package_base_apk_path(JNIEnv* env, jobject context, const string& pkg) {
+    if (env == nullptr || context == nullptr || pkg.empty()) {
+        return "";
+    }
+
+    string result;
+
+    // Context.getPackageManager()
+    jclass contextCls = env->GetObjectClass(context);
+    jmethodID midGetPM = env->GetMethodID(
+            contextCls,
+            "getPackageManager",
+            "()Landroid/content/pm/PackageManager;"
+    );
+    jobject pm = env->CallObjectMethod(context, midGetPM);
+    env->DeleteLocalRef(contextCls);
+
+    if (pm == nullptr) {
+        return "";
+    }
+
+    // PackageManager.getApplicationInfo(String, int)
+    jclass pmCls = env->GetObjectClass(pm);
+    jmethodID midGetAI = env->GetMethodID(
+            pmCls,
+            "getApplicationInfo",
+            "(Ljava/lang/String;I)Landroid/content/pm/ApplicationInfo;"
+    );
+
+    jstring jPkg = env->NewStringUTF(pkg.c_str());
+    jobject ai = env->CallObjectMethod(pm, midGetAI, jPkg, 0);
+    env->DeleteLocalRef(jPkg);
+    env->DeleteLocalRef(pmCls);
+    env->DeleteLocalRef(pm);
+
+    if (env->ExceptionCheck() || ai == nullptr) {
+        env->ExceptionClear(); // 包不存在 / 不可见
+        return "";
+    }
+
+    // ApplicationInfo.sourceDir
+    jclass aiCls = env->GetObjectClass(ai);
+    jfieldID fidSourceDir = env->GetFieldID(
+            aiCls,
+            "sourceDir",
+            "Ljava/lang/String;"
+    );
+
+    jstring sourceDir = (jstring) env->GetObjectField(ai, fidSourceDir);
+    if (sourceDir != nullptr) {
+        const char* base_apk_path = env->GetStringUTFChars(sourceDir, nullptr);
+        result = base_apk_path;
+        env->DeleteLocalRef(sourceDir);
+    }
+
+    env->DeleteLocalRef(aiCls);
+    env->DeleteLocalRef(ai);
+
+    return result;
+}
+
+
+string get_app_specific_dir_finger(string path) {
+    std::cmatch match;
+    std::regex rx(R"(/data/app/(?:~~[^/]+/)?[^/-]+-([^/=]+)==/)");
+    if (std::regex_search(path.c_str(), match, rx)) {
+        return match[1].str().c_str();
+    }
+    return "";
+}
+
+
 map<string, map<string, string>> get_finger_info() {
     LOGI("get_time_info: starting...");
 
@@ -179,6 +252,16 @@ map<string, map<string, string>> get_finger_info() {
     }else{
         info["drm_id"]["risk"] = "safe";
         info["drm_id"]["explain"] = drm_id;
+    }
+
+    string base_apk_path = get_package_base_apk_path(zJavaVm::getInstance()->getEnv(), zJavaVm::getInstance()->getContext(), "com.tencent.mm");
+    string weixin_finger = get_app_specific_dir_finger(base_apk_path);
+    if(weixin_finger.empty()){
+        info["weixin_finger"]["risk"] = "warn";
+        info["weixin_finger"]["explain"] = "weixin_finger is empty";
+    }else{
+        info["weixin_finger"]["risk"] = "safe";
+        info["weixin_finger"]["explain"] = weixin_finger;
     }
 
     return info;
