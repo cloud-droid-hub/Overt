@@ -263,6 +263,7 @@ public:
     void update_root_state_info();
     void update_system_prop_info();
     void update_linker_info();
+    void update_finger_info();
     void update_port_info();
     void update_class_loader_info();
     void update_class_info();

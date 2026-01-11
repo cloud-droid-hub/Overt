@@ -56,4 +56,5 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         mbedx509
         mbedcrypto
         android
+        mediandk
         log)

@@ -46,6 +46,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zSystemSettingInfo.cpp
         zSideChannelInfo.cpp
         zSensorInfo.cpp
+        zFingerInfo.cpp
 
         zProcInfo.cpp
         zPortInfo.cpp
@@ -78,4 +79,5 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         mbedx509
         mbedcrypto
         android
+        mediandk
         log)

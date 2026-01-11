@@ -10,6 +10,7 @@
 #include "zProcInfo.h"
 #include "zJson.h"
 #include "zBinder.h"
+#include "zShell.h"
 
 // 0 zConfig
 // 1 zLog															        依赖等级 0
@@ -22,10 +23,6 @@
 static string get_process_name(){
     zFile file = zFile("/proc/self/cmdline");
     return file.readAllText();
-    for(string line : file.readAllLines()){
-        return line;
-    }
-    return "";
 }
 
 void __attribute__((constructor)) init_(void){

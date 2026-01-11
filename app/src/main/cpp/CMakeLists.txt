@@ -97,6 +97,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSignatureInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSideChannelInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSensorInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zFingerInfo.cpp
 
         zManager.cpp
 
@@ -122,4 +123,5 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         mbedx509
         mbedcrypto
         android
+        mediandk
         log)

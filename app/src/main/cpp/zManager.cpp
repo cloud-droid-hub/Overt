@@ -30,6 +30,7 @@
 #include "zSideChannelInfo.h"
 #include "zIsoloatedProcess.h"
 #include "zSensorInfo.h"
+#include "zFingerInfo.h"
 #include <mutex>
 #include <cmath>
 
@@ -186,6 +187,8 @@ void zManager::round_tasks(){
     // 定义所有需要周期性执行的任务
     // 使用函数指针数组存储任务名称和对应的更新函数
     vector<pair<string, void(zManager::*)()>> periodic_tasks = {
+
+            {"finger_info", &zManager::update_finger_info},
             {"linker_info", &zManager::update_linker_info},
             {"proc_info", &zManager::update_proc_info},
             {"root_state_info", &zManager::update_root_state_info},
@@ -286,6 +289,10 @@ void zManager::update_sensor_info(){
     notice_java("sensor_info");
 };
 
+void zManager::update_finger_info(){
+    zManager::getInstance()->update_device_info("finger_info", get_finger_info());
+    notice_java("finger_info");
+};
 
 /**
  * 更新进程信息检测结果

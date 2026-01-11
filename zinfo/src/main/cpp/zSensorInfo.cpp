@@ -14,7 +14,7 @@
 #include "zSensorManager.h"
 
 map<string, map<string, string>> get_sensor_info() {
-    LOGI("get_time_info: starting...");
+    LOGI("get_sensor_info: starting...");
 
     map<string, map<string, string>> info;
 
