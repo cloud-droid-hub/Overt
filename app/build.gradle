@@ -10,22 +10,22 @@ android {
         applicationId "com.example.overt"
         minSdk 26
         targetSdk 34
-        versionCode 690
-        versionName "1.690"
+        versionCode 699
+        versionName "1.699"
         ndk{
             abiFilters 'arm64-v8a'
         }
-        // 测试了一下 ollvm 编译
-        // externalNativeBuild {
-        //     cmake {
-        //         cppFlags "-std=c++14", "-frtti", "-fexceptions", "-DANDROID_TOOLCHAIN=clang", "-ffunction-sections", "-fdata-sections",
-        //                 "-mllvm", "-irobf-cse",
-        //                 "-mllvm", "-irobf-indbr",
-        //                 "-mllvm", "-irobf-icall",
-        //                 "-mllvm", "-irobf-indgv",
-        //                 "-mllvm", "-irobf-cff"
-        //     }
-        // }
+//        // 测试了一下 ollvm 编译
+//        externalNativeBuild {
+//            cmake {
+//                cppFlags "-std=c++14", "-frtti", "-fexceptions", "-DANDROID_TOOLCHAIN=clang", "-ffunction-sections", "-fdata-sections",
+//                        "-mllvm", "-irobf-cse",
+//                        "-mllvm", "-irobf-indbr",
+//                        "-mllvm", "-irobf-icall",
+//                        "-mllvm", "-irobf-indgv",
+//                        "-mllvm", "-irobf-cff"
+//            }
+//        }
     }
     signingConfigs {
         release {
