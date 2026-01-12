@@ -12,7 +12,6 @@
 #include "zJson.h"
 #include "zBinder.h"
 #include "zShell.h"
-#include "zSyscall.h"
 
 
 // 0 zConfig

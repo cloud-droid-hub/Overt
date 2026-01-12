@@ -9,7 +9,6 @@
 #include <thread>
 #include <chrono>
 #include <asm-generic/unistd.h>
-#include <zSyscall.h>
 
 // 单例实例指针
 zBinder* zBinder::instance = nullptr;

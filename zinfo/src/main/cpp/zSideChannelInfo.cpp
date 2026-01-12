@@ -5,7 +5,6 @@
 #include <sched.h>
 #include <cerrno>
 #include "zSideChannelInfo.h"
-#include "zSyscall.h"
 #include "zLog.h"
 #include "zStdUtil.h"
 

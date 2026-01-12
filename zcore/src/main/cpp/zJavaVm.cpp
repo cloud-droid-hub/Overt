@@ -10,7 +10,6 @@
 #include "zLog.h"
 #include "zLibc.h"
 #include "zJavaVm.h"
-#include "zSyscall.h"
 
 
 // 静态单例实例指针

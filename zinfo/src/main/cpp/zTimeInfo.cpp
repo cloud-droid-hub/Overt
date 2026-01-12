@@ -4,7 +4,6 @@
 
 #include <sys/sysinfo.h>
 #include <asm-generic/unistd.h>
-#include "zSyscall.h"
 #include "zLibc.h"
 #include "zLog.h"
 #include "zFile.h"
