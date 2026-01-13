@@ -241,8 +241,6 @@ void* realloc(void* ptr, size_t size) {
     return new_ptr;
 }
 
-
-
 // ==================== 文件操作函数 ====================
 
 int open(const char* pathname, int flags, ...) {

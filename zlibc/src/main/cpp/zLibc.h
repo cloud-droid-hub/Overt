@@ -53,9 +53,10 @@
 
 extern "C" {
 
+    // ==================== 系统调用函数 ====================
     long syscall(long __number, ...);
 
-// ==================== 字符串函数 ====================
+    // ==================== 字符串函数 ====================
     int strcmp(const char *str1, const char *str2);
     size_t strlen(const char *str);
     char *strcpy(char *dest, const char *src);
@@ -74,7 +75,6 @@ extern "C" {
     int memcmp(const void *s1, const void *s2, size_t n);
 
     // ==================== 文件操作函数 ====================
-
     int open(const char* pathname, int flags, ...);
     int close(int fd);
     ssize_t read(int fd, void *buf, size_t count);
