@@ -9,6 +9,7 @@
 #include "zLog.h"
 #include "zLibc.h"
 
+
 #define MAP_FAILED (void*)(-1)
 #define PAGE_ALIGN(x) (((x) + 0xFFF) & ~0xFFF)
 
@@ -692,7 +693,6 @@ char* strchr(const char *p, int ch) {
 
 int fstat(int __fd, struct stat* __buf) {
     LOGV("fstat called: fd=%d, buf=%p", __fd, __buf);
-
     int result = syscall(SYS_fstat, __fd, (long)__buf);
     LOGV("fstat: result=%d", result);
     return result;
@@ -794,9 +794,62 @@ int stat(const char* __path, struct stat* __buf) {
         LOGV("stat: NULL arg");
         return -1;
     }
-    int result = (int)syscall(SYS_newfstatat, AT_FDCWD, (long)__path, (long)__buf, 0);
+    int result = syscall(SYS_newfstatat, AT_FDCWD, (long)__path, (long)__buf, 0);
     LOGV("stat: result=%d", result);
     return result;
+}
+
+int stat64(const char* __path, struct stat64* __buf) {
+    LOGV("stat64 called: path='%s', buf=%p", __path ? __path : "NULL", __buf);
+    if (!__path || !__buf) {
+        LOGV("stat64: NULL arg");
+        return -1;
+    }
+    int result = syscall(SYS_newfstatat, AT_FDCWD, (long)__path, (long)__buf, 0);
+    LOGV("stat64: result=%d", result);
+    return result;
+}
+
+int statfs(const char* __path, struct statfs64* __buf) {
+    LOGV("statfs called: path='%s', buf=%p", __path ? __path : "NULL", __buf);
+
+    if (!__path || !__buf) {
+        LOGV("statfs: NULL arg");
+        errno = EFAULT;
+        return -1;
+    }
+
+    int result = syscall(SYS_statfs, (long)__path, (long)__buf);
+
+    if (result < 0) {
+        errno = -result;
+        LOGV("statfs: failed, errno=%d", errno);
+        return -1;
+    }
+
+    LOGV("statfs: success");
+    return 0;
+}
+
+int statfs64(const char* __path, struct statfs64* __buf) {
+    LOGV("statfs64 called: path='%s', buf=%p", __path ? __path : "NULL", __buf);
+    
+    if (!__path || !__buf) {
+        LOGV("statfs64: NULL arg");
+        errno = EFAULT;
+        return -1;
+    }
+    
+    int result = syscall(SYS_statfs, (long)__path, (long)__buf);
+    
+    if (result < 0) {
+        errno = -result;
+        LOGV("statfs64: failed, errno=%d", errno);
+        return -1;
+    }
+    
+    LOGV("statfs64: success");
+    return 0;
 }
 
 int access(const char* __path, int __mode) {

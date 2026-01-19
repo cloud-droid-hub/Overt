@@ -142,17 +142,22 @@ void zFile::setAttribute(){
 
     // 获取文件状态信息
     st_ret = stat(m_path.c_str(), &st);
-
     if (st_ret != 0) {
         LOGD("stat failed for path: %s: %s", m_path.c_str(), strerror(errno));
         earliest_time = 0;  // 重置时间戳
-        return;
+    }else{
+        // 计算最早时间戳（修改时间、创建时间、访问时间中的最小值）
+        earliest_time = st.st_mtim.tv_sec < st.st_ctim.tv_sec ? st.st_mtim.tv_sec : st.st_ctim.tv_sec;
+        earliest_time = st.st_atim.tv_sec < earliest_time ? st.st_atim.tv_sec : earliest_time;
     }
 
-    // 计算最早时间戳（修改时间、创建时间、访问时间中的最小值）
-    earliest_time = st.st_mtim.tv_sec < st.st_ctim.tv_sec ? st.st_mtim.tv_sec : st.st_ctim.tv_sec;
-    earliest_time = st.st_atim.tv_sec < earliest_time ? st.st_atim.tv_sec : earliest_time;
+    stfs_ret = statfs64(m_path.c_str(), &stfs);
+    if (stfs_ret != 0) {
+        LOGD("stfs_ret failed for path: %s: %s", m_path.c_str(), strerror(errno));
+    }
+
 }
+
 
 /**
  * 设置文件描述符

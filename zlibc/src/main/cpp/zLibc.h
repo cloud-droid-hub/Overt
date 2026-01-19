@@ -84,6 +84,8 @@ extern "C" {
     ssize_t readlinkat(int __dir_fd, const char *__path, char *__buf, size_t __buf_size);
     int access(const char *pathname, int mode);
     int stat(const char *pathname, struct stat *buf);
+    int stat64(const char *pathname, struct stat64 *buf);
+    int statfs64(const char *pathname, struct statfs64 *buf);
 
     // ==================== 网络函数 ====================
     int socket(int domain, int type, int protocol);

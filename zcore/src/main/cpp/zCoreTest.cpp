@@ -295,17 +295,26 @@ void __attribute__((constructor)) init_(void) {
 
     // zUdpSocket functionality removed
 
-    zSensorManager* manager = zSensorManager::getInstance();
+//    zSensorManager* manager = zSensorManager::getInstance();
+//
+//    if (!manager) {
+//        LOGW("Failed to get sensor manager instance");
+//        return;
+//    }
+//
+//    LOGI("=== JNI_OnLoad: zSensorManager RiskScore %d", manager->getRiskScore());
+//
+//    // 打印检测结果
+//    manager->printDetectionResults();
 
-    if (!manager) {
-        LOGW("Failed to get sensor manager instance");
-        return;
-    }
+    zFile file = zFile("/system/build.prop");
+    LOGE("file exist %d", file.exists());
+    LOGE("file fsid %lu", file.getFsid());
+    LOGE("file dev %lu", file.getDev());
+    LOGE("file ino %lu", file.getIno());
 
-    LOGI("=== JNI_OnLoad: zSensorManager RiskScore %d", manager->getRiskScore());
-
-    // 打印检测结果
-    manager->printDetectionResults();
+    zFile file2 = zFile("/data");
+    LOGE("file blocks %lu", file2.getBlocks());
 
     return;
 }

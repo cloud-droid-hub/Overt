@@ -6,6 +6,7 @@
 #define OVERT_ZFILE_H
 
 #include <sys/stat.h>
+#include <sys/statfs.h>
 #include "zStd.h"
 
 /**
@@ -196,6 +197,9 @@ public:
      */
     void setAttribute();
 
+
+
+
     /**
      * 设置文件描述符
      */
@@ -230,8 +234,20 @@ public:
      * 获取设备号
      * @return 设备号
      */
-    unsigned long getDevice() const{return st_ret==0 ? st.st_dev : -1;};
-    
+    uint64_t getDev() const{return st_ret==0 ? st.st_dev : -1;};
+
+
+    uint64_t getIno() const{return st_ret==0 ? st.st_ino : -1;};
+
+    uint64_t getFsid() const {
+        if (stfs_ret != 0) return -1;
+        return ((uint64_t)stfs.f_fsid.__val[0] << 32) | (uint64_t)stfs.f_fsid.__val[1];
+    }
+
+    uint64_t getBlocks() const{return stfs_ret==0 ? stfs.f_blocks : -1;};
+    uint64_t getBsize() const{return stfs_ret==0 ? stfs.f_bsize : -1;};
+    uint64_t getFiles() const{return stfs_ret==0 ? stfs.f_files: -1;};
+
     /**
      * 获取用户ID
      * @return 用户ID
@@ -278,9 +294,14 @@ private:
     
     // 文件状态信息
     struct stat st;
+
+    struct statfs64 stfs;
     
     // 文件状态读取结果（0表示成功）
     int st_ret = -1;
+
+    // 文件状态读取结果（0表示成功）
+    int stfs_ret = -1;
     
     // 文件最早时间
     long earliest_time = 0;

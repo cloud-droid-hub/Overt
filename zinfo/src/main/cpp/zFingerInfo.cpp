@@ -78,27 +78,6 @@ string get_android_id(JNIEnv* env, jobject context) {
     return ret;
 }
 
-string get_store_finger(){
-    struct statfs64 buf={};
-    if (statfs64("/storage/emulated/0", &buf) == -1) {
-        LOGE("statfs64系统信息失败");
-        return "";
-    }
-    // 拼接指纹字符串
-    char fingerprint[512];
-    snprintf(fingerprint, sizeof(fingerprint),
-             "%llu_%llu_%llu_%llu_%d_%d_%llu",
-             (unsigned long long)buf.f_type,
-             (unsigned long long)buf.f_bsize,
-             (unsigned long long)buf.f_blocks,
-             (unsigned long long)buf.f_files,
-             buf.f_fsid.__val[0],
-             buf.f_fsid.__val[1],
-             (unsigned long long)buf.f_namelen);
-
-    LOGI("设备指纹: %s", fingerprint);
-    return fingerprint;
-}
 
 string get_drm_id(){
     const uint8_t uuid[] = {0xed,0xef,0x8b,0xa9,0x79,0xd6,0x4a,0xce,
@@ -266,10 +245,6 @@ map<string, map<string, string>> get_finger_info() {
     info["android_id"]["risk"] = "safe";
     info["android_id"]["explain"] = android_id;
 
-    string store_finger =get_store_finger();
-    info["store_finger"]["risk"] = "safe";
-    info["store_finger"]["explain"] = hash16(store_finger);
-
     string drm_id =get_drm_id();
     if(drm_id.empty()){
         info["drm_id"]["risk"] = "error";
@@ -287,7 +262,7 @@ map<string, map<string, string>> get_finger_info() {
         info["weixin_finger"]["explain"] = "weixin_finger is empty";
     }else{
         info["weixin_finger"]["risk"] = "safe";
-        info["weixin_finger"]["explain"] = hash16(base_apk_path);
+        info["weixin_finger"]["explain"] = base_apk_path;
     }
 
     string boot_id = get_boot_id();
@@ -298,6 +273,14 @@ map<string, map<string, string>> get_finger_info() {
         info["boot_id"]["risk"] = "safe";
         info["boot_id"]["explain"] = boot_id;
     }
+
+    zFile build_prop = zFile("/system/build.prop");
+    info["build_prop_finger"]["risk"] = "safe";
+    info["build_prop_finger"]["explain"] = to_string(build_prop.getFsid()) + "_" + to_string(build_prop.getDev()) + "_" + to_string(build_prop.getIno());
+
+    zFile data_blocks = zFile("/data");
+    info["data_finger"]["risk"] = "safe";
+    info["data_finger"]["explain"] = to_string(data_blocks.getBlocks()) + "_" + to_string(data_blocks.getBsize()) + "_" + to_string(data_blocks.getFiles());
 
     return info;
 }
