@@ -3,6 +3,7 @@
 //
 #include <dlfcn.h>
 #include <regex>
+#include <cstdio>
 
 #include "zLog.h"
 #include "zFile.h"
@@ -32,7 +33,8 @@ string memory_to_hex_string(char *ptr, size_t size) {
     string ret = "";
     for (size_t i = 0; i < size; i++) {
         char buf[3]; // 每个字节需要两个字符，再加上字符串结尾的'\0'
-        sprintf(buf, "%02X", *(ptr + i)); // 格式化输出到字符数组
+        unsigned char byte = static_cast<unsigned char>(*(ptr + i));
+        snprintf(buf, sizeof(buf), "%02X", byte); // 固定两位十六进制，避免符号扩展导致溢出
         ret += buf;
     }
     return ret;
@@ -58,6 +60,7 @@ string getSha256byBaseApk() {
         return "";
     }
 
+    string sha256byBaseApk;
     for (mz_uint i = 0; i < mz_zip_reader_get_num_files(&zip_archive); i++)
     {
         mz_zip_archive_file_stat file_stat;
@@ -83,26 +86,42 @@ string getSha256byBaseApk() {
                                                                    &uncomp_size, 0);
         if(!p_file) {
             LOGE("find file %s", file_stat.m_filename);
+            continue;
         }
 
-        char *rsa_addr = p_file + 0x3c;
-        int rsa_size = ((*(short*)(p_file + 0x3a) << 8) & 0xff00) | ((*(short*)(p_file + 0x3a) >> 8) & 0xff);
+        if (uncomp_size < 0x3c) {
+            LOGE("RSA file too small: %zu", uncomp_size);
+            mz_free(p_file);
+            continue;
+        }
+
+        size_t rsa_offset = 0x3c;
+        size_t rsa_size =
+                (static_cast<unsigned char>(p_file[0x3a]) << 8) |
+                static_cast<unsigned char>(p_file[0x3b]);
+        if (rsa_size == 0 || rsa_offset + rsa_size > uncomp_size) {
+            LOGE("RSA payload out of range: offset=%zu size=%zu file_size=%zu", rsa_offset, rsa_size, uncomp_size);
+            mz_free(p_file);
+            continue;
+        }
+        char *rsa_addr = p_file + rsa_offset;
 
         LOGE("rsa_addr %p", file_stat.m_filename);
-        LOGE("rsa_size 0x%x", rsa_size);
+        LOGE("rsa_size 0x%zx", rsa_size);
 
-        unsigned char hash[30];
+        unsigned char hash[SHA256_SIZE_BYTES] = {0};
         sha256((const void *) rsa_addr, rsa_size, hash);
 
-        string sha256byBaseApk = memory_to_hex_string((char *) hash, SHA256_SIZE_BYTES);
+        sha256byBaseApk = memory_to_hex_string((char *) hash, SHA256_SIZE_BYTES);
 
         LOGE("RSA_hash %s", sha256byBaseApk.c_str());
 
-        return sha256byBaseApk;
+        mz_free(p_file);
+        break;
     }
 
     mz_zip_reader_end(&zip_archive);
-    return "";
+    return sha256byBaseApk;
 
 }
 
