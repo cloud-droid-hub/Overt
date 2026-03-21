@@ -15,8 +15,10 @@
 // 存储检测到的本地Overt设备IP地址和最后一次出现时间
 static map<string, std::chrono::steady_clock::time_point> local_overt_ip_map = {};
 static std::mutex local_overt_ip_map_mtx;
+static std::once_flag local_overt_broadcast_init_once;
 static constexpr int LOCAL_OVERT_TTL_SECONDS = 15;
 static constexpr size_t LOCAL_OVERT_MAX_TRACKED_IPS = 512;
+static void on_receive(const char* ip, const char* msg);
 
 static bool is_valid_ipv4(const char* ip) {
     if (ip == nullptr || ip[0] == '\0') {
@@ -50,6 +52,16 @@ static bool evict_oldest_locked() {
     LOGW("evict oldest tracked ip: %s", oldest->first.c_str());
     local_overt_ip_map.erase(oldest);
     return true;
+}
+
+static void ensure_local_overt_broadcast_started() {
+    std::call_once(local_overt_broadcast_init_once, []() {
+        // 广播收发线程是长生命周期后台线程，只需要初始化一次
+        zBroadCast::getInstance()->start_local_ip_monitor();
+        zBroadCast::getInstance()->start_udp_broadcast_sender(7476, "overt");
+        zBroadCast::getInstance()->start_udp_broadcast_listener(7476, on_receive);
+        LOGI("local overt broadcast pipeline initialized");
+    });
 }
 
 /**
@@ -96,14 +108,7 @@ static void on_receive(const char* ip, const char* msg){
 map<string, map<string, string>> get_local_network_info(){
     map<string, map<string, string>> info;
 
-    // 启动本地IP监控
-    zBroadCast::getInstance()->start_local_ip_monitor();
-    
-    // 启动UDP广播发送器，向端口7476发送"overt"消息
-    zBroadCast::getInstance()->start_udp_broadcast_sender( 7476, "overt");
-    
-    // 启动UDP广播监听器，监听端口7476，使用on_receive回调处理接收到的消息
-    zBroadCast::getInstance()->start_udp_broadcast_listener(7476, on_receive);
+    ensure_local_overt_broadcast_started();
 
     // 按TTL收集仍然活跃的设备，避免单次丢包导致结果抖动
     vector<string> active_ips;

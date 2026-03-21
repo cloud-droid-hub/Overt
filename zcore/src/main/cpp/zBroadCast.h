@@ -6,6 +6,7 @@
 #define OVERT_ZBROADCAST_H
 
 #include <shared_mutex>
+#include <mutex>
 #include "zStd.h"
 #include "zLog.h"
 
@@ -36,6 +37,7 @@ private:
     mutable std::shared_mutex sender_thread_args_mutex;
     mutable std::shared_mutex listener_thread_args_mutex;
     mutable std::shared_mutex stop_thread_args_mutex;
+    mutable std::mutex thread_lifecycle_mutex;
 
     mutable std::shared_mutex local_ip_mutex;
     mutable std::shared_mutex local_ip_c_mutex;

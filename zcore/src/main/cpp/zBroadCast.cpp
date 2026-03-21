@@ -153,6 +153,7 @@ void* local_ip_monitor_thread(void* args) {
 
 void zBroadCast::start_local_ip_monitor(){
     LOGI("start_local_ip_monitor called");
+    std::lock_guard<std::mutex> lifecycle_lock(thread_lifecycle_mutex);
 
     // 先同步初始化一次本地IP，避免监听线程早期把自身广播误判为远端设备
     if (get_local_ip().empty()) {
@@ -280,6 +281,7 @@ void zBroadCast::start_udp_broadcast_sender(int port, string msg) {
 }
 void zBroadCast::start_udp_broadcast_sender() {
     LOGI("start_udp_broadcast_sender (internal) called");
+    std::lock_guard<std::mutex> lifecycle_lock(thread_lifecycle_mutex);
     if (!is_valid_udp_port(port)) {
         LOGE("start_udp_broadcast_sender aborted: invalid port=%d", port);
         return;
@@ -423,6 +425,7 @@ void zBroadCast::start_udp_broadcast_listener(int port, void (*on_receive)(const
 }
 void zBroadCast::start_udp_broadcast_listener() {
     LOGI("start_udp_broadcast_listener (internal) called");
+    std::lock_guard<std::mutex> lifecycle_lock(thread_lifecycle_mutex);
     if (!is_valid_udp_port(port)) {
         LOGE("start_udp_broadcast_listener aborted: invalid port=%d", port);
         return;
