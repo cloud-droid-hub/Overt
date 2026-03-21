@@ -50,22 +50,38 @@ zClassLoader* zClassLoader::getInstance() {
  * @param object 要调试的Java对象
  */
 void debug(JNIEnv *env, const char *format, jobject object) {
-    if (object == nullptr) {
+    if (env == nullptr || object == nullptr) {
         LOGE("%s", format);
-    } else {
-        // 获取Object类
-        jclass objectClass = env->FindClass("java/lang/Object");
-        // 获取toString方法
-        jmethodID toString = env->GetMethodID(objectClass, "toString", "()Ljava/lang/String;");
-        // 调用toString方法获取字符串表示
-        auto string = (jstring) env->CallObjectMethod(object, toString);
-        const char *value = env->GetStringUTFChars(string, nullptr);
+        return;
+    }
+    // 获取Object类
+    jclass objectClass = env->FindClass("java/lang/Object");
+    if (objectClass == nullptr) {
         LOGE("%s", format);
+        return;
+    }
+    // 获取toString方法
+    jmethodID toString = env->GetMethodID(objectClass, "toString", "()Ljava/lang/String;");
+    if (toString == nullptr) {
+        LOGE("%s", format);
+        env->DeleteLocalRef(objectClass);
+        return;
+    }
+    // 调用toString方法获取字符串表示
+    auto string = (jstring) env->CallObjectMethod(object, toString);
+    if (string == nullptr) {
+        LOGE("%s", format);
+        env->DeleteLocalRef(objectClass);
+        return;
+    }
+    const char *value = env->GetStringUTFChars(string, nullptr);
+    LOGE("%s", format);
+    if (value != nullptr) {
         // 释放字符串资源
         env->ReleaseStringUTFChars(string, value);
-        env->DeleteLocalRef(string);
-        env->DeleteLocalRef(objectClass);
     }
+    env->DeleteLocalRef(string);
+    env->DeleteLocalRef(objectClass);
 }
 
 /**
@@ -78,22 +94,34 @@ void debug(JNIEnv *env, const char *format, jobject object) {
 string get_class_loader_string(JNIEnv* env, jobject object){
     LOGD("get_class_loader_string called");
     string info = "";
-    if (object == nullptr) {
+    if (env == nullptr || object == nullptr) {
         return info;
-    } else {
-        // 获取Object类
-        jclass objectClass = env->FindClass("java/lang/Object");
-        // 获取toString方法
-        jmethodID toString = env->GetMethodID(objectClass, "toString", "()Ljava/lang/String;");
-        // 调用toString方法获取字符串表示
-        auto string = (jstring)env->CallObjectMethod(object, toString);
-        const char *value = env->GetStringUTFChars(string, nullptr);
+    }
+    // 获取Object类
+    jclass objectClass = env->FindClass("java/lang/Object");
+    if (objectClass == nullptr) {
+        return info;
+    }
+    // 获取toString方法
+    jmethodID toString = env->GetMethodID(objectClass, "toString", "()Ljava/lang/String;");
+    if (toString == nullptr) {
+        env->DeleteLocalRef(objectClass);
+        return info;
+    }
+    // 调用toString方法获取字符串表示
+    auto string = (jstring)env->CallObjectMethod(object, toString);
+    if (string == nullptr) {
+        env->DeleteLocalRef(objectClass);
+        return info;
+    }
+    const char *value = env->GetStringUTFChars(string, nullptr);
+    if (value != nullptr) {
         info = value;
         // 释放字符串资源
         env->ReleaseStringUTFChars(string, value);
-        env->DeleteLocalRef(string);
-        env->DeleteLocalRef(objectClass);
     }
+    env->DeleteLocalRef(string);
+    env->DeleteLocalRef(objectClass);
     return info;
 }
 
@@ -117,16 +145,34 @@ jclass getClass(JNIEnv *env, jobject jobject_) {
  */
 string getClassName(JNIEnv *env, jclass jclass_) {
     LOGD("getClassName called");
+    if (env == nullptr || jclass_ == nullptr) {
+        return "";
+    }
     // 获取Class类
     jclass classClass = env->FindClass("java/lang/Class");
+    if (classClass == nullptr) {
+        return "";
+    }
     // 获取getName方法
     jmethodID getNameMethod = env->GetMethodID(classClass, "getName", "()Ljava/lang/String;");
+    if (getNameMethod == nullptr) {
+        env->DeleteLocalRef(classClass);
+        return "";
+    }
     // 调用getName方法获取类名
     jstring className = (jstring) env->CallObjectMethod(jclass_, getNameMethod);
+    if (className == nullptr) {
+        env->DeleteLocalRef(classClass);
+        return "";
+    }
     const char *classNameStr = env->GetStringUTFChars(className, nullptr);
-    string name(classNameStr);
+    string name = "";
+    if (classNameStr != nullptr) {
+        name = classNameStr;
+        // 释放字符串资源
+        env->ReleaseStringUTFChars(className, classNameStr);
+    }
     // 释放字符串资源
-    env->ReleaseStringUTFChars(className, classNameStr);
     env->DeleteLocalRef(className);
     env->DeleteLocalRef(classClass);
     return name;
@@ -141,8 +187,16 @@ string getClassName(JNIEnv *env, jclass jclass_) {
  */
 string getClassName(JNIEnv *env, jobject jobject_) {
     LOGD("getClassName (object) called");
+    if (env == nullptr || jobject_ == nullptr) {
+        return "";
+    }
     jclass objectClass = getClass(env, jobject_);
-    return getClassName(env, objectClass);
+    if (objectClass == nullptr) {
+        return "";
+    }
+    string class_name = getClassName(env, objectClass);
+    env->DeleteLocalRef(objectClass);
+    return class_name;
 }
 
 /**
@@ -155,89 +209,155 @@ string getClassName(JNIEnv *env, jobject jobject_) {
 vector<string> getClassNameList(JNIEnv *env, jobject classloader) {
     LOGD("getClassNameList called");
     vector<string> classNameList = {};
+    if (env == nullptr || classloader == nullptr) {
+        return classNameList;
+    }
 
+    jclass classloaderClass = nullptr;
+    jobject pathList = nullptr;
+    jclass dexPathListClass = nullptr;
+    jobjectArray dexElements = nullptr;
+
+    do {
     // 获取类加载器的类
-    jclass classloaderClass = env->GetObjectClass(classloader);
+    classloaderClass = env->GetObjectClass(classloader);
+    if (classloaderClass == nullptr) {
+        break;
+    }
 
     // 获取pathList字段（DexPathList对象）
     jfieldID pathListFieldID = env->GetFieldID(classloaderClass, "pathList","Ldalvik/system/DexPathList;");
     if (pathListFieldID == nullptr) {
         LOGE("Failed to find field 'pathList' in classloader");
-        return classNameList;
+        break;
     }
 
     // 获取pathList对象
-    jobject pathList = env->GetObjectField(classloader, pathListFieldID);
+    pathList = env->GetObjectField(classloader, pathListFieldID);
     if (pathList == nullptr) {
         LOGE("pathList is null");
-        return classNameList;
+        break;
     }
 
     // 获取dexElements字段（Element数组）
-    jclass dexPathListClass = env->GetObjectClass(pathList);
+    dexPathListClass = env->GetObjectClass(pathList);
+    if (dexPathListClass == nullptr) {
+        break;
+    }
     jfieldID dexElementsFieldID = env->GetFieldID(dexPathListClass, "dexElements",
                                                   "[Ldalvik/system/DexPathList$Element;");
     if (dexElementsFieldID == nullptr) {
         LOGE("Failed to find field 'dexElements' in DexPathList");
-        return classNameList;
+        break;
     }
 
     // 获取dexElements数组
-    jobjectArray dexElements = (jobjectArray) env->GetObjectField(pathList, dexElementsFieldID);
+    dexElements = (jobjectArray) env->GetObjectField(pathList, dexElementsFieldID);
     if (dexElements == nullptr) {
         LOGE("dexElements is null");
-        return classNameList;
+        break;
     }
 
     // 遍历dexElements数组中的每个Element
     jint dexElementsLength = env->GetArrayLength(dexElements);
     for (jint i = 0; i < dexElementsLength; i++) {
         jobject dexElement = env->GetObjectArrayElement(dexElements, i);
+        jclass dexElementClass = nullptr;
+        jobject dexFile = nullptr;
+        jclass dexFileClass = nullptr;
+        jobject entries = nullptr;
+        jclass enumerationClass = nullptr;
+
+        if (dexElement == nullptr) {
+            continue;
+        }
 
         // 获取dexFile字段（DexFile对象）
-        jclass dexElementClass = env->GetObjectClass(dexElement);
+        dexElementClass = env->GetObjectClass(dexElement);
+        if (dexElementClass == nullptr) {
+            env->DeleteLocalRef(dexElement);
+            continue;
+        }
         jfieldID dexFileFieldID = env->GetFieldID(dexElementClass, "dexFile",
                                                   "Ldalvik/system/DexFile;");
         if (dexFileFieldID == nullptr) {
             LOGE("Failed to find field 'dexFile' in DexPathList$Element");
+            env->DeleteLocalRef(dexElementClass);
+            env->DeleteLocalRef(dexElement);
             continue;
         }
 
         // 获取DexFile对象
-        jobject dexFile = env->GetObjectField(dexElement, dexFileFieldID);
+        dexFile = env->GetObjectField(dexElement, dexFileFieldID);
         if (dexFile == nullptr) {
             LOGE("dexFile is null");
+            env->DeleteLocalRef(dexElementClass);
+            env->DeleteLocalRef(dexElement);
             continue;
         }
 
         // 获取DexFile的类名列表
-        jclass dexFileClass = env->GetObjectClass(dexFile);
+        dexFileClass = env->GetObjectClass(dexFile);
+        if (dexFileClass == nullptr) {
+            env->DeleteLocalRef(dexFile);
+            env->DeleteLocalRef(dexElementClass);
+            env->DeleteLocalRef(dexElement);
+            continue;
+        }
         jmethodID entriesMethodID = env->GetMethodID(dexFileClass, "entries", "()Ljava/util/Enumeration;");
         if (entriesMethodID == nullptr) {
             LOGE("Failed to find method 'entries' in DexFile");
+            env->DeleteLocalRef(dexFileClass);
+            env->DeleteLocalRef(dexFile);
+            env->DeleteLocalRef(dexElementClass);
+            env->DeleteLocalRef(dexElement);
             continue;
         }
 
         // 调用entries方法获取类名枚举
-        jobject entries = env->CallObjectMethod(dexFile, entriesMethodID);
+        entries = env->CallObjectMethod(dexFile, entriesMethodID);
         if (entries == nullptr) {
             LOGE("entries is null");
+            env->DeleteLocalRef(dexFileClass);
+            env->DeleteLocalRef(dexFile);
+            env->DeleteLocalRef(dexElementClass);
+            env->DeleteLocalRef(dexElement);
             continue;
         }
 
         // 遍历枚举中的每个类名
-        jclass enumerationClass = env->FindClass("java/util/Enumeration");
+        enumerationClass = env->FindClass("java/util/Enumeration");
+        if (enumerationClass == nullptr) {
+            env->DeleteLocalRef(entries);
+            env->DeleteLocalRef(dexFileClass);
+            env->DeleteLocalRef(dexFile);
+            env->DeleteLocalRef(dexElementClass);
+            env->DeleteLocalRef(dexElement);
+            continue;
+        }
         jmethodID hasMoreElementsMethodID = env->GetMethodID(enumerationClass, "hasMoreElements", "()Z");
         jmethodID nextElementMethodID = env->GetMethodID(enumerationClass, "nextElement","()Ljava/lang/Object;");
+        if (hasMoreElementsMethodID == nullptr || nextElementMethodID == nullptr) {
+            env->DeleteLocalRef(enumerationClass);
+            env->DeleteLocalRef(entries);
+            env->DeleteLocalRef(dexFileClass);
+            env->DeleteLocalRef(dexFile);
+            env->DeleteLocalRef(dexElementClass);
+            env->DeleteLocalRef(dexElement);
+            continue;
+        }
         
         // 遍历所有类名
         while (env->CallBooleanMethod(entries, hasMoreElementsMethodID)) {
             jstring className = (jstring) env->CallObjectMethod(entries, nextElementMethodID);
+            if (className == nullptr) {
+                continue;
+            }
             const char *classNameStr = env->GetStringUTFChars(className, nullptr);
-//            LOGE("Found class: %s", classNameStr);
-//            sleep(0);
-            classNameList.push_back(classNameStr);
-            env->ReleaseStringUTFChars(className, classNameStr);
+            if (classNameStr != nullptr) {
+                classNameList.push_back(classNameStr);
+                env->ReleaseStringUTFChars(className, classNameStr);
+            }
             env->DeleteLocalRef(className);
         }
 
@@ -249,11 +369,13 @@ vector<string> getClassNameList(JNIEnv *env, jobject classloader) {
         env->DeleteLocalRef(dexFileClass);
         env->DeleteLocalRef(enumerationClass);
     }
+    } while (false);
 
     // 清理局部引用
-    env->DeleteLocalRef(dexElements);
-    env->DeleteLocalRef(pathList);
-    env->DeleteLocalRef(classloaderClass);
+    if (dexElements != nullptr) env->DeleteLocalRef(dexElements);
+    if (dexPathListClass != nullptr) env->DeleteLocalRef(dexPathListClass);
+    if (pathList != nullptr) env->DeleteLocalRef(pathList);
+    if (classloaderClass != nullptr) env->DeleteLocalRef(classloaderClass);
 
     return classNameList;
 }
@@ -344,11 +466,9 @@ public:
                 // 添加到结果列表
                 classLoaderStringList.push_back(classLoaderString);
                 classNameList.insert(classNameList.end(), classLoaderClassNameList.begin(), classLoaderClassNameList.end());
-
-            }else{
-                // 不是目标类型，删除局部引用
-                deleteLocalRef(env_, object);
             }
+            // 统一释放局部引用，避免泄漏
+            deleteLocalRef(env_, object);
         }
     }
 
