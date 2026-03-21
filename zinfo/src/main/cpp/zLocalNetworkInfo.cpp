@@ -5,12 +5,14 @@
 #include "zLog.h"
 #include "zLibc.h"
 #include "zStd.h"
+#include <mutex>
 
 #include "zLocalNetworkInfo.h"
 #include "zBroadCast.h"
 
 // 存储检测到的本地Overt设备IP地址和消息的Map
 map<string, string> local_overt_ip_map = {};
+static std::mutex local_overt_ip_map_mtx;
 
 /**
  * UDP消息接收回调函数
@@ -19,8 +21,16 @@ map<string, string> local_overt_ip_map = {};
  * @param msg 接收到的消息内容
  */
 void on_receive(const char* ip, const char* msg){
+    if (ip == nullptr || msg == nullptr) {
+        return;
+    }
+    if (strcmp(msg, "overt") != 0) {
+        LOGD("ignore non-overt message from %s: %s", ip, msg);
+        return;
+    }
     LOGE("ip:%s msg:%s", ip, msg);
     // 将接收到的IP和消息存储到Map中
+    std::lock_guard<std::mutex> lock(local_overt_ip_map_mtx);
     local_overt_ip_map[ip] = msg;
 }
 
@@ -42,15 +52,20 @@ map<string, map<string, string>> get_local_network_info(){
     // 启动UDP广播监听器，监听端口7476，使用on_receive回调处理接收到的消息
     zBroadCast::getInstance()->start_udp_broadcast_listener(7476, on_receive);
 
+    // 快照并清空，避免与监听回调并发读写
+    map<string, string> snapshot;
+    {
+        std::lock_guard<std::mutex> lock(local_overt_ip_map_mtx);
+        snapshot = local_overt_ip_map;
+        local_overt_ip_map.clear();
+    }
+
     // 处理检测到的Overt设备
-    for(auto item : local_overt_ip_map){
+    for (auto item : snapshot) {
         // 将检测到的设备标记为警告级别
         info[item.first]["risk"] = "warn";
         info[item.first]["explain"] = "overt device";
     }
-    
-    // 清空检测结果，避免重复报告
-    local_overt_ip_map.clear();
 
     return info;
 }

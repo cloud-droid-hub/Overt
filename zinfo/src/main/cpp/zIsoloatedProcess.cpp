@@ -9,17 +9,16 @@
 #include "zBinder.h"
 
 /**
- * 获取本地网络信息
- * 通过UDP广播机制检测同一网络中的其他Overt设备
- * 使用端口7476进行广播通信
- * @return 包含检测结果的Map，格式：{IP地址 -> {风险等级, 说明}}
+ * 获取隔离进程信息
+ * 通过 Binder 共享内存通道向隔离进程请求检测结果
+ * @return 包含检测结果的Map，格式：{检查项 -> {风险等级, 说明}}
  */
 map<string, map<string, string>> get_isoloated_process_info(){
     map<string, map<string, string>> info;
 
     std::string response = zBinder::getInstance()->sendMessage("get_isoloated_process_info");
     if (!response.empty()) {
-        LOGI("Received response23: %s", response.c_str());
+        LOGI("Received response: %s", response.c_str());
     } else {
         LOGE("Failed to get response for message");
     }

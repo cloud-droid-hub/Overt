@@ -62,7 +62,7 @@ zBroadCast::~zBroadCast() {
 // 监控局域网 ip 的线程相关函数
 string get_local_ip() {
     LOGD("get_local_ip called - attempting to get local IP address");
-    static char ip[INET_ADDRSTRLEN] = {0};
+    char ip[INET_ADDRSTRLEN] = {0};
     struct ifconf ifc;
     struct ifreq ifr[10]; // 最多支持10个接口
 
@@ -134,7 +134,7 @@ void* local_ip_monitor_thread(void* args) {
                  local_ip.c_str());
 
             zBroadCast::getInstance()->set_local_ip(local_ip);
-            zBroadCast::getInstance()->set_local_ip_c(get_local_ip_c(local_ip));
+            zBroadCast::getInstance()->set_local_ip_c(::get_local_ip_c(local_ip));
             zBroadCast::getInstance()->restart_udp_broadcast_listener();
         } else {
             LOGD("Local IP unchanged: %s", local_ip.c_str());
@@ -149,6 +149,19 @@ void* local_ip_monitor_thread(void* args) {
 
 void zBroadCast::start_local_ip_monitor(){
     LOGI("start_local_ip_monitor called");
+
+    // 先同步初始化一次本地IP，避免监听线程早期把自身广播误判为远端设备
+    if (get_local_ip().empty()) {
+        string ip = ::get_local_ip();
+        if (!ip.empty()) {
+            set_local_ip(ip);
+            set_local_ip_c(::get_local_ip_c(ip));
+            LOGI("Initialized local_ip=%s local_ip_c=%s", ip.c_str(), get_local_ip_c().c_str());
+        } else {
+            LOGW("Failed to initialize local_ip before starting monitor thread");
+        }
+    }
+
     if (local_ip_monitor_tid != 0){
         LOGW("UDP broadcast local_ip_monitor already running (tid: %lu)", local_ip_monitor_tid);
         return;
@@ -329,18 +342,37 @@ void zBroadCast::listen_udp_broadcast(int port, void (*on_receive)(const char* i
 
     LOGI("Starting UDP broadcast listener loop on port %d", port);
     while (1) {
+        sender_len = sizeof(sender);
         int len = recvfrom(sock, buffer, sizeof(buffer)-1, 0, (struct sockaddr*)&sender, &sender_len);
         if (len > 0) {
             buffer[len] = '\0';
             const char* sender_ip = inet_ntoa(sender.sin_addr);
             LOGI("Received UDP message from %s: '%s' (%d bytes)", sender_ip, buffer, len);
 
-            if(strcmp(buffer, "stop") == 0){
-                LOGW("Received stop command from %s, exiting listener loop", sender_ip);
-                break;
+            string local_ip = zBroadCast::getInstance()->get_local_ip();
+            if (local_ip.empty()) {
+                local_ip = ::get_local_ip();
+                if (!local_ip.empty()) {
+                    zBroadCast::getInstance()->set_local_ip(local_ip);
+                    zBroadCast::getInstance()->set_local_ip_c(::get_local_ip_c(local_ip));
+                }
             }
 
-            string local_ip = zBroadCast::getInstance()->get_local_ip();
+            // stop 指令只接受本机发送，避免被局域网其他设备恶意中断监听
+            if (strcmp(buffer, "stop") == 0) {
+                if (!local_ip.empty() && strcmp(sender_ip, local_ip.c_str()) == 0) {
+                    LOGW("Received local stop command from %s, exiting listener loop", sender_ip);
+                    break;
+                }
+                LOGW("Ignoring stop command from non-local sender %s", sender_ip);
+                continue;
+            }
+
+            if (local_ip.empty()) {
+                LOGW("Local IP is empty, skip message from %s to avoid self false positive", sender_ip);
+                continue;
+            }
+
             if(strcmp(sender_ip, local_ip.c_str()) == 0){
                 LOGD("Ignoring message from local IP %s", sender_ip);
             }else{
