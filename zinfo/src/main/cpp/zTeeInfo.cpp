@@ -53,6 +53,26 @@ vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context) {
         return result;
     }
 
+    struct LocalFrameGuard {
+        JNIEnv* env;
+        bool active;
+        explicit LocalFrameGuard(JNIEnv* e, jint capacity) : env(e), active(false) {
+            if (env != nullptr && env->PushLocalFrame(capacity) == 0) {
+                active = true;
+            }
+        }
+        ~LocalFrameGuard() {
+            if (active && env != nullptr) {
+                env->PopLocalFrame(nullptr);
+            }
+        }
+    } local_frame(env, 256);
+
+    if (!local_frame.active) {
+        LOGE("PushLocalFrame failed in get_attestation_cert_from_java");
+        return result;
+    }
+
     // 步骤1: 获取AndroidKeyStore实例
     jclass clsKeyStore = env->FindClass("java/security/KeyStore");
     LOGD("FindClass KeyStore: %p", clsKeyStore);
