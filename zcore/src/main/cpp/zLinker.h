@@ -58,7 +58,7 @@ public:
     static zLinker* getInstance();
 
     // soinfo链表头指针
-    soinfo* soinfo_head;
+    soinfo* soinfo_head = nullptr;
 
     // 析构函数
     ~zLinker();

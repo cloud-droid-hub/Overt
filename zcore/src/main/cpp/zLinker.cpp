@@ -74,7 +74,12 @@ zLinker::zLinker() : zElf() {
     parse_section_table();
 
     // 获取linker64在 maps 中的基地址
-    this->elf_mem_ptr = (char*)zProcMaps().find_so_by_name("linker64")->address_range_start;
+    LibraryMapping* linker_mapping = zProcMaps().find_so_by_name("linker64");
+    if (linker_mapping == nullptr || linker_mapping->address_range_start == nullptr) {
+        LOGE("Failed to find linker64 maps base");
+        return;
+    }
+    this->elf_mem_ptr = (char*)linker_mapping->address_range_start;
     if (this->elf_mem_ptr == nullptr) {
         LOGE("Failed to get linker64 maps base");
         return;
@@ -107,8 +112,13 @@ zLinker::zLinker() : zElf() {
 
     // 遍历所有已加载的共享库
     soinfo* soinfo = soinfo_head;
-    while(soinfo->next != nullptr){
+    while(soinfo != nullptr){
         char* real_path = soinfo_get_realpath(soinfo);
+        if (real_path == nullptr) {
+            LOGW("linker64 soinfo base:%p path is null", soinfo->base);
+            soinfo = soinfo->next;
+            continue;
+        }
         LOGV("linker64 soinfo base:%p path:%s", soinfo->base, real_path);
         soinfo = soinfo->next;
     }
@@ -122,12 +132,24 @@ zLinker::zLinker() : zElf() {
  */
 char* zLinker::find_lib_base(const char* so_name){
     LOGD("find_lib_base called with so_name: %s", so_name);
+    if (so_name == nullptr || so_name[0] == '\0') {
+        LOGE("find_lib_base: invalid so_name");
+        return nullptr;
+    }
+    if (soinfo_head == nullptr || soinfo_get_realpath == nullptr) {
+        LOGE("find_lib_base: linker state not ready");
+        return nullptr;
+    }
     
     // 从soinfo链表头开始遍历
     soinfo* soinfo = soinfo_head;
-    while(soinfo->next != nullptr){
+    while(soinfo != nullptr){
         // 获取共享库的真实路径
         char* real_path = soinfo_get_realpath(soinfo);
+        if (real_path == nullptr) {
+            soinfo = soinfo->next;
+            continue;
+        }
         LOGD("linker64 soinfo base:%p path:%s", soinfo->base, real_path);
         
         // 检查路径是否以指定名称结尾
@@ -149,12 +171,24 @@ char* zLinker::find_lib_base(const char* so_name){
  */
 zElf zLinker::find_lib(const char* so_name){
     LOGD("find_lib called with so_name: %s", so_name);
+    if (so_name == nullptr || so_name[0] == '\0') {
+        LOGE("find_lib: invalid so_name");
+        return zElf();
+    }
+    if (soinfo_head == nullptr || soinfo_get_realpath == nullptr) {
+        LOGE("find_lib: linker state not ready");
+        return zElf();
+    }
     
     // 从soinfo链表头开始遍历
     soinfo* soinfo = soinfo_head;
-    while(soinfo->next != nullptr){
+    while(soinfo != nullptr){
         // 获取共享库的真实路径
         char* real_path = soinfo_get_realpath(soinfo);
+        if (real_path == nullptr) {
+            soinfo = soinfo->next;
+            continue;
+        }
         
         // 检查路径是否以指定名称结尾
         if(string_end_with(real_path, so_name)){
@@ -180,12 +214,20 @@ zElf zLinker::find_lib(const char* so_name){
 vector<string> zLinker::get_libpath_list(){
     LOGD("get_libpath_list called");
     vector<string> libpath_list = vector<string>();
+    if (soinfo_head == nullptr || soinfo_get_realpath == nullptr) {
+        LOGE("get_libpath_list: linker state not ready");
+        return libpath_list;
+    }
     
     // 从soinfo链表头开始遍历
     soinfo* soinfo = soinfo_head;
-    while(soinfo->next != nullptr){
+    while(soinfo != nullptr){
         // 获取共享库的真实路径
         char* real_path = soinfo_get_realpath(soinfo);
+        if (real_path == nullptr) {
+            soinfo = soinfo->next;
+            continue;
+        }
         // 添加到路径列表
         libpath_list.push_back(real_path);
         soinfo = soinfo->next;
@@ -203,10 +245,24 @@ vector<string> zLinker::get_libpath_list(){
 bool zLinker::check_lib_crc(const char* so_name){
     LOGD("check_lib_crc called with so_name: %s", so_name);
     LOGI("check_lib_hash so_name: %s", so_name);
+    if (so_name == nullptr || so_name[0] == '\0') {
+        LOGE("check_lib_crc: invalid so_name");
+        return false;
+    }
+
+    zLinker* linker = zLinker::getInstance();
+    if (linker == nullptr) {
+        LOGE("check_lib_crc: linker instance is null");
+        return false;
+    }
     
     // 获取共享库的zElf对象（文件版本）
-    zElf elf_lib_file = zLinker::getInstance()->find_lib(so_name);
+    zElf elf_lib_file = linker->find_lib(so_name);
     LOGI("zElf elf_lib_file = zLinker::getInstance()->find_lib(so_name);");
+    if (elf_lib_file.elf_file_ptr == nullptr) {
+        LOGW("check_lib_crc: failed to resolve file view for %s", so_name);
+        return false;
+    }
 
     // 计算文件版本的CRC校验和（ELF头 + 程序头 + 代码段）
     uint64_t elf_lib_file_crc = elf_lib_file.get_elf_header_crc() + 
@@ -215,7 +271,16 @@ bool zLinker::check_lib_crc(const char* so_name){
     LOGI("check_lib_hash elf_lib_file: %p crc: %lu", elf_lib_file.elf_file_ptr, elf_lib_file_crc);
 
     // 获取共享库的内存版本zElf对象
-    zElf elf_lib_mem = zElf(zProcMaps().find_so_by_name(so_name)->address_range_start);
+    LibraryMapping* so_mapping = zProcMaps().find_so_by_name(so_name);
+    if (so_mapping == nullptr || so_mapping->address_range_start == nullptr) {
+        LOGW("check_lib_crc: failed to resolve memory mapping for %s", so_name);
+        return false;
+    }
+    zElf elf_lib_mem = zElf(so_mapping->address_range_start);
+    if (elf_lib_mem.elf_mem_ptr == nullptr) {
+        LOGW("check_lib_crc: failed to build memory view for %s", so_name);
+        return false;
+    }
     // 计算内存版本的CRC校验和
     uint64_t elf_lib_mem_crc = elf_lib_mem.get_elf_header_crc() + 
                                elf_lib_mem.get_program_header_crc() + 

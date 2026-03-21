@@ -66,12 +66,22 @@ static ElfW(Dyn) *find_dyn_by_tag2(ElfW(Dyn) *dyn, ElfW(Sxword) tag) {
  */
 zElf::zElf(char *elf_file_name) : zFile(elf_file_name) {
     LOGD("Constructor called with elf_file_name: %s", elf_file_name);
+
+    if (elf_file_name == nullptr || elf_file_name[0] == '\0') {
+        LOGE("Invalid elf file name");
+        return;
+    }
     
     // 检查是否为库名（以"lib"开头）
     if (strncmp(elf_file_name, "lib", 3) == 0) {
         // 内存视图：从内存映射中获取库的基地址
         link_view = LINK_VIEW::MEMORY_VIEW;
-        this->elf_mem_ptr = (char*)zProcMaps().find_so_by_name(elf_file_name)->address_range_start;
+        LibraryMapping* so_mapping = zProcMaps().find_so_by_name(elf_file_name);
+        if (so_mapping == nullptr || so_mapping->address_range_start == nullptr) {
+            LOGW("Failed to find so mapping for %s", elf_file_name);
+            return;
+        }
+        this->elf_mem_ptr = (char*)so_mapping->address_range_start;
         if (this->elf_mem_ptr == nullptr) {
             LOGW("Failed to get maps base for %s", elf_file_name);
             return;
@@ -164,6 +174,11 @@ void zElf::parse_dynamic_table() {
     LOGD("parse_dynamic_table %p", dynamic_table);
     LOGD("load_segment_virtual_offset %llu", load_segment_virtual_offset);
 
+    if (dynamic_table == nullptr || dynamic_element_num == 0) {
+        LOGW("dynamic table is empty, skip parse_dynamic_table");
+        return;
+    }
+
     Elf64_Dyn *dynamic_element = dynamic_table;
 
     // 遍历所有动态表项
@@ -201,8 +216,12 @@ void zElf::parse_dynamic_table() {
     }
 
     // 设置共享库名称
-    so_name = dynamic_string_table + soname_offset;
-    LOGD("soname %s", so_name);
+    if (dynamic_string_table != nullptr) {
+        so_name = dynamic_string_table + soname_offset;
+        LOGD("soname %s", so_name);
+    } else {
+        LOGW("dynamic_string_table is null, soname unavailable");
+    }
 
     // 检查关键表是否解析成功
     if (dynamic_string_table == nullptr || dynamic_symbol_table == nullptr) {
