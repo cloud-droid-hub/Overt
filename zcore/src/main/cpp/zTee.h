@@ -6,6 +6,8 @@
 #ifndef TEE_CERT_PARSER_H
 #define TEE_CERT_PARSER_H
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -59,7 +61,7 @@ int has_tee_attestation_extension(const tee_info_t* tee_info);
 
 // Utility functions
 int parse_asn1_integer(const unsigned char* data, int len);
-void bytes_to_hex(const unsigned char* data, int len, char* hex_str);
+void bytes_to_hex(const unsigned char* data, int len, char* hex_str, size_t hex_str_size);
 int compare_oid(const unsigned char* data, int len, const char* oid);
 
 #ifdef __cplusplus

@@ -807,7 +807,19 @@ parse_root_of_trust_sequence(const unsigned char *data, int len, root_of_trust_t
     }
 
     if (rot_obj.tag == ASN1_OCTET_STRING_TAG) {
-        bytes_to_hex(rot_obj.data, rot_obj.data_len, root_of_trust->verified_boot_key_hex);
+        int copy_len = rot_obj.data_len;
+        if (copy_len > static_cast<int>(sizeof(root_of_trust->verified_boot_key))) {
+            LOGW("verified boot key is too long(%d), truncating to %zu bytes",
+                 copy_len, sizeof(root_of_trust->verified_boot_key));
+            copy_len = static_cast<int>(sizeof(root_of_trust->verified_boot_key));
+        }
+        if (copy_len > 0) {
+            memcpy(root_of_trust->verified_boot_key, rot_obj.data, copy_len);
+            root_of_trust->verified_boot_key_len = copy_len;
+            bytes_to_hex(root_of_trust->verified_boot_key, copy_len,
+                         root_of_trust->verified_boot_key_hex,
+                         sizeof(root_of_trust->verified_boot_key_hex));
+        }
         LOGI("Verified boot key: %s", root_of_trust->verified_boot_key_hex);
     }
 
@@ -838,6 +850,19 @@ parse_root_of_trust_sequence(const unsigned char *data, int len, root_of_trust_t
         if (parse_asn1_tag(obj.data, obj.data_len, &rot_offset, &rot_obj) == 0) {
             if (rot_obj.tag == ASN1_OCTET_STRING_TAG) {
                 LOGD("Verified boot hash length: %d", rot_obj.data_len);
+                int copy_len = rot_obj.data_len;
+                if (copy_len > static_cast<int>(sizeof(root_of_trust->verified_boot_hash))) {
+                    LOGW("verified boot hash is too long(%d), truncating to %zu bytes",
+                         copy_len, sizeof(root_of_trust->verified_boot_hash));
+                    copy_len = static_cast<int>(sizeof(root_of_trust->verified_boot_hash));
+                }
+                if (copy_len > 0) {
+                    memcpy(root_of_trust->verified_boot_hash, rot_obj.data, copy_len);
+                    root_of_trust->verified_boot_hash_len = copy_len;
+                    bytes_to_hex(root_of_trust->verified_boot_hash, copy_len,
+                                 root_of_trust->verified_boot_hash_hex,
+                                 sizeof(root_of_trust->verified_boot_hash_hex));
+                }
             }
         }
     }
@@ -847,9 +872,23 @@ parse_root_of_trust_sequence(const unsigned char *data, int len, root_of_trust_t
 }
 
 // Convert bytes to hex string
-void bytes_to_hex(const unsigned char *data, int len, char *hex_str) {
+void bytes_to_hex(const unsigned char *data, int len, char *hex_str, size_t hex_str_size) {
+    if (data == nullptr || hex_str == nullptr || hex_str_size == 0) {
+        return;
+    }
+    int max_bytes = static_cast<int>((hex_str_size - 1) / 2);
+    if (max_bytes < 0) {
+        return;
+    }
+    if (len > max_bytes) {
+        LOGW("bytes_to_hex input too long(%d), truncating to %d bytes", len, max_bytes);
+        len = max_bytes;
+    }
+    static const char hex_digits[] = "0123456789abcdef";
     for (int i = 0; i < len; i++) {
-        sprintf(hex_str + i * 2, "%02x", data[i]);
+        unsigned char byte = data[i];
+        hex_str[i * 2] = hex_digits[(byte >> 4) & 0x0F];
+        hex_str[i * 2 + 1] = hex_digits[byte & 0x0F];
     }
     hex_str[len * 2] = '\0';
 }
@@ -869,7 +908,7 @@ int parse_tee_certificate(const unsigned char *cert_data, int cert_len, tee_info
     // Log first few bytes for debugging
     if (cert_len > 0) {
         char hex_data[65];
-        bytes_to_hex(cert_data, cert_len > 32 ? 32 : cert_len, hex_data);
+        bytes_to_hex(cert_data, cert_len > 32 ? 32 : cert_len, hex_data, sizeof(hex_data));
         LOGD("Certificate data (first 32 bytes): %s", hex_data);
     }
 
