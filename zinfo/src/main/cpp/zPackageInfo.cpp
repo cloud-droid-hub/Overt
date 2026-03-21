@@ -18,23 +18,71 @@
  * @return true表示应用已安装，false表示未安装
  */
 bool isAppInstalledByContext(JNIEnv *env, jobject context, const char* packageNameCStr) {
+    if (env == nullptr || context == nullptr || packageNameCStr == nullptr || packageNameCStr[0] == '\0') {
+        return false;
+    }
+
+    struct LocalFrameGuard {
+        JNIEnv* env = nullptr;
+        bool active = false;
+        LocalFrameGuard(JNIEnv* e, jint capacity) : env(e) {
+            if (env != nullptr && env->PushLocalFrame(capacity) == 0) {
+                active = true;
+            }
+        }
+        ~LocalFrameGuard() {
+            if (active && env != nullptr) {
+                env->PopLocalFrame(nullptr);
+            }
+        }
+    } local_frame(env, 64);
+
+    if (!local_frame.active) {
+        LOGE("isAppInstalledByContext: PushLocalFrame failed");
+        return false;
+    }
+
     // 1. 将 C 字符串转换为 jstring
     jstring packageName = env->NewStringUTF(packageNameCStr);
+    if (packageName == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return false;
+    }
 
     // 2. 获取 Context 类
     jclass contextClass = env->GetObjectClass(context);
+    if (contextClass == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return false;
+    }
     jmethodID getPackageManager = env->GetMethodID(contextClass, "getPackageManager", "()Landroid/content/pm/PackageManager;");
+    if (getPackageManager == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return false;
+    }
     jobject packageManager = env->CallObjectMethod(context, getPackageManager);
+    if (packageManager == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return false;
+    }
 
     // 3. 获取 PackageManager 类及方法
     jclass pmClass = env->GetObjectClass(packageManager);
+    if (pmClass == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return false;
+    }
     jmethodID getApplicationInfo = env->GetMethodID(pmClass, "getApplicationInfo", "(Ljava/lang/String;I)Landroid/content/pm/ApplicationInfo;");
     jmethodID getLaunchIntentForPackage = env->GetMethodID(pmClass, "getLaunchIntentForPackage", "(Ljava/lang/String;)Landroid/content/Intent;");
+    if (getApplicationInfo == nullptr || getLaunchIntentForPackage == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return false;
+    }
 
     // 4. 先调用 getApplicationInfo
     jboolean installed = false;
     jobject appInfo = env->CallObjectMethod(packageManager, getApplicationInfo, packageName, 0);
-    if (!env->ExceptionCheck()) {
+    if (!env->ExceptionCheck() && appInfo != nullptr) {
         installed = true;
     } else {
         env->ExceptionClear();
@@ -43,13 +91,12 @@ bool isAppInstalledByContext(JNIEnv *env, jobject context, const char* packageNa
     // 5. 如果失败，再尝试 getLaunchIntentForPackage
     if (!installed) {
         jobject intent = env->CallObjectMethod(packageManager, getLaunchIntentForPackage, packageName);
-        if (intent != nullptr) {
+        if (!env->ExceptionCheck() && intent != nullptr) {
             installed = true;
+        } else if (env->ExceptionCheck()) {
+            env->ExceptionClear();
         }
     }
-
-    // 6. 清理局部引用
-    env->DeleteLocalRef(packageName);
 
     return installed;
 }
