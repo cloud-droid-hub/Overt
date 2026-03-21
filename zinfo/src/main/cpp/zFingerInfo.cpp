@@ -13,6 +13,23 @@
 #include "zJavaVm.h"
 #include "zTeeCert.h"
 
+namespace {
+struct LocalFrameGuard {
+    JNIEnv* env = nullptr;
+    bool active = false;
+    LocalFrameGuard(JNIEnv* e, jint capacity) : env(e) {
+        if (env != nullptr && env->PushLocalFrame(capacity) == 0) {
+            active = true;
+        }
+    }
+    ~LocalFrameGuard() {
+        if (active && env != nullptr) {
+            env->PopLocalFrame(nullptr);
+        }
+    }
+};
+}
+
 string hash16(const string& input) {
     const char base32[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
     uint64_t h = 14695981039346656037ULL;
@@ -29,7 +46,13 @@ string hash16(const string& input) {
 }
 
 string get_android_id(JNIEnv* env, jobject context) {
-    if (!context) return "";
+    if (env == nullptr || context == nullptr) return "";
+
+    LocalFrameGuard local_frame(env, 32);
+    if (!local_frame.active) {
+        LOGE("get_android_id: PushLocalFrame failed");
+        return "";
+    }
 
     jclass clsContext = env->GetObjectClass(context);
     if (!clsContext) return "";
@@ -40,22 +63,38 @@ string get_android_id(JNIEnv* env, jobject context) {
             "getContentResolver",
             "()Landroid/content/ContentResolver;"
     );
-    if (!midGetResolver) return "";
+    if (!midGetResolver || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
+    }
 
     jobject resolver = env->CallObjectMethod(context, midGetResolver);
-    if (!resolver) return "";
+    if (!resolver || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
+    }
 
     jclass clsSecure = env->FindClass("android/provider/Settings$Secure");
-    if (!clsSecure) return "";
+    if (!clsSecure || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
+    }
 
     jmethodID midGetString = env->GetStaticMethodID(
             clsSecure,
             "getString",
             "(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;"
     );
-    if (!midGetString) return "";
+    if (!midGetString || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
+    }
 
     jstring jKey = env->NewStringUTF("android_id");
+    if (jKey == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
+    }
 
     jstring result = (jstring)env->CallStaticObjectMethod(
             clsSecure,
@@ -64,14 +103,19 @@ string get_android_id(JNIEnv* env, jobject context) {
             jKey
     );
 
-    env->DeleteLocalRef(jKey);
-
     if (env->ExceptionCheck()) {
         env->ExceptionClear();
         return "";
     }
+    if (result == nullptr) {
+        return "";
+    }
 
     const char* chars = env->GetStringUTFChars(result, nullptr);
+    if (chars == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
+    }
     string ret(chars);
     env->ReleaseStringUTFChars(result, chars);
 
@@ -158,35 +202,57 @@ string get_package_base_apk_path(JNIEnv* env, jobject context, const string& pkg
         return "";
     }
 
+    LocalFrameGuard local_frame(env, 64);
+    if (!local_frame.active) {
+        LOGE("get_package_base_apk_path: PushLocalFrame failed");
+        return "";
+    }
+
     string result;
 
     // Context.getPackageManager()
     jclass contextCls = env->GetObjectClass(context);
+    if (contextCls == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
+    }
     jmethodID midGetPM = env->GetMethodID(
             contextCls,
             "getPackageManager",
             "()Landroid/content/pm/PackageManager;"
     );
+    if (midGetPM == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
+    }
     jobject pm = env->CallObjectMethod(context, midGetPM);
-    env->DeleteLocalRef(contextCls);
-
-    if (pm == nullptr) {
+    if (pm == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
         return "";
     }
 
     // PackageManager.getApplicationInfo(String, int)
     jclass pmCls = env->GetObjectClass(pm);
+    if (pmCls == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
+    }
     jmethodID midGetAI = env->GetMethodID(
             pmCls,
             "getApplicationInfo",
             "(Ljava/lang/String;I)Landroid/content/pm/ApplicationInfo;"
     );
+    if (midGetAI == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
+    }
 
     jstring jPkg = env->NewStringUTF(pkg.c_str());
+    if (jPkg == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
+    }
     jobject ai = env->CallObjectMethod(pm, midGetAI, jPkg, 0);
-    env->DeleteLocalRef(jPkg);
-    env->DeleteLocalRef(pmCls);
-    env->DeleteLocalRef(pm);
 
     if (env->ExceptionCheck() || ai == nullptr) {
         env->ExceptionClear(); // 包不存在 / 不可见
@@ -195,11 +261,19 @@ string get_package_base_apk_path(JNIEnv* env, jobject context, const string& pkg
 
     // ApplicationInfo.sourceDir
     jclass aiCls = env->GetObjectClass(ai);
+    if (aiCls == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
+    }
     jfieldID fidSourceDir = env->GetFieldID(
             aiCls,
             "sourceDir",
             "Ljava/lang/String;"
     );
+    if (fidSourceDir == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
+    }
 
     jstring sourceDir = (jstring) env->GetObjectField(ai, fidSourceDir);
     if (sourceDir != nullptr) {
@@ -208,11 +282,10 @@ string get_package_base_apk_path(JNIEnv* env, jobject context, const string& pkg
             result = base_apk_path;
             env->ReleaseStringUTFChars(sourceDir, base_apk_path);
         }
-        env->DeleteLocalRef(sourceDir);
+    } else if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return "";
     }
-
-    env->DeleteLocalRef(aiCls);
-    env->DeleteLocalRef(ai);
 
     return result;
 }
