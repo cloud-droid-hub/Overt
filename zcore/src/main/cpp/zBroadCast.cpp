@@ -23,6 +23,10 @@
 
 zBroadCast* zBroadCast::instance = nullptr;
 
+static inline bool is_valid_udp_port(int port) {
+    return port > 0 && port <= 65535;
+}
+
 /**
  * 获取单例实例
  * 采用线程安全的懒加载模式，首次调用时创建实例
@@ -210,6 +214,10 @@ void* send_udp_broadcast_thread(void* args) {
 }
 void zBroadCast::send_udp_broadcast(int port, string message) {
     LOGI("send_udp_broadcast called - message: '%s', port: %d", message.c_str(), port);
+    if (!is_valid_udp_port(port)) {
+        LOGE("Invalid UDP port for broadcast: %d", port);
+        return;
+    }
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
@@ -272,6 +280,10 @@ void zBroadCast::start_udp_broadcast_sender(int port, string msg) {
 }
 void zBroadCast::start_udp_broadcast_sender() {
     LOGI("start_udp_broadcast_sender (internal) called");
+    if (!is_valid_udp_port(port)) {
+        LOGE("start_udp_broadcast_sender aborted: invalid port=%d", port);
+        return;
+    }
     if (sender_tid != 0){
         LOGW("UDP broadcast sender already running (tid: %lu)", sender_tid);
         return;
@@ -307,6 +319,10 @@ void* listen_udp_broadcast_thread(void* args) {
 }
 void zBroadCast::listen_udp_broadcast(int port, void (*on_receive)(const char* ip, const char* msg)) {
     LOGI("listen_udp_broadcast called - port: %d", port);
+    if (!is_valid_udp_port(port)) {
+        LOGE("listen_udp_broadcast aborted: invalid port=%d", port);
+        return;
+    }
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
@@ -407,6 +423,10 @@ void zBroadCast::start_udp_broadcast_listener(int port, void (*on_receive)(const
 }
 void zBroadCast::start_udp_broadcast_listener() {
     LOGI("start_udp_broadcast_listener (internal) called");
+    if (!is_valid_udp_port(port)) {
+        LOGE("start_udp_broadcast_listener aborted: invalid port=%d", port);
+        return;
+    }
     if (listener_tid != 0){
         LOGW("UDP broadcast listener already running (tid: %lu)", listener_tid);
         return;
@@ -423,6 +443,10 @@ void zBroadCast::start_udp_broadcast_listener() {
 
 void zBroadCast::restart_udp_broadcast_listener() {
     LOGI("restart_udp_broadcast_listener called");
+    if (!is_valid_udp_port(port)) {
+        LOGW("restart_udp_broadcast_listener skipped: invalid port=%d", port);
+        return;
+    }
     set_stop_thread_args(port, "stop", nullptr);
     LOGD("Sending stop command to restart listener");
     ThreadArgs args;

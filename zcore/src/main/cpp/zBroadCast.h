@@ -10,9 +10,9 @@
 #include "zLog.h"
 
 struct ThreadArgs{
-    int port;
-    string msg;
-    void (*on_receive)(const char* ip, const char* msg);
+    int port = 0;
+    string msg = "";
+    void (*on_receive)(const char* ip, const char* msg) = nullptr;
 };
 
 class zBroadCast {
@@ -52,7 +52,8 @@ private:
 
 public:
 
-    ThreadArgs& get_listener_thread_args(){
+    ThreadArgs get_listener_thread_args() const {
+        std::shared_lock<std::shared_mutex> lock(listener_thread_args_mutex);
         return listener_thread_args;
     }
 
