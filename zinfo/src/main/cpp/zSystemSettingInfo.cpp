@@ -12,6 +12,12 @@
 
 #include "zSystemSettingInfo.h"
 
+static inline void delete_local_ref(JNIEnv* env, jobject ref) {
+    if (env != nullptr && ref != nullptr) {
+        env->DeleteLocalRef(ref);
+    }
+}
+
 bool isCharging(JNIEnv *env, jobject context) {
     if (context == nullptr) {
         LOGE("Failed to get context");
@@ -69,48 +75,70 @@ string getInstallerName(JNIEnv *env, jobject context) {
     }
 
     string result;
+    jclass contextClass = nullptr;
+    jobject packageManager = nullptr;
+    jstring packageName = nullptr;
+    jclass pmClass = nullptr;
+    jstring installer = nullptr;
 
-    // 获取 Context 类
-    jclass contextClass = env->GetObjectClass(context);
-    if (contextClass == nullptr) {
-        return "";
-    }
-
-    // 获取 getPackageManager 方法 ID
-    jmethodID getPackageManager = env->GetMethodID(contextClass, "getPackageManager", "()Landroid/content/pm/PackageManager;");
-    jobject packageManager = env->CallObjectMethod(context, getPackageManager);
-    if (packageManager == nullptr) {
-        return "";
-    }
-
-    // 获取 getPackageName 方法 ID
-    jmethodID getPackageName = env->GetMethodID(contextClass, "getPackageName", "()Ljava/lang/String;");
-    jstring packageName = (jstring)env->CallObjectMethod(context, getPackageName);
-    if (packageName == nullptr) {
-        return "";
-    }
-
-    // 获取 PackageManager 类
-    jclass pmClass = env->GetObjectClass(packageManager);
-    if (pmClass == nullptr) {
-        return "";
-    }
-
-    // 获取 getInstallerPackageName 方法 ID
-    jmethodID getInstallerPackageName = env->GetMethodID(pmClass, "getInstallerPackageName", "(Ljava/lang/String;)Ljava/lang/String;");
-    jstring installer = (jstring)env->CallObjectMethod(packageManager, getInstallerPackageName, packageName);
-
-    // 如果返回值为 null，说明是 ADB 安装
-    if (installer == nullptr) {
-        LOGD("installer=null");
-    } else {
-        const char* installer_cstr = env->GetStringUTFChars(installer, nullptr);
-        if (installer_cstr != nullptr) {
-            LOGI("installer=%s", installer_cstr);
-            result = string(installer_cstr);
-            env->ReleaseStringUTFChars(installer, installer_cstr);
+    do {
+        // 获取 Context 类
+        contextClass = env->GetObjectClass(context);
+        if (contextClass == nullptr) {
+            break;
         }
-    }
+
+        // 获取 getPackageManager 方法 ID
+        jmethodID getPackageManager = env->GetMethodID(contextClass, "getPackageManager", "()Landroid/content/pm/PackageManager;");
+        if (getPackageManager == nullptr) {
+            break;
+        }
+        packageManager = env->CallObjectMethod(context, getPackageManager);
+        if (packageManager == nullptr) {
+            break;
+        }
+
+        // 获取 getPackageName 方法 ID
+        jmethodID getPackageName = env->GetMethodID(contextClass, "getPackageName", "()Ljava/lang/String;");
+        if (getPackageName == nullptr) {
+            break;
+        }
+        packageName = (jstring)env->CallObjectMethod(context, getPackageName);
+        if (packageName == nullptr) {
+            break;
+        }
+
+        // 获取 PackageManager 类
+        pmClass = env->GetObjectClass(packageManager);
+        if (pmClass == nullptr) {
+            break;
+        }
+
+        // 获取 getInstallerPackageName 方法 ID
+        jmethodID getInstallerPackageName = env->GetMethodID(pmClass, "getInstallerPackageName", "(Ljava/lang/String;)Ljava/lang/String;");
+        if (getInstallerPackageName == nullptr) {
+            break;
+        }
+        installer = (jstring)env->CallObjectMethod(packageManager, getInstallerPackageName, packageName);
+
+        // 如果返回值为 null，说明是 ADB 安装
+        if (installer == nullptr) {
+            LOGD("installer=null");
+        } else {
+            const char* installer_cstr = env->GetStringUTFChars(installer, nullptr);
+            if (installer_cstr != nullptr) {
+                LOGI("installer=%s", installer_cstr);
+                result = string(installer_cstr);
+                env->ReleaseStringUTFChars(installer, installer_cstr);
+            }
+        }
+    } while (false);
+
+    delete_local_ref(env, installer);
+    delete_local_ref(env, pmClass);
+    delete_local_ref(env, packageName);
+    delete_local_ref(env, packageManager);
+    delete_local_ref(env, contextClass);
 
     return result;
 }
@@ -193,46 +221,117 @@ bool isUsbDebugEnabled(JNIEnv *env, jobject context) {
 // 系统是否配置了代理
 bool isProxyEnabled(JNIEnv *env, jobject context) {
     jclass sysCls = env->FindClass("java/lang/System");
+    if (sysCls == nullptr) return JNI_FALSE;
     jmethodID getProp = env->GetStaticMethodID(sysCls, "getProperty", "(Ljava/lang/String;)Ljava/lang/String;");
+    if (getProp == nullptr) {
+        delete_local_ref(env, sysCls);
+        return JNI_FALSE;
+    }
 
     jstring hostKey = env->NewStringUTF("http.proxyHost");
     jstring portKey = env->NewStringUTF("http.proxyPort");
+    if (hostKey == nullptr || portKey == nullptr) {
+        delete_local_ref(env, hostKey);
+        delete_local_ref(env, portKey);
+        delete_local_ref(env, sysCls);
+        return JNI_FALSE;
+    }
 
     jstring host = (jstring) env->CallStaticObjectMethod(sysCls, getProp, hostKey);
     jstring port = (jstring) env->CallStaticObjectMethod(sysCls, getProp, portKey);
 
-    env->DeleteLocalRef(hostKey);
-    env->DeleteLocalRef(portKey);
+    delete_local_ref(env, hostKey);
+    delete_local_ref(env, portKey);
 
-    if (host == nullptr || port == nullptr) return JNI_FALSE;
+    if (host == nullptr || port == nullptr) {
+        delete_local_ref(env, host);
+        delete_local_ref(env, port);
+        delete_local_ref(env, sysCls);
+        return JNI_FALSE;
+    }
+
     const char *hostChars = env->GetStringUTFChars(host, nullptr);
     const char *portChars = env->GetStringUTFChars(port, nullptr);
+    if (hostChars == nullptr || portChars == nullptr) {
+        if (hostChars != nullptr) {
+            env->ReleaseStringUTFChars(host, hostChars);
+        }
+        if (portChars != nullptr) {
+            env->ReleaseStringUTFChars(port, portChars);
+        }
+        delete_local_ref(env, host);
+        delete_local_ref(env, port);
+        delete_local_ref(env, sysCls);
+        return JNI_FALSE;
+    }
+
     bool result = (strlen(hostChars) > 0 && strlen(portChars) > 0);
     env->ReleaseStringUTFChars(host, hostChars);
     env->ReleaseStringUTFChars(port, portChars);
+    delete_local_ref(env, host);
+    delete_local_ref(env, port);
+    delete_local_ref(env, sysCls);
     return result ? JNI_TRUE : JNI_FALSE;
 }
 
 // 判断是否是 VPN
 bool isVpnEnable(JNIEnv *env, jobject context) {
-    jclass contextCls = env->GetObjectClass(context);
-    jmethodID getSysService = env->GetMethodID(contextCls, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
-    jstring connStr = env->NewStringUTF("connectivity");
-    jobject connMgr = env->CallObjectMethod(context, getSysService, connStr);
-    env->DeleteLocalRef(connStr);
+    if (env == nullptr || context == nullptr) return JNI_FALSE;
 
-    if (connMgr == nullptr) return JNI_FALSE;
+    jclass contextCls = env->GetObjectClass(context);
+    if (contextCls == nullptr) return JNI_FALSE;
+    jmethodID getSysService = env->GetMethodID(contextCls, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
+    if (getSysService == nullptr) {
+        delete_local_ref(env, contextCls);
+        return JNI_FALSE;
+    }
+    jstring connStr = env->NewStringUTF("connectivity");
+    if (connStr == nullptr) {
+        delete_local_ref(env, contextCls);
+        return JNI_FALSE;
+    }
+    jobject connMgr = env->CallObjectMethod(context, getSysService, connStr);
+    delete_local_ref(env, connStr);
+
+    if (connMgr == nullptr) {
+        delete_local_ref(env, contextCls);
+        return JNI_FALSE;
+    }
 
     jclass connCls = env->GetObjectClass(connMgr);
+    if (connCls == nullptr) {
+        delete_local_ref(env, connMgr);
+        delete_local_ref(env, contextCls);
+        return JNI_FALSE;
+    }
 
     // 获取所有网络（包含 active network）
     jmethodID getAllNetworks = env->GetMethodID(connCls, "getAllNetworks", "()[Landroid/net/Network;");
+    if (getAllNetworks == nullptr) {
+        delete_local_ref(env, connCls);
+        delete_local_ref(env, connMgr);
+        delete_local_ref(env, contextCls);
+        return JNI_FALSE;
+    }
     jobjectArray networks = static_cast<jobjectArray>(env->CallObjectMethod(connMgr, getAllNetworks));
-    if (networks == nullptr) return JNI_FALSE;
+    if (networks == nullptr) {
+        delete_local_ref(env, connCls);
+        delete_local_ref(env, connMgr);
+        delete_local_ref(env, contextCls);
+        return JNI_FALSE;
+    }
 
     jmethodID getCaps = env->GetMethodID(connCls, "getNetworkCapabilities", "(Landroid/net/Network;)Landroid/net/NetworkCapabilities;");
+    if (getCaps == nullptr) {
+        delete_local_ref(env, networks);
+        delete_local_ref(env, connCls);
+        delete_local_ref(env, connMgr);
+        delete_local_ref(env, contextCls);
+        return JNI_FALSE;
+    }
 
     const int TRANSPORT_VPN = 4;
+    bool has_vpn = false;
 
     jsize count = env->GetArrayLength(networks);
     for (jsize i = 0; i < count; i++) {
@@ -240,17 +339,42 @@ bool isVpnEnable(JNIEnv *env, jobject context) {
         if (network == nullptr) continue;
 
         jobject caps = env->CallObjectMethod(connMgr, getCaps, network);
-        if (caps == nullptr) continue;
+        if (caps == nullptr) {
+            delete_local_ref(env, network);
+            continue;
+        }
 
         jclass capsCls = env->GetObjectClass(caps);
+        if (capsCls == nullptr) {
+            delete_local_ref(env, caps);
+            delete_local_ref(env, network);
+            continue;
+        }
         jmethodID hasTransport = env->GetMethodID(capsCls, "hasTransport", "(I)Z");
+        if (hasTransport == nullptr) {
+            delete_local_ref(env, capsCls);
+            delete_local_ref(env, caps);
+            delete_local_ref(env, network);
+            continue;
+        }
 
         if (env->CallBooleanMethod(caps, hasTransport, TRANSPORT_VPN)) {
-            return JNI_TRUE;  // ✓ 检测到 VPN
+            has_vpn = true;  // ✓ 检测到 VPN
+            delete_local_ref(env, capsCls);
+            delete_local_ref(env, caps);
+            delete_local_ref(env, network);
+            break;
         }
+        delete_local_ref(env, capsCls);
+        delete_local_ref(env, caps);
+        delete_local_ref(env, network);
     }
 
-    return JNI_FALSE;
+    delete_local_ref(env, networks);
+    delete_local_ref(env, connCls);
+    delete_local_ref(env, connMgr);
+    delete_local_ref(env, contextCls);
+    return has_vpn ? JNI_TRUE : JNI_FALSE;
 }
 
 // 判断是否设置锁屏密码
@@ -291,7 +415,24 @@ map<string, map<string, string>> get_system_setting_info(JNIEnv* env, jobject co
     bool is_charging = isCharging(env, context);
 
     // 获取安装者包名
-    bool is_market_installed = isMarketInstalled(env, context);
+    string installer_name = getInstallerName(env, context);
+    bool is_market_installed = !installer_name.empty();
+    if (is_market_installed) {
+        vector<string> market_name_list = {
+                "com.oppo.market",                      // OPPO
+                "com.bbk.appstore",                     // VIVO
+                "com.xiaomi.market",                    // XIAOMI
+                "com.huawei.appmarket",                 // HUAWEI
+                "com.hihonor.appmarket",                // HONOR
+        };
+        is_market_installed = false;
+        for (const auto& market_name : market_name_list) {
+            if (installer_name == market_name) {
+                is_market_installed = true;
+                break;
+            }
+        }
+    }
 
     // 获取 SIM 卡信息
     bool is_sim_exist = isSimExist(env, context);
@@ -321,7 +462,7 @@ map<string, map<string, string>> get_system_setting_info(JNIEnv* env, jobject co
     LOGI("isMarketInstalled=%d", is_market_installed);
     if(!is_market_installed){
         info["installer"]["risk"] = "warn";
-        info["installer"]["explain"] = "not install from official app market [" + getInstallerName(env, context) + "]";
+        info["installer"]["explain"] = "not install from official app market [" + installer_name + "]";
     }
 
     LOGI("is_sim_exist=%d", is_sim_exist);
