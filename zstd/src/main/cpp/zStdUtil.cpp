@@ -69,15 +69,20 @@ vector<string> split_str(const string& str, const string& split) {
     }
 
     const char* s = str.c_str();
+    const char* delim = split.c_str();
     size_t str_len = str.length();
     size_t split_len = split.length();
+    if (split_len > str_len) {
+        result.push_back(str);
+        return result;
+    }
 
     size_t i = 0;
     while (i < str_len) {
         size_t j = i;
 
         // 查找下一个分隔符位置
-        while (j <= str_len - split_len && memcmp(s + j, split.c_str(), split_len) != 0) {
+        while (j + split_len <= str_len && memcmp(s + j, delim, split_len) != 0) {
             ++j;
         }
 
@@ -85,7 +90,7 @@ vector<string> split_str(const string& str, const string& split) {
         result.emplace_back(s + i, j - i);
 
         // 跳过分隔符
-        i = (j <= str_len - split_len) ? j + split_len : str_len;
+        i = (j + split_len <= str_len) ? j + split_len : str_len;
     }
 
     // 处理末尾刚好是分隔符的情况，需补一个空串
