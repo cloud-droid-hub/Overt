@@ -192,7 +192,7 @@ public:
      * 
      * @return 三层嵌套Map的常量引用，包含所有检测结果
      */
-    const map<string, map<string, map<string, string>>>& get_device_info() const;
+    map<string, map<string, map<string, string>>> get_device_info() const;
 
     /**
      * 更新设备信息
@@ -222,7 +222,7 @@ public:
      * @param key 信息类别标识
      * @return 指定类别的设备信息副本
      */
-    const map<string, map<string, string>> get_info(const string& key);
+    map<string, map<string, string>> get_info(const string& key);
 
     /**
      * 清空所有设备信息

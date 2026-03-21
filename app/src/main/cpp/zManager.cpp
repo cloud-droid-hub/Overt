@@ -112,7 +112,7 @@ zManager::~zManager() {
  * 使用读锁保证线程安全，允许多个线程同时读取
  * @return 三层嵌套的Map，包含所有收集到的设备信息
  */
-const map<string, map<string, map<string, string>>>& zManager::get_device_info() const{
+map<string, map<string, map<string, string>>> zManager::get_device_info() const{
     LOGD("get_device_info called");
     // 使用共享读锁，允许多个线程同时读取
     std::shared_lock<std::shared_mutex> lock(device_info_mtx_);
@@ -134,13 +134,17 @@ void zManager::update_device_info(const string& key, const map<string, map<strin
     LOGI("update_device_info: updated key=%s", key.c_str());
 };
 
-const map<string, map<string, string>> zManager::get_info(const string& key){
+map<string, map<string, string>> zManager::get_info(const string& key){
     LOGD("get_info called, key=%s", key.c_str());
-    // 使用独占写锁，确保更新操作的原子性
-    std::unique_lock<std::shared_mutex> lock(device_info_mtx_);
-    map<string, map<string, string>> info = device_info[key];
-    LOGI("update_device_info: updated key=%s", key.c_str());
-    return info;
+    // 只读查询，使用共享锁并避免 operator[] 导致的隐式插入
+    std::shared_lock<std::shared_mutex> lock(device_info_mtx_);
+    auto it = device_info.find(key);
+    if (it == device_info.end()) {
+        LOGI("get_info: key not found=%s", key.c_str());
+        return {};
+    }
+    LOGI("get_info: fetched key=%s", key.c_str());
+    return it->second;
 };
 
 
