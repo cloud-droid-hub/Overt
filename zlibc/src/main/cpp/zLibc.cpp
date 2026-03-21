@@ -182,11 +182,6 @@ int strncmp(const char *str1, const char *str2, size_t n) {
 
 // ==================== 内存函数 ====================
 
-typedef struct {
-    size_t size;
-    uint8_t data[];  // C99 flexible array member
-} MemHeader;
-
 void* calloc(size_t nmemb, size_t size) {
     LOGV("calloc called: nmemb=%zu, size=%zu", nmemb, size);
 
@@ -222,9 +217,11 @@ void* realloc(void* ptr, size_t size) {
         return NULL;
     }
 
-    // 获取旧块大小
-    MemHeader* old_header = (MemHeader*)((char*)ptr - offsetof(MemHeader, data));
-    size_t old_size = old_header->size - sizeof(MemHeader);  // 原用户可用大小
+    // 通过分配器提供的可用大小接口获取旧块长度，避免假定自定义内存头导致越界读取
+    size_t old_size = malloc_usable_size(ptr);
+    if (old_size == 0) {
+        LOGW("realloc: malloc_usable_size returned 0 for %p, skip copy", ptr);
+    }
 
     void* new_ptr = malloc(size);
     if (!new_ptr) return NULL;
@@ -1079,6 +1076,5 @@ FILE* popen(const char* cmd, const char* mode) {
 
 
 #endif
-
 
 
