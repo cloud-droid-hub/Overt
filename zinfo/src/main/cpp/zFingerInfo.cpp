@@ -204,7 +204,10 @@ string get_package_base_apk_path(JNIEnv* env, jobject context, const string& pkg
     jstring sourceDir = (jstring) env->GetObjectField(ai, fidSourceDir);
     if (sourceDir != nullptr) {
         const char* base_apk_path = env->GetStringUTFChars(sourceDir, nullptr);
-        result = base_apk_path;
+        if (base_apk_path != nullptr) {
+            result = base_apk_path;
+            env->ReleaseStringUTFChars(sourceDir, base_apk_path);
+        }
         env->DeleteLocalRef(sourceDir);
     }
 

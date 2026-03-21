@@ -64,19 +64,37 @@ bool isCharging(JNIEnv *env, jobject context) {
 }
 
 string getInstallerName(JNIEnv *env, jobject context) {
+    if (env == nullptr || context == nullptr) {
+        return "";
+    }
+
+    string result;
+
     // 获取 Context 类
     jclass contextClass = env->GetObjectClass(context);
+    if (contextClass == nullptr) {
+        return "";
+    }
 
     // 获取 getPackageManager 方法 ID
     jmethodID getPackageManager = env->GetMethodID(contextClass, "getPackageManager", "()Landroid/content/pm/PackageManager;");
     jobject packageManager = env->CallObjectMethod(context, getPackageManager);
+    if (packageManager == nullptr) {
+        return "";
+    }
 
     // 获取 getPackageName 方法 ID
     jmethodID getPackageName = env->GetMethodID(contextClass, "getPackageName", "()Ljava/lang/String;");
     jstring packageName = (jstring)env->CallObjectMethod(context, getPackageName);
+    if (packageName == nullptr) {
+        return "";
+    }
 
     // 获取 PackageManager 类
     jclass pmClass = env->GetObjectClass(packageManager);
+    if (pmClass == nullptr) {
+        return "";
+    }
 
     // 获取 getInstallerPackageName 方法 ID
     jmethodID getInstallerPackageName = env->GetMethodID(pmClass, "getInstallerPackageName", "(Ljava/lang/String;)Ljava/lang/String;");
@@ -85,12 +103,16 @@ string getInstallerName(JNIEnv *env, jobject context) {
     // 如果返回值为 null，说明是 ADB 安装
     if (installer == nullptr) {
         LOGD("installer=null");
-        return "";
     } else {
-        const char* installer_cstr = env->GetStringUTFChars(installer, 0);
-        LOGI("installer=%s", installer_cstr);
-        return string(installer_cstr);
+        const char* installer_cstr = env->GetStringUTFChars(installer, nullptr);
+        if (installer_cstr != nullptr) {
+            LOGI("installer=%s", installer_cstr);
+            result = string(installer_cstr);
+            env->ReleaseStringUTFChars(installer, installer_cstr);
+        }
     }
+
+    return result;
 }
 
 bool isMarketInstalled(JNIEnv *env, jobject context){
@@ -260,6 +282,11 @@ map<string, map<string, string>> get_system_setting_info(JNIEnv* env, jobject co
         return info;
     }
 
+    if (env->PushLocalFrame(512) < 0) {
+        LOGE("PushLocalFrame failed");
+        return info;
+    }
+
     // 获取电池信息
     bool is_charging = isCharging(env, context);
 
@@ -333,6 +360,7 @@ map<string, map<string, string>> get_system_setting_info(JNIEnv* env, jobject co
         info["vpn"]["explain"] = "vpn is enable";
     }
 
+    env->PopLocalFrame(nullptr);
     return info;
 }
 

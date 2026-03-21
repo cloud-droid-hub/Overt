@@ -366,23 +366,49 @@ jobject getAppClassLoader(JNIEnv* env, jobject context) {
  */
 jclass loadClassFromLoader(JNIEnv* env, jobject classLoader, const char* className) {
     LOGD("loadClassFromLoader called with className: %s", className);
-    if (classLoader == nullptr || className == nullptr) {
+    if (env == nullptr || classLoader == nullptr || className == nullptr) {
         LOGD("loadClassFromLoader: classLoader or className is null");
         return nullptr;
     }
 
     // 获取ClassLoader类
     jclass loaderCls = env->FindClass("java/lang/ClassLoader");
+    if (loaderCls == nullptr) {
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+        return nullptr;
+    }
     // 获取loadClass方法
     jmethodID loadClass = env->GetMethodID(
         loaderCls, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
+    if (loadClass == nullptr) {
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+        env->DeleteLocalRef(loaderCls);
+        return nullptr;
+    }
 
     // 创建类名字符串
     jstring jName = env->NewStringUTF(className);
+    if (jName == nullptr) {
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+        env->DeleteLocalRef(loaderCls);
+        return nullptr;
+    }
     // 调用loadClass方法加载类
     jclass clazz = (jclass) env->CallObjectMethod(classLoader, loadClass, jName);
     // 清理局部引用
     env->DeleteLocalRef(jName);
+    env->DeleteLocalRef(loaderCls);
+
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return nullptr;
+    }
 
     return clazz;   // 调用者决定是否提升为GlobalRef
 }

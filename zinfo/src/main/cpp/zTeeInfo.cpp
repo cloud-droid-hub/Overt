@@ -246,13 +246,20 @@ map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject conte
         LOGI("certBytes of cert[%d]: %s", cert_data.size(), hex_data.c_str());
 
         // 分段记录证书数据用于详细调试
-        string hex_data_1 = bytes_to_hex(cert_data.data(), 300);
-        string hex_data_2 = bytes_to_hex(cert_data.data()+300, 300);
-        string hex_data_3 = bytes_to_hex(cert_data.data()+600, 53);
+        auto log_cert_chunk = [&](size_t offset, size_t expect_len, const char* label) {
+            if (offset >= cert_data.size()) {
+                LOGI("%s skipped: offset=%zu, cert_size=%zu", label, offset, cert_data.size());
+                return;
+            }
+            size_t remain = cert_data.size() - offset;
+            size_t actual_len = remain < expect_len ? remain : expect_len;
+            string hex_chunk = bytes_to_hex(cert_data.data() + offset, actual_len);
+            LOGI("%s offset=%zu len=%zu: %s", label, offset, actual_len, hex_chunk.c_str());
+        };
 
-        LOGI("certBytes of cert[300]: %s", hex_data_1.c_str());
-        LOGI("certBytes of cert[600]: %s", hex_data_2.c_str());
-        LOGI("certBytes of cert[653]: %s", hex_data_3.c_str());
+        log_cert_chunk(0, 300, "certBytes chunk1");
+        log_cert_chunk(300, 300, "certBytes chunk2");
+        log_cert_chunk(600, 53, "certBytes chunk3");
     }
 
     zTeeCert tee = zTeeCert(cert_data);

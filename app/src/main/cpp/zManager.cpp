@@ -269,34 +269,11 @@ void zManager::round_tasks(){
 
 /**
  * 通知Java层更新UI
- * 
  * 功能说明：
  * 1. 将Native层的检测结果传递给Java层
  * 2. 通过JNI调用Java层的静态方法
  * 3. 实现Native层到Java层的数据通信
  * 4. 触发UI更新显示最新的检测结果
- * 
- * 执行流程：
- * 1. 获取JNI环境
- * 2. 查找MainActivity类
- * 3. 获取回调方法ID
- * 4. 获取检测结果数据
- * 5. 转换为JSON格式
- * 6. 创建Java字符串对象
- * 7. 调用Java层方法
- * 8. 处理异常和清理资源
- * 
- * 线程安全：
- * - 使用静态互斥锁保护整个函数
- * - 确保多线程环境下的安全调用
- * - 避免JNI调用的竞态条件
- * 
- * 错误处理：
- * - 检查JNI环境有效性
- * - 验证类和方法查找结果
- * - 处理Java层异常
- * - 清理JNI局部引用
- * 
  * @param title 检测类型标题，用于标识检测结果
  */
 void zManager::notice_java(string title){
@@ -318,6 +295,8 @@ void zManager::notice_java(string title){
 
     // 查找MainActivity类
     jclass activity_class = zJavaVm::getInstance()->findClass("com/example/overt/MainActivity");
+    jstring title_jstr = nullptr;
+    jstring card_data_jstr = nullptr;
     if (activity_class == nullptr) {
         LOGE("notice_java: activity_class is null");
         return;
@@ -330,6 +309,7 @@ void zManager::notice_java(string title){
     jmethodID method_id = env->GetStaticMethodID(activity_class, "onCardInfoUpdated", "(Ljava/lang/String;Ljava/lang/String;)V");
     if (method_id == nullptr){
         LOGE("notice_java: method_id onCardInfoUpdated is null");
+        env->DeleteLocalRef(activity_class);
         return;
     }
 
@@ -342,16 +322,25 @@ void zManager::notice_java(string title){
     LOGE("card_data_str:%s", card_data_str.c_str());
 
     // 创建Java字符串对象 - 标题
-    jstring title_jstr = env->NewStringUTF(title.c_str());
+    title_jstr = env->NewStringUTF(title.c_str());
     if (title_jstr == nullptr) {
         LOGE("notice_java: Failed to create title string");
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+        env->DeleteLocalRef(activity_class);
         return;
     }
 
     // 创建Java字符串对象 - 数据
-    jstring card_data_jstr = env->NewStringUTF(card_data_str.c_str());
+    card_data_jstr = env->NewStringUTF(card_data_str.c_str());
     if (card_data_jstr == nullptr) {
         LOGE("notice_java: Failed to create data string");
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+        env->DeleteLocalRef(title_jstr);
+        env->DeleteLocalRef(activity_class);
         return;
     }
 
@@ -369,6 +358,7 @@ void zManager::notice_java(string title){
     // 清理JNI局部引用，防止内存泄漏
     env->DeleteLocalRef(title_jstr);
     env->DeleteLocalRef(card_data_jstr);
+    env->DeleteLocalRef(activity_class);
 
     LOGI("notice_java: completed successfully for title: %s", title.c_str());
 }
@@ -412,10 +402,15 @@ void zManager::clear_device_info(){
 vector<int> zManager::get_big_core_list() {
     LOGI("get_big_core_list called");
     const int cpuCount = std::thread::hardware_concurrency();
+    if (cpuCount <= 0) {
+        LOGW("get_big_core_list: invalid cpuCount=%d", cpuCount);
+        return {};
+    }
 
     vector<int> big_cores;      // 大核心列表
     int max_freq = 0;           // 最大频率
     vector<int> freqs;          // 各核心频率数组
+    freqs.resize(cpuCount);
 
     LOGD("Scanning CPU frequencies for %d CPUs", cpuCount);
     

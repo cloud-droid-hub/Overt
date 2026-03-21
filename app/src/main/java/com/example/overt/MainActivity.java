@@ -176,10 +176,10 @@ public class MainActivity extends AppCompatActivity {
                 // createIfNotExists=true 表示如果卡片不存在则创建新卡片
                 cardContainer.updateCard(title, jsonObject, true);
             } catch (JSONException e) {
-                // JSON解析失败，抛出运行时异常
-                // 这通常表示Native层传递的数据格式有问题
+                // JSON解析失败，通常表示Native层传递的数据格式有问题
                 Log.e(TAG, "Failed to parse JSON data: " + newCardInfo, e);
-                throw new RuntimeException("JSON parsing failed", e);
+                // 避免因为单条数据异常导致整个应用崩溃
+                // 仅记录错误并跳过本次更新
             }
         } else {
             Log.w(TAG, "Card container is null, cannot update UI");
