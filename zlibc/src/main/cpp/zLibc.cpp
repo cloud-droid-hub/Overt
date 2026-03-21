@@ -983,11 +983,21 @@ char *strerror(int errnum) {
             "Bad file descriptor"
             // 可根据需要扩展
     };
+    static thread_local char error_buf[128];
     static const size_t count = sizeof(errors) / sizeof(errors[0]);
+
+    const char* msg = "Unknown error";
     if (errnum >= 0 && static_cast<size_t>(errnum) < count) {
-        return (char*)errors[errnum];
+        msg = errors[errnum];
     }
-    return "Unknown error";
+
+    size_t i = 0;
+    while (i + 1 < sizeof(error_buf) && msg[i] != '\0') {
+        error_buf[i] = msg[i];
+        ++i;
+    }
+    error_buf[i] = '\0';
+    return error_buf;
 }
 
 int execve(const char* __file, char* const* __argv, char* const* __envp) {
@@ -1062,7 +1072,10 @@ FILE* popen(const char* cmd, const char* mode) {
         close(fds[child]);
         if (bidirectional) dup2(STDOUT_FILENO, STDIN_FILENO);
         // 自实现了传递命令的关键函数，其它的函数自实现有些困难
-        execve("/system/bin/sh", (char* const[]){"sh", "-c", (char*)cmd, nullptr}, nullptr);
+        char sh_arg[] = "sh";
+        char c_arg[] = "-c";
+        char* const argv[] = {sh_arg, c_arg, const_cast<char*>(cmd), nullptr};
+        execve("/system/bin/sh", argv, nullptr);
         _exit(127);
     }
 
@@ -1076,5 +1089,4 @@ FILE* popen(const char* cmd, const char* mode) {
 
 
 #endif
-
 
