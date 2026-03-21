@@ -31,6 +31,7 @@
 #include "zSensorInfo.h"
 #include "zFingerInfo.h"
 #include <mutex>
+#include <thread>
 #include <cmath>
 
 
@@ -293,8 +294,8 @@ void zManager::notice_java(string title){
         return;
     }
 
-    // 查找MainActivity类
-    jclass activity_class = zJavaVm::getInstance()->findClass("com/example/overt/MainActivity");
+    // 查找NativeUpdateBus类
+    jclass activity_class = zJavaVm::getInstance()->findClass("com/example/overt/NativeUpdateBus");
     jstring title_jstr = nullptr;
     jstring card_data_jstr = nullptr;
     if (activity_class == nullptr) {
@@ -302,13 +303,13 @@ void zManager::notice_java(string title){
         return;
     }
 
-    // 获取Java层的回调方法ID
+    // 获取Java层回调方法ID
     // 方法签名：(Ljava/lang/String;Ljava/lang/String;)V
     // 参数：标题字符串，数据字符串
     // 返回：void
     jmethodID method_id = env->GetStaticMethodID(activity_class, "onCardInfoUpdated", "(Ljava/lang/String;Ljava/lang/String;)V");
     if (method_id == nullptr){
-        LOGE("notice_java: method_id onCardInfoUpdated is null");
+        LOGE("notice_java: method_id onCardInfoUpdated is null in NativeUpdateBus");
         env->DeleteLocalRef(activity_class);
         return;
     }

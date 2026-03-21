@@ -4,12 +4,53 @@
 
 #include <jni.h>
 #include <mutex>
+#include <new>
+#include <pthread.h>
 
 #include "zElf.h"
 #include "zLinker.h"
 #include "zLog.h"
 #include "zLibc.h"
 #include "zJavaVm.h"
+
+namespace {
+struct ThreadEnvHolder {
+    JNIEnv* env;
+    bool attached_by_us;
+};
+
+pthread_key_t g_env_tls_key;
+pthread_once_t g_env_tls_key_once = PTHREAD_ONCE_INIT;
+JavaVM* g_env_tls_jvm = nullptr;
+bool g_env_tls_key_ready = false;
+
+void env_tls_destructor(void* data) {
+    auto* holder = static_cast<ThreadEnvHolder*>(data);
+    if (holder == nullptr) {
+        return;
+    }
+
+    if (holder->attached_by_us && g_env_tls_jvm != nullptr) {
+        jint ret = g_env_tls_jvm->DetachCurrentThread();
+        if (ret != JNI_OK) {
+            LOGW("env_tls_destructor: DetachCurrentThread failed: %d", ret);
+        } else {
+            LOGI("env_tls_destructor: thread detached successfully");
+        }
+    }
+    delete holder;
+}
+
+void init_env_tls_key() {
+    int ret = pthread_key_create(&g_env_tls_key, env_tls_destructor);
+    if (ret != 0) {
+        LOGE("init_env_tls_key: pthread_key_create failed: %d", ret);
+        g_env_tls_key_ready = false;
+        return;
+    }
+    g_env_tls_key_ready = true;
+}
+} // namespace
 
 
 // 静态单例实例指针
@@ -67,6 +108,7 @@ zJavaVm::zJavaVm() {
 
     // 保存JVM实例指针
     jvm = vms[0];
+    g_env_tls_jvm = jvm;
     LOGI("JVM initialized successfully");
 }
 
@@ -92,33 +134,57 @@ JNIEnv* zJavaVm::getEnv(){
         return nullptr;
     }
 
-    // 获取当前线程ID
-    int tid = syscall(SYS_gettid);
+    pthread_once(&g_env_tls_key_once, init_env_tls_key);
 
-    // 先检查是否已经有当前线程的JNIEnv
-    {
-        std::lock_guard<std::mutex> lock(env_map_mutex);
-        auto it = thread_env_map.find(tid);
-        if (it != thread_env_map.end()) {
-            LOGI("getEnv: Found existing JNIEnv for thread %p", it->second);
-            return it->second;
+    if (g_env_tls_key_ready) {
+        auto* holder = static_cast<ThreadEnvHolder*>(pthread_getspecific(g_env_tls_key));
+        if (holder != nullptr && holder->env != nullptr) {
+            LOGI("getEnv: Found TLS JNIEnv %p", holder->env);
+            return holder->env;
         }
     }
-    
-    // 当前线程没有JNIEnv，需要创建新的
+
     JNIEnv* env = nullptr;
-    if (jvm->AttachCurrentThread((JNIEnv **) &env, nullptr) != JNI_OK) {
-        LOGE("Failed to attach current thread to JVM");
+    bool attached_by_us = false;
+
+    jint state = jvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
+    if (state == JNI_OK) {
+        attached_by_us = false;
+    } else if (state == JNI_EDETACHED) {
+        if (jvm->AttachCurrentThread(reinterpret_cast<JNIEnv**>(&env), nullptr) != JNI_OK) {
+            LOGE("Failed to attach current thread to JVM");
+            return nullptr;
+        }
+        attached_by_us = true;
+    } else {
+        LOGE("GetEnv failed: %d", state);
         return nullptr;
     }
-    
-    // 将新的JNIEnv添加到映射表中
-    {
-        std::lock_guard<std::mutex> lock(env_map_mutex);
-        thread_env_map[tid] = env;
-        LOGI("getEnv: Created new JNIEnv %p for thread %d", env, tid);
+
+    if (!g_env_tls_key_ready) {
+        LOGW("getEnv: TLS key unavailable, using non-cached JNIEnv");
+        return env;
     }
-    
+
+    auto* holder = new (std::nothrow) ThreadEnvHolder{env, attached_by_us};
+    if (holder == nullptr) {
+        LOGE("getEnv: Failed to allocate ThreadEnvHolder");
+        if (attached_by_us) {
+            jvm->DetachCurrentThread();
+        }
+        return nullptr;
+    }
+
+    if (pthread_setspecific(g_env_tls_key, holder) != 0) {
+        LOGE("getEnv: pthread_setspecific failed");
+        if (attached_by_us) {
+            jvm->DetachCurrentThread();
+        }
+        delete holder;
+        return nullptr;
+    }
+
+    LOGI("getEnv: Created TLS JNIEnv %p, attached_by_us=%d", env, attached_by_us ? 1 : 0);
     return env;
 }
 
@@ -477,23 +543,29 @@ void zJavaVm::cleanupCurrentThreadEnv(){
         LOGD("cleanupCurrentThreadEnv: JVM is not initialized");
         return;
     }
-    
-    // 获取当前线程ID
-    int tid = syscall(SYS_gettid);
-    
-    // 从映射表中移除当前线程的JNIEnv
-    {
-        std::lock_guard<std::mutex> lock(env_map_mutex);
-        auto it = thread_env_map.find(tid);
-        if (it != thread_env_map.end()) {
-            LOGI("cleanupCurrentThreadEnv: Cleaning up JNIEnv %p for thread %d", it->second, tid);
-            thread_env_map.erase(it);
+
+    if (!g_env_tls_key_ready) {
+        LOGW("cleanupCurrentThreadEnv: TLS key unavailable");
+        return;
+    }
+
+    auto* holder = static_cast<ThreadEnvHolder*>(pthread_getspecific(g_env_tls_key));
+    if (holder == nullptr) {
+        LOGD("cleanupCurrentThreadEnv: No TLS holder for current thread");
+        return;
+    }
+
+    if (holder->attached_by_us) {
+        jint ret = jvm->DetachCurrentThread();
+        if (ret != JNI_OK) {
+            LOGW("cleanupCurrentThreadEnv: DetachCurrentThread failed: %d", ret);
+        } else {
+            LOGI("cleanupCurrentThreadEnv: Thread detached from JVM");
         }
     }
-    
-    // 从JVM中分离当前线程
-    jvm->DetachCurrentThread();
-    LOGI("cleanupCurrentThreadEnv: Thread detached from JVM");
+
+    pthread_setspecific(g_env_tls_key, nullptr);
+    delete holder;
 }
 
 /**
@@ -502,15 +574,6 @@ void zJavaVm::cleanupCurrentThreadEnv(){
  */
 void zJavaVm::exit(){
     LOGD("exit called");
-    
-    // 清理所有线程的JNIEnv
-    {
-        std::lock_guard<std::mutex> lock(env_map_mutex);
-        for (auto& pair : thread_env_map) {
-            LOGI("exit: Cleaning up JNIEnv %p for thread %d", pair.second, pair.first);
-        }
-        thread_env_map.clear();
-    }
     
     // 修改内存页权限为可读写执行
     mprotect((void *) PAGE_START((long) jvm), PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC);

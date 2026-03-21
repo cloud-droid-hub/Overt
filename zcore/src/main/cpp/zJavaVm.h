@@ -8,10 +8,6 @@
 #include <jni.h>
 #include <asm-generic/mman.h>
 #include <sys/mman.h>
-#include <shared_mutex>
-#include <map>
-#include <mutex>
-#include <thread>
 
 #include "zLog.h"
 
@@ -40,10 +36,6 @@ private:
     
     // Java虚拟机指针
     JavaVM* jvm = nullptr;
-    
-    // 线程ID到JNIEnv的映射表（线程安全）
-    std::map<int, JNIEnv*> thread_env_map;
-    mutable std::mutex env_map_mutex;
     
     // Android上下文对象（全局引用）
     jobject context = nullptr;
