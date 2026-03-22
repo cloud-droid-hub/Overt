@@ -1122,7 +1122,7 @@ namespace nonstd {
         }
 
         size_type rfind(const CharT* s, size_type pos, size_type n) const noexcept {
-            if (n == 0) return pos;
+            if (n == 0) return (pos < size_) ? pos : size_;
             if (size_ == 0) return npos;  // 空字符串无法匹配
             if (n > size_) return npos;    // 防止无符号数下溢
             if (pos >= size_) pos = size_ - 1;
@@ -1150,6 +1150,7 @@ namespace nonstd {
         }
 
         size_type rfind(CharT c, size_type pos = npos) const noexcept {
+            if (size_ == 0) return npos;
             if (pos >= size_) pos = size_ - 1;
             for (int i = static_cast<int>(pos); i >= 0; --i) {
                 if (data_[i] == c) return static_cast<size_t>(i);
@@ -1187,6 +1188,7 @@ namespace nonstd {
         }
 
         size_type find_last_of(const CharT* s, size_type pos, size_type n) const noexcept {
+            if (size_ == 0 || n == 0) return npos;
             if (pos >= size_) pos = size_ - 1;
             for (int i = static_cast<int>(pos); i >= 0; --i) {
                 for (size_t j = 0; j < n; ++j) {
@@ -1246,6 +1248,8 @@ namespace nonstd {
         }
 
         size_type find_last_not_of(const CharT* s, size_type pos, size_type n) const noexcept {
+            if (size_ == 0) return npos;
+            if (n == 0) return (pos < size_) ? pos : (size_ - 1);
             if (pos >= size_) pos = size_ - 1;
             for (int i = static_cast<int>(pos); i >= 0; --i) {
                 bool found = false;
@@ -1268,6 +1272,7 @@ namespace nonstd {
         }
 
         size_type find_last_not_of(CharT c, size_type pos = npos) const noexcept {
+            if (size_ == 0) return npos;
             if (pos >= size_) pos = size_ - 1;
             for (int i = static_cast<int>(pos); i >= 0; --i) {
                 if (data_[i] != c) return static_cast<size_t>(i);
