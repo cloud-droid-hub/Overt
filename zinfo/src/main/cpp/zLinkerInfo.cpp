@@ -22,8 +22,16 @@
 map<string, map<string, string>> get_linker_info(){
     map<string, map<string, string>> info;
     
+    zLinker* linker = zLinker::getInstance();
+    if (linker == nullptr) {
+        LOGE("get_linker_info: zLinker instance is null");
+        info["linker"]["risk"] = "error";
+        info["linker"]["explain"] = "zLinker init failed";
+        return info;
+    }
+
     // 获取所有已加载共享库的路径列表
-    vector<string> libpath_list = zLinker::getInstance()->get_libpath_list();
+    vector<string> libpath_list = linker->get_libpath_list();
     
     // 遍历所有共享库路径，检测黑名单库
     for (int i = 0; i < libpath_list.size(); ++i) {
@@ -56,7 +64,8 @@ map<string, map<string, string>> get_linker_info(){
         string so_path = so_list[i];
 
         // 提取库文件名（去掉路径部分）
-        string so_name = so_path.substr(so_path.rfind('/') + 1);
+        size_t slash_pos = so_path.rfind('/');
+        string so_name = (slash_pos == string::npos) ? so_path : so_path.substr(slash_pos + 1);
 
         // 只检查.so文件
         if(string_end_with(so_name.c_str(), ".so")){
@@ -75,4 +84,3 @@ map<string, map<string, string>> get_linker_info(){
 
     return info;
 }
-
