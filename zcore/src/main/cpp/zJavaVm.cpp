@@ -382,18 +382,44 @@ jobject getCurrentContext(JNIEnv* env) {
 
     // 获取ActivityThread类
     jclass activityThread = env->FindClass("android/app/ActivityThread");
+    if (activityThread == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        LOGE("getCurrentContext: failed to find ActivityThread");
+        return nullptr;
+    }
     // 获取currentApplication静态方法
     jmethodID currentApp = env->GetStaticMethodID(activityThread, "currentApplication", "()Landroid/app/Application;");
+    if (currentApp == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        env->DeleteLocalRef(activityThread);
+        LOGE("getCurrentContext: failed to find currentApplication");
+        return nullptr;
+    }
     // 调用静态方法获取当前Application
     jobject context = env->CallStaticObjectMethod(activityThread, currentApp);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        env->DeleteLocalRef(activityThread);
+        LOGE("getCurrentContext: CallStaticObjectMethod threw exception");
+        return nullptr;
+    }
 
     if (context == nullptr) {
         LOGE("Failed to get the context");
+        env->DeleteLocalRef(activityThread);
         return nullptr;
     }
 
     // 转为全局引用后返回，确保跨线程使用安全
-    return env->NewGlobalRef(context);
+    jobject global_context = env->NewGlobalRef(context);
+    env->DeleteLocalRef(context);
+    env->DeleteLocalRef(activityThread);
+    if (global_context == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        LOGE("getCurrentContext: NewGlobalRef failed");
+        return nullptr;
+    }
+    return global_context;
 }
 
 /**
@@ -405,21 +431,51 @@ jobject getCurrentContext(JNIEnv* env) {
  */
 jobject getAppClassLoader(JNIEnv* env, jobject context) {
     LOGD("getAppClassLoader called");
-    if (context == nullptr) {
+    if (env == nullptr || context == nullptr) {
         LOGD("getAppClassLoader: context is null");
         return nullptr;
     }
 
     // 获取Context类
     jclass ctxCls = env->GetObjectClass(context);
+    if (ctxCls == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        LOGE("getAppClassLoader: failed to get Context class");
+        return nullptr;
+    }
     // 获取getClassLoader方法
     jmethodID getClassLoader = env->GetMethodID(
         ctxCls, "getClassLoader", "()Ljava/lang/ClassLoader;");
+    if (getClassLoader == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        env->DeleteLocalRef(ctxCls);
+        LOGE("getAppClassLoader: failed to find getClassLoader");
+        return nullptr;
+    }
     // 调用方法获取ClassLoader
     jobject loader = env->CallObjectMethod(context, getClassLoader);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        env->DeleteLocalRef(ctxCls);
+        LOGE("getAppClassLoader: CallObjectMethod threw exception");
+        return nullptr;
+    }
+    if (loader == nullptr) {
+        env->DeleteLocalRef(ctxCls);
+        LOGE("getAppClassLoader: class loader is null");
+        return nullptr;
+    }
 
     // 返回全局引用，调用者如果需要长期持有请转GlobalRef
-    return env->NewGlobalRef(loader);
+    jobject global_loader = env->NewGlobalRef(loader);
+    env->DeleteLocalRef(loader);
+    env->DeleteLocalRef(ctxCls);
+    if (global_loader == nullptr || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        LOGE("getAppClassLoader: NewGlobalRef failed");
+        return nullptr;
+    }
+    return global_loader;
 }
 
 /**
