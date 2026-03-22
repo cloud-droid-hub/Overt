@@ -51,23 +51,29 @@ map<string, PropertyValue> getAllSystemProperties() {
     // 使用系统API遍历所有属性
     __system_property_foreach([](const prop_info* pi, void* cookie) {
         auto properties = reinterpret_cast<map<string, PropertyValue> *>(cookie);
-        const prop_info_internal* internal = reinterpret_cast<const prop_info_internal*>(pi);
+        if (properties == nullptr || pi == nullptr) {
+            return;
+        }
 
-        string name(internal->name);
-        string value(internal->value);
-        uint32_t serial = internal->serial;
+        __system_property_read_callback(
+                pi,
+                [](void* cb_cookie, const char* name, const char* value, uint32_t serial) {
+                    auto props = reinterpret_cast<map<string, PropertyValue>*>(cb_cookie);
+                    if (props == nullptr || name == nullptr) {
+                        return;
+                    }
 
-        // 解析序列号的各个组成部分
-        uint32_t dirty = serial & SERIAL_DIRTY;                                    // dirty标志
-        uint32_t value_len = (serial & SERIAL_VALUE_LEN_MASK) >> SERIAL_VALUE_LEN_SHIFT;  // 值长度
-        uint32_t version = (serial & ~SERIAL_DIRTY & ~SERIAL_VALUE_LEN_MASK);     // 版本号
-        
-        // 存储属性信息
-        properties->emplace(name, PropertyValue{value, serial, version});
+                    string prop_name(name);
+                    string prop_value = value == nullptr ? "" : string(value);
 
-        LOGD("properties %s %s %x", name.c_str(), value.c_str(), serial);
-        sleep(0); // 让出CPU时间片
+                    // 解析序列号的版本位（保留原有逻辑）
+                    uint32_t version = (serial & ~SERIAL_DIRTY & ~SERIAL_VALUE_LEN_MASK);
+                    props->emplace(prop_name, PropertyValue{prop_value, serial, version});
 
+                    LOGD("properties %s %s %x", prop_name.c_str(), prop_value.c_str(), serial);
+                },
+                properties
+        );
     }, &properties);
     
     LOGI("getAllSystemProperties finished, found %zu properties", properties.size());
