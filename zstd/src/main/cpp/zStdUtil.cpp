@@ -14,11 +14,22 @@
 
 string get_line(int fd) {
     LOGV("get_line called with fd: %d", fd);
-    char buffer;
+    char buffer = '\0';
     string line = "";
     while (true) {
         ssize_t bytes_read = read(fd, &buffer, sizeof(buffer));
-        if (bytes_read == 0) break;
+        if (bytes_read == 0) {
+            // EOF
+            break;
+        }
+        if (bytes_read < 0) {
+            if (errno == EINTR) {
+                // 被信号中断，重试读取
+                continue;
+            }
+            LOGE("get_line: read failed, fd=%d errno=%d", fd, errno);
+            break;
+        }
         line += buffer;
         if (buffer == '\n') break;
     }
@@ -47,12 +58,8 @@ vector<string> get_file_lines(string path){
         file_lines.push_back(line);
     }
     
-    // 避免关闭标准文件描述符（0-2）
-    if (fd > 2) {
-        close(fd);
-    } else {
-        LOGE("get_file_lines: WARNING - Skipping close of standard file descriptor %d (stdin/stdout/stderr)", fd);
-        LOGE("get_file_lines: This prevents conflict with Android's unique_fd management");
+    if (close(fd) != 0) {
+        LOGE("get_file_lines: close failed, fd=%d errno=%d", fd, errno);
     }
     
     return file_lines;
