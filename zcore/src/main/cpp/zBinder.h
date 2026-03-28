@@ -6,6 +6,7 @@
 #include <mutex>
 #include <string>
 #include <functional>
+#include <thread>
 
 // 共享内存布局结构
 #define SHM_SIZE 4096
@@ -168,4 +169,3 @@ private:
 };
 
 #endif // ZBINDER_H
-

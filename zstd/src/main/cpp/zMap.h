@@ -243,11 +243,15 @@ namespace nonstd {
         typedef const value_type* const_pointer;
 
         // value_compare class - required for std::map compatibility
-        class value_compare : public std::binary_function<value_type, value_type, bool> {
+        class value_compare {
         protected:
             _Compare comp;
             
         public:
+            typedef value_type first_argument_type;
+            typedef value_type second_argument_type;
+            typedef bool result_type;
+
             value_compare(_Compare c) : comp(c) {}
             
             bool operator()(const value_type& x, const value_type& y) const {
