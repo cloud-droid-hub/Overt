@@ -2,6 +2,7 @@ package com.example.overt;
 
 import android.app.Application;
 import android.content.Context;
+import android.net.wifi.WifiManager;
 import android.util.Log;
 
 /**
@@ -20,6 +21,8 @@ import android.util.Log;
  */
 public class MainApplication extends Application {
     private static final String TAG = "overt_" + MainApplication.class.getSimpleName();
+    private static final String MULTICAST_LOCK_TAG = "overt_local_network_lock";
+    private WifiManager.MulticastLock multicastLock;
     
     /**
      * 静态代码块 - 在类加载时执行
@@ -84,5 +87,48 @@ public class MainApplication extends Application {
         // 应用程序级别的初始化可以在这里进行
         // 例如：初始化全局配置、设置默认值等
         System.loadLibrary("overt"); // 加载Native库，启动检测功能
+        acquireMulticastLock();
+    }
+
+    @Override
+    public void onTerminate() {
+        releaseMulticastLock();
+        super.onTerminate();
+    }
+
+    private void acquireMulticastLock() {
+        try {
+            WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wifiManager == null) {
+                Log.w(TAG, "acquireMulticastLock: wifi manager is null");
+                return;
+            }
+
+            if (multicastLock == null) {
+                multicastLock = wifiManager.createMulticastLock(MULTICAST_LOCK_TAG);
+                multicastLock.setReferenceCounted(false);
+            }
+
+            if (!multicastLock.isHeld()) {
+                multicastLock.acquire();
+                Log.i(TAG, "acquireMulticastLock: acquired");
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "acquireMulticastLock: failed", t);
+        }
+    }
+
+    private void releaseMulticastLock() {
+        if (multicastLock == null) {
+            return;
+        }
+        try {
+            if (multicastLock.isHeld()) {
+                multicastLock.release();
+                Log.i(TAG, "releaseMulticastLock: released");
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "releaseMulticastLock: failed", t);
+        }
     }
 }

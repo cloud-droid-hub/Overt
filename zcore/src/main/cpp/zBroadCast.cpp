@@ -12,6 +12,7 @@
 #include <pthread.h>
 #include <net/if.h>
 #include <netinet/in.h>
+#include <cstring>
 
 #include "zLibc.h"
 #include "zLibcUtil.h"
@@ -25,6 +26,22 @@ zBroadCast* zBroadCast::instance = nullptr;
 
 static inline bool is_valid_udp_port(int port) {
     return port > 0 && port <= 65535;
+}
+
+static int local_ip_interface_priority(const char* if_name) {
+    if (if_name == nullptr) {
+        return -1;
+    }
+    if (strcmp(if_name, "wlan0") == 0) {
+        return 100;
+    }
+    if (strcmp(if_name, "eth0") == 0) {
+        return 90;
+    }
+    if (strcmp(if_name, "ap0") == 0 || strcmp(if_name, "swlan0") == 0) {
+        return 80;
+    }
+    return 10;
 }
 
 /**
@@ -66,9 +83,8 @@ zBroadCast::~zBroadCast() {
 // 监控局域网 ip 的线程相关函数
 string get_local_ip() {
     LOGD("get_local_ip called - attempting to get local IP address");
-    char ip[INET_ADDRSTRLEN] = {0};
     struct ifconf ifc;
-    struct ifreq ifr[10]; // 最多支持10个接口
+    struct ifreq ifr[32]; // 支持更多接口，避免复杂网络环境漏检
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
@@ -86,31 +102,64 @@ string get_local_ip() {
     }
     LOGD("Interface configuration retrieved successfully");
 
+    string best_ip = "";
+    string best_if_name = "";
+    int best_priority = -1;
+
     for (int i = 0; i < ifc.ifc_len / sizeof(struct ifreq); i++) {
         struct ifreq* item = &ifr[i];
-        if (strcmp(item->ifr_name, "lo") == 0) {
-            LOGD("Skipping loopback interface: %s", item->ifr_name);
-            continue; // 跳过回环接口
+
+        struct ifreq flags_req = {};
+        strncpy(flags_req.ifr_name, item->ifr_name, IFNAMSIZ - 1);
+        if (ioctl(sock, SIOCGIFFLAGS, &flags_req) == 0) {
+            if ((flags_req.ifr_flags & IFF_UP) == 0) {
+                LOGD("Skipping down interface: %s", item->ifr_name);
+                continue;
+            }
+            if ((flags_req.ifr_flags & IFF_LOOPBACK) != 0) {
+                LOGD("Skipping loopback interface by flags: %s", item->ifr_name);
+                continue;
+            }
+        } else if (strcmp(item->ifr_name, "lo") == 0) {
+            LOGD("Skipping loopback interface by name: %s", item->ifr_name);
+            continue;
         }
 
         struct sockaddr_in* addr = (struct sockaddr_in*)&item->ifr_addr;
-        if (addr->sin_family == AF_INET) {
-            inet_ntop(AF_INET, &addr->sin_addr, ip, sizeof(ip));
-            LOGI("Found local IP address: %s on interface: %s", ip, item->ifr_name);
-            break;
+        if (addr->sin_family != AF_INET) {
+            continue;
+        }
+
+        char ip_buf[INET_ADDRSTRLEN] = {0};
+        if (inet_ntop(AF_INET, &addr->sin_addr, ip_buf, sizeof(ip_buf)) == nullptr) {
+            continue;
+        }
+        if (ip_buf[0] == '\0' || strcmp(ip_buf, "0.0.0.0") == 0) {
+            continue;
+        }
+        if (strncmp(ip_buf, "127.", 4) == 0 || strncmp(ip_buf, "169.254.", 8) == 0) {
+            LOGD("Skipping non-routable IPv4 %s on %s", ip_buf, item->ifr_name);
+            continue;
+        }
+
+        int priority = local_ip_interface_priority(item->ifr_name);
+        LOGI("Found local IP candidate %s on interface %s (priority=%d)", ip_buf, item->ifr_name, priority);
+        if (priority > best_priority) {
+            best_priority = priority;
+            best_if_name = item->ifr_name;
+            best_ip = ip_buf;
         }
     }
 
     close(sock);
     LOGD("Socket %d closed after IP detection", sock);
 
-    if (ip[0]) {
-        LOGI("Returning local IP: %s", ip);
-        return ip;
-    } else {
+    if (best_ip.empty()) {
         LOGW("No valid local IP address found");
         return "";
     }
+    LOGI("Returning local IP: %s (interface: %s)", best_ip.c_str(), best_if_name.c_str());
+    return best_ip;
 }
 
 string get_local_ip_c(string local_ip){
@@ -213,6 +262,27 @@ void* send_udp_broadcast_thread(void* args) {
     LOGW("send_udp_broadcast_thread exiting");
     pthread_exit(nullptr);
 }
+
+static bool send_udp_message_to_ip(int sock, int port, const string& message, const string& target_ip) {
+    struct sockaddr_in addr = {0};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = inet_addr(target_ip.c_str());
+    if (addr.sin_addr.s_addr == INADDR_NONE) {
+        LOGW("Invalid target IP address: %s", target_ip.c_str());
+        return false;
+    }
+
+    ssize_t sent = sendto(sock, message.c_str(), message.length(), 0, (struct sockaddr*)&addr, sizeof(addr));
+    if (sent < 0) {
+        LOGW("Failed to send UDP message to %s:%d (errno: %d)", target_ip.c_str(), port, errno);
+        return false;
+    }
+    LOGI("UDP message sent to %s:%d successfully: '%s' (%zd bytes)",
+         target_ip.c_str(), port, message.c_str(), sent);
+    return true;
+}
+
 void zBroadCast::send_udp_broadcast(int port, string message) {
     LOGI("send_udp_broadcast called - message: '%s', port: %d", message.c_str(), port);
     if (!is_valid_udp_port(port)) {
@@ -236,29 +306,20 @@ void zBroadCast::send_udp_broadcast(int port, string message) {
     LOGD("Broadcast option set successfully on socket %d", sock);
 
     string broadcast_ip = get_local_ip_c();
-    if (broadcast_ip.empty()) {
-        LOGE("Broadcast IP is empty, cannot send message");
-        close(sock);
-        return;
-    }
-    
-    struct sockaddr_in addr = {0};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    // 使用更通用的广播地址
-    addr.sin_addr.s_addr = inet_addr(broadcast_ip.c_str());
-    if (addr.sin_addr.s_addr == INADDR_NONE) {
-        LOGE("Invalid broadcast IP address: %s", broadcast_ip.c_str());
-        close(sock);
-        return;
-    }
-    LOGD("Target address configured - IP: %s, Port: %d", broadcast_ip.c_str(), port);
-
-    ssize_t sent = sendto(sock, message.c_str(), message.length(), 0, (struct sockaddr*)&addr, sizeof(addr));
-    if (sent < 0) {
-        LOGE("Failed to send broadcast message: %s (errno: %d)", message.c_str(), errno);
+    bool sent_any = false;
+    if (!broadcast_ip.empty()) {
+        sent_any = send_udp_message_to_ip(sock, port, message, broadcast_ip) || sent_any;
     } else {
-        LOGI("Broadcast message sent successfully: '%s' (%zd bytes)", message.c_str(), sent);
+        LOGW("Broadcast IP is empty, skip subnet-directed broadcast");
+    }
+
+    // 一些设备/AP会屏蔽定向广播，这里补发到全局广播地址做兼容兜底。
+    if (broadcast_ip != "255.255.255.255") {
+        sent_any = send_udp_message_to_ip(sock, port, message, "255.255.255.255") || sent_any;
+    }
+
+    if (!sent_any) {
+        LOGE("Failed to send UDP broadcast message to any target");
     }
 
     close(sock);
@@ -467,5 +528,4 @@ void zBroadCast::set_listener_thread_args(int port, string msg, void (*on_receiv
     std::unique_lock<std::shared_mutex> lock(listener_thread_args_mutex);
     listener_thread_args = {port, msg, on_receive};
 }
-
 
