@@ -9,6 +9,7 @@
 #include <elf.h>
 #include <link.h>
 #include <errno.h>
+#include <stdio.h>
 
 
 #include "zLog.h"
@@ -59,6 +60,36 @@ static ElfW(Dyn) *find_dyn_by_tag2(ElfW(Dyn) *dyn, ElfW(Sxword) tag) {
     return NULL;                         // 未找到返回NULL
 }
 
+static bool is_readable_address_range(const void* address, size_t size) {
+    if (address == nullptr || size == 0) {
+        return false;
+    }
+
+    uintptr_t start_addr = reinterpret_cast<uintptr_t>(address);
+    uintptr_t end_addr = start_addr + size;
+    if (end_addr < start_addr) {
+        return false;
+    }
+
+    zFile maps("/proc/self/maps");
+    vector<string> lines = maps.readAllLines();
+    for (const string& line : lines) {
+        unsigned long long range_start = 0;
+        unsigned long long range_end = 0;
+        char permissions[8] = {};
+        if (sscanf(line.c_str(), "%llx-%llx %7s", &range_start, &range_end, permissions) != 3) {
+            continue;
+        }
+        if (permissions[0] != 'r') {
+            continue;
+        }
+        if (start_addr >= range_start && end_addr <= range_end) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * 文件路径构造函数
  * 根据文件路径初始化ELF对象，支持内存视图和文件视图
@@ -76,7 +107,9 @@ zElf::zElf(char *elf_file_name) : zFile(elf_file_name) {
     if (strncmp(elf_file_name, "lib", 3) == 0) {
         // 内存视图：从内存映射中获取库的基地址
         link_view = LINK_VIEW::MEMORY_VIEW;
-        LibraryMapping* so_mapping = zProcMaps().find_so_by_name(elf_file_name);
+        // find_so_by_name 返回 maps 容器内元素指针，局部对象必须覆盖后续读取。
+        zProcMaps maps;
+        LibraryMapping* so_mapping = maps.find_so_by_name(elf_file_name);
         if (so_mapping == nullptr || so_mapping->address_range_start == nullptr) {
             LOGW("Failed to find so mapping for %s", elf_file_name);
             return;
@@ -112,8 +145,31 @@ void zElf::parse_elf_head() {
     LOGD("parse_elf_head called");
     char* base_addr = link_view == LINK_VIEW::MEMORY_VIEW ? elf_mem_ptr : elf_file_ptr;
 
+    if (!is_readable_address_range(base_addr, sizeof(Elf64_Ehdr))) {
+        LOGW("parse_elf_head: base address %p is not readable", base_addr);
+        if (link_view == LINK_VIEW::MEMORY_VIEW) {
+            elf_mem_ptr = nullptr;
+        }
+        elf_header = nullptr;
+        program_header_table = nullptr;
+        program_header_table_num = 0;
+        elf_header_size = 0;
+        return;
+    }
+
     // 设置ELF头部指针
     elf_header = (Elf64_Ehdr *) base_addr;
+    if (memcmp(elf_header->e_ident, ELFMAG, SELFMAG) != 0 || elf_header->e_ident[EI_CLASS] != ELFCLASS64) {
+        LOGW("parse_elf_head: base address %p is not an ELF64 header", base_addr);
+        if (link_view == LINK_VIEW::MEMORY_VIEW) {
+            elf_mem_ptr = nullptr;
+        }
+        elf_header = nullptr;
+        program_header_table = nullptr;
+        program_header_table_num = 0;
+        elf_header_size = 0;
+        return;
+    }
     LOGD("elf_header->e_shoff 0x%llx", elf_header->e_shoff);
     LOGD("elf_header->e_shnum %x", elf_header->e_shnum);
     
