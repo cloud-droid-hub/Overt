@@ -114,20 +114,15 @@ static int run_maps_layout_detector() {
     return checked == 0 ? 2 : 0;
 }
 
-static int run_side_channel_detector() {
-    map<string, map<string, string>> info = get_side_channel_info();
-    auto side_channel = info.find("side_channel");
-    if (side_channel == info.end())
-        return 2;
+static int side_channel_baseline = -1;
 
-    auto risk = side_channel->second.find("risk");
-    if (risk == side_channel->second.end())
+static int run_side_channel_detector() {
+    if (side_channel_baseline < 0)
         return 2;
-    if (risk->second == "safe")
-        return 0;
-    if (risk->second == "warn" || risk->second == "error")
-        return 1;
-    return 2;
+    int current = measure_side_channel_error_count();
+    int delta = abs(current - side_channel_baseline);
+    LOGI("side channel baseline=%d current=%d delta=%d", side_channel_baseline, current, delta);
+    return delta > 1000 ? 1 : 0;
 }
 
 static int run_child_stability_detector() {
@@ -144,6 +139,8 @@ static int run_child_stability_detector() {
 extern "C" JNIEXPORT
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     LOGI("JNI_OnLoad called");
+	side_channel_baseline = measure_side_channel_error_count();
+	LOGI("side channel baseline=%d", side_channel_baseline);
 
     LOGI("JNI_OnLoad over");
     return JNI_VERSION_1_6;

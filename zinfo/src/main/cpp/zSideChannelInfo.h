@@ -14,5 +14,6 @@
  * @return 包含检测结果的Map，格式：{检测项目 -> {风险等级, 说明}}
  */
 map<string, map<string, string>> get_side_channel_info();
+int measure_side_channel_error_count();
 
 #endif //OVERT_ZSIDECHANNELINFO_H

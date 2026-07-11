@@ -4,7 +4,6 @@
 
 #include <sched.h>
 #include <cerrno>
-#include <sys/system_properties.h>
 #include "zSideChannelInfo.h"
 #include "zLog.h"
 #include "zStdUtil.h"
@@ -33,9 +32,7 @@ static inline uint64_t raw_ns(void)
  * @return 包含检测结果的Map，格式：{检测项目 -> {风险等级, 说明}}
  * 技术参考：https://bbs.kanxue.com/thread-288928.htm
  */
-map<string, map<string, string>> get_side_channel_info(){
-    map<string, map<string, string>> info;
-
+int measure_side_channel_error_count(){
     // 绑定到高性能核心以稳定测量（根据实际测试情况来看，这一步非常有必要）
     cpu_set_t mask;
     CPU_ZERO(&mask);
@@ -71,15 +68,19 @@ map<string, map<string, string>> get_side_channel_info(){
     }
 
     // 一般来说 faccessat 的执行速度是要比 fchownat 快的，如果 faccessat 出现大量慢于 fchownat 的情况，那么说明环境有异常
-    char qemu_value[PROP_VALUE_MAX] = {0};
-    bool qemu_timing = __system_property_get("ro.kernel.qemu", qemu_value) > 0 && qemu_value[0] == '1';
     int error_count = 0;
     for(int i = 0; i < 10000; i++){
-        bool abnormal = qemu_timing ? times2[i] > times1[i] : times1[i] > times2[i];
-        if(abnormal){
+        if(times1[i] > times2[i]){
             error_count++;
         }
     }
+
+    return error_count;
+}
+
+map<string, map<string, string>> get_side_channel_info(){
+    map<string, map<string, string>> info;
+    int error_count = measure_side_channel_error_count();
 
     LOGE("error_count: %d", error_count);
 
