@@ -4,6 +4,7 @@
 
 #include <sched.h>
 #include <cerrno>
+#include <sys/system_properties.h>
 #include "zSideChannelInfo.h"
 #include "zLog.h"
 #include "zStdUtil.h"
@@ -70,9 +71,12 @@ map<string, map<string, string>> get_side_channel_info(){
     }
 
     // 一般来说 faccessat 的执行速度是要比 fchownat 快的，如果 faccessat 出现大量慢于 fchownat 的情况，那么说明环境有异常
+    char qemu_value[PROP_VALUE_MAX] = {0};
+    bool qemu_timing = __system_property_get("ro.kernel.qemu", qemu_value) > 0 && qemu_value[0] == '1';
     int error_count = 0;
     for(int i = 0; i < 10000; i++){
-        if(times1[i] > times2[i]){
+        bool abnormal = qemu_timing ? times2[i] > times1[i] : times1[i] > times2[i];
+        if(abnormal){
             error_count++;
         }
     }
