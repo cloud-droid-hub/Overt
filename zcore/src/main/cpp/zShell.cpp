@@ -5,6 +5,7 @@
 #include "zLibc.h"
 #include "zStd.h"
 #include "zLog.h"
+#include <sys/wait.h>
 
 /**
  * 执行Shell命令
@@ -32,6 +33,8 @@ string runShell(string cmd){
     pid = fork();
     if (pid == -1) {
         perror("fork");
+        close(pipefd[0]);
+        close(pipefd[1]);
         return ret;
     }
 
@@ -56,6 +59,7 @@ string runShell(string cmd){
         }
         // 关闭管道的读取端
         close(pipefd[0]);
+        waitpid(pid, nullptr, 0);
     }
 
     return ret;

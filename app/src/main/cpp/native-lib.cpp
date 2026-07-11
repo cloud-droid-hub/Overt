@@ -9,9 +9,12 @@
 #include "zThreadPool.h"
 #include "zProcMaps.h"
 #include "zProcInfo.h"
+#include "zPortInfo.h"
+#include "zSideChannelInfo.h"
 #include "zJson.h"
 #include "zBinder.h"
 #include "zShell.h"
+#include "zLinker.h"
 
 
 // 0 zConfig
@@ -29,12 +32,107 @@ static string get_process_name(){
 
 void __attribute__((constructor)) init_(void){
     LOGI("init_ start");
-    string processName = get_process_name();
-    if(string_end_with(processName.c_str(), ".Server")){
-    }else{
-        zThreadPool::getInstance()->addTask("round_tasks", zManager::getInstance(), &zManager::round_tasks);
-    }
     LOGI("init_ over");
+}
+
+map<string, map<string, string>> get_maps_info();
+map<string, map<string, string>> get_task_info();
+map<string, map<string, string>> get_net_tcp_info();
+
+static int run_port_detector() {
+    map<string, map<string, string>> info = get_port_info();
+    return info.find("frida") == info.end() ? 0 : 1;
+}
+
+static int run_net_tcp_detector() {
+    map<string, map<string, string>> info = get_net_tcp_info();
+    for (const auto& item : info) {
+        auto explain = item.second.find("explain");
+        if (explain != item.second.end() && explain->second == "find frida port")
+            return 1;
+    }
+    return 0;
+}
+
+static int run_task_detector() {
+    return get_task_info().empty() ? 0 : 1;
+}
+
+static int run_soinfo_detector() {
+    zLinker* linker = zLinker::getInstance();
+    if (linker == nullptr)
+        return 2;
+
+    vector<string> libraries = linker->get_libpath_list();
+    if (libraries.empty())
+        return 2;
+
+    for (const string& path : libraries) {
+        if (strstr(path.c_str(), "frida") != nullptr)
+            return 1;
+    }
+    return 0;
+}
+
+static int run_crc_detector(const char* library_name) {
+    zLinker* linker = zLinker::getInstance();
+    if (linker == nullptr)
+        return 2;
+
+    zElf library = linker->find_lib(library_name);
+    if (library.elf_file_ptr == nullptr || library.elf_mem_ptr == nullptr)
+        return 2;
+
+    zProcMaps maps;
+    LibraryMapping* mapping = maps.find_so_by_name(library_name);
+    if (mapping == nullptr || mapping->address_range_start == nullptr)
+        return 2;
+
+    return zLinker::check_lib_crc(library_name) ? 1 : 0;
+}
+
+static int run_maps_layout_detector() {
+    const char* libraries[] = {"libart.so", "libc.so", "libinput.so"};
+    int checked = 0;
+    zProcMaps maps;
+
+    for (const char* library_name : libraries) {
+        LibraryMapping* library = maps.find_so_by_name(library_name);
+        if (library == nullptr)
+            continue;
+
+        checked++;
+        if (library->segments.size() != 4)
+            return 1;
+        if (library->segments[0].permissions != "r--p" ||
+            (library->segments[1].permissions != "r-xp" && library->segments[1].permissions != "--xp") ||
+            (library->segments[2].permissions != "r--p" && library->segments[2].permissions != "rw-p") ||
+            (library->segments[3].permissions != "rw-p" && library->segments[3].permissions != "r--p"))
+            return 1;
+    }
+
+    return checked == 0 ? 2 : 0;
+}
+
+static int run_side_channel_detector() {
+    map<string, map<string, string>> info = get_side_channel_info();
+    auto side_channel = info.find("side_channel");
+    if (side_channel == info.end())
+        return 2;
+
+    auto risk = side_channel->second.find("risk");
+    if (risk == side_channel->second.end())
+        return 2;
+    if (risk->second == "safe")
+        return 0;
+    if (risk->second == "warn" || risk->second == "error")
+        return 1;
+    return 2;
+}
+
+static int run_child_stability_detector() {
+    string output = runShell("printf strongfrida-child-ok");
+    return output == "strongfrida-child-ok" ? 0 : 1;
 }
 
 /**
@@ -49,6 +147,43 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 
     LOGI("JNI_OnLoad over");
     return JNI_VERSION_1_6;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_example_overt_MainActivity_runDetector(JNIEnv *env, jobject thiz,
+                                                jstring selector_value) {
+    if (selector_value == nullptr)
+        return 2;
+
+    const char* selector = env->GetStringUTFChars(selector_value, nullptr);
+    if (selector == nullptr)
+        return 2;
+
+    int result = 2;
+    if (strcmp(selector, "port-connect") == 0)
+        result = run_port_detector();
+    else if (strcmp(selector, "proc-net-tcp") == 0)
+        result = run_net_tcp_detector();
+    else if (strcmp(selector, "task-name") == 0)
+        result = run_task_detector();
+    else if (strcmp(selector, "soinfo-name") == 0)
+        result = run_soinfo_detector();
+    else if (strcmp(selector, "libc-crc") == 0)
+        result = run_crc_detector("libc.so");
+    else if (strcmp(selector, "libart-crc") == 0)
+        result = run_crc_detector("libart.so");
+    else if (strcmp(selector, "libinput-crc") == 0)
+        result = run_crc_detector("libinput.so");
+    else if (strcmp(selector, "maps-layout") == 0)
+        result = run_maps_layout_detector();
+    else if (strcmp(selector, "syscall-timing") == 0)
+        result = run_side_channel_detector();
+    else if (strcmp(selector, "child-stability") == 0)
+        result = run_child_stability_detector();
+
+    env->ReleaseStringUTFChars(selector_value, selector);
+    return result;
 }
 
 

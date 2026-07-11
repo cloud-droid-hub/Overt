@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.androidApplication)
-    id 'com.heiko.buildsrc.plugin'
 }
 android {
     namespace 'com.example.overt'

@@ -211,7 +211,7 @@ map<string, map<string, string>> get_task_info() {
             LOGI("Processing stat_line: %s", stat_line.c_str());
 
             // 检测Frida注入的gmain线程
-            if (strstr(stat_line.c_str(), "gamin") != nullptr) {
+            if (strstr(stat_line.c_str(), "gmain") != nullptr) {
                 LOGE("gmain is found in stat line");
                 info[stat_line.c_str()]["risk"] = "error";
                 info[stat_line.c_str()]["explain"] = "frida hooked this process";

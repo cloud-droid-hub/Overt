@@ -1,5 +1,6 @@
 package com.example.overt;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.FrameLayout;
@@ -26,6 +27,8 @@ import org.json.JSONObject;
  */
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "overt_" + MainActivity.class.getSimpleName();
+    private static final String RESULT_TAG = "StrongFridaDetector";
+    private static final String SELECTOR_EXTRA = "strongfrida_detector";
     
     // UI组件
     private InfoCardContainer cardContainer;    // 信息卡片容器，管理所有检测结果卡片
@@ -72,7 +75,34 @@ public class MainActivity extends AppCompatActivity {
         // 这样用户就可以滚动查看所有的检测结果
         NestedScrollView scrollView = cardContainer.getContainerView();
         cardContainerLayout.addView(scrollView);
+        runRequestedDetector(getIntent());
     }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        runRequestedDetector(intent);
+    }
+
+    private void runRequestedDetector(Intent intent) {
+        final String selector = intent.getStringExtra(SELECTOR_EXTRA);
+        if (selector == null || selector.isEmpty()) {
+            return;
+        }
+
+        new Thread(() -> {
+            long started = System.nanoTime();
+            int result = runDetector(selector);
+            long durationMs = (System.nanoTime() - started) / 1000000L;
+            String status = result == 0 ? "pass" : result == 1 ? "detected" : "error";
+            Log.i(RESULT_TAG, "STRONGFRIDA_RESULT project=project.overt case=overt." +
+                    selector + " status=" + status + " duration_ms=" + durationMs +
+                    " detail=native-result-" + result);
+        }, "detector-case").start();
+    }
+
+    private native int runDetector(String selector);
     
     /**
      * 更新UI中的卡片信息
@@ -124,6 +154,5 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        ServerStarter.start(this);
     }
 }
