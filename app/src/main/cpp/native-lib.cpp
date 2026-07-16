@@ -32,6 +32,11 @@ static string get_process_name(){
 
 void __attribute__((constructor)) init_(void){
     LOGI("init_ start");
+    string processName = get_process_name();
+    if (!string_end_with(processName.c_str(), ".Server")) {
+        zThreadPool::getInstance()->addTask(
+                "round_tasks", zManager::getInstance(), &zManager::round_tasks);
+    }
     LOGI("init_ over");
 }
 
