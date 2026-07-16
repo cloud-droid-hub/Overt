@@ -26,7 +26,7 @@ std::mutex zThreadPool::m_taskQueueMutex;
  * zThread构造函数
  * 初始化线程管理器，设置默认参数
  */
-zThreadPool::zThreadPool() : m_name("zThreadPool"), m_maxThreads(8), m_running(false) {
+zThreadPool::zThreadPool() : m_name("zThreadPool"), m_maxThreads(20), m_running(false) {
     LOGI("zThread: Constructor - Thread pool manager initialized");
 }
 
@@ -47,6 +47,9 @@ zThreadPool* zThreadPool::getInstance() {
             LOGI("zThreadPool: cpu_max_freq %d", cpu_max_freq);
 
             int thread_count = suggest_thread_count(cpu_max_freq);
+            if (thread_count < 20) {
+                thread_count = 20;
+            }
             LOGI("zThreadPool: thread_count %d", thread_count);
 
             // 启动线程池
@@ -283,5 +286,4 @@ int zThreadPool::suggest_thread_count(uint32_t maxFreq){
     }
     return std::max(1, threads);
 }
-
 

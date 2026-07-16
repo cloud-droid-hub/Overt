@@ -324,7 +324,7 @@ void zManager::notice_java(string title){
     // 将C++数据转换为JSON格式
     zJson card_data_json = card_data;
     string card_data_str = card_data_json.dump();
-    LOGE("card_data_str:%s", card_data_str.c_str());
+    LOGE("card_data_title:%s card_data_str:%s", title.c_str(), card_data_str.c_str());
 
     // 创建Java字符串对象 - 标题
     title_jstr = env->NewStringUTF(title.c_str());
@@ -630,4 +630,3 @@ void zManager::raise_thread_priority(int nice_priority){
         LOGI("Successfully set thread %d priority to %d (actual nice: %d)", tid, nice_priority, actual);
     }
 }
-

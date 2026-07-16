@@ -1,9 +1,13 @@
 package com.example.overt;
 
+import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,12 +23,20 @@ public final class NativeUpdateBus {
 
     private static final List<Listener> LISTENERS = new ArrayList<>();
     private static final LinkedHashMap<String, String> LATEST_UPDATES = new LinkedHashMap<>();
+    private static File snapshotDirectory;
 
     public interface Listener {
         void onCardInfoUpdated(String title, String newCardInfo);
     }
 
     private NativeUpdateBus() {
+    }
+
+    public static void initialize(Context context) {
+        snapshotDirectory = new File(context.getFilesDir(), "overt-cards");
+        if (!snapshotDirectory.isDirectory() && !snapshotDirectory.mkdirs()) {
+            Log.e(TAG, "Failed to create snapshot directory: " + snapshotDirectory);
+        }
     }
 
     public static void subscribe(Listener listener) {
@@ -65,11 +77,32 @@ public final class NativeUpdateBus {
             @Override
             public void run() {
                 LATEST_UPDATES.put(title, newCardInfo);
+                persistUpdate(title, newCardInfo);
                 for (Listener listener : LISTENERS) {
                     dispatchToListener(listener, title, newCardInfo);
                 }
             }
         });
+    }
+
+    private static void persistUpdate(String title, String cardInfo) {
+        if (snapshotDirectory == null || !title.matches("[A-Za-z0-9_]+")) {
+            return;
+        }
+        File target = new File(snapshotDirectory, title + ".json");
+        File temporary = new File(snapshotDirectory, title + ".json.tmp");
+        try (FileOutputStream output = new FileOutputStream(temporary, false)) {
+            output.write(cardInfo.getBytes(StandardCharsets.UTF_8));
+            output.getFD().sync();
+        } catch (Throwable t) {
+            Log.e(TAG, "Failed to write snapshot for " + title, t);
+            temporary.delete();
+            return;
+        }
+        if (!temporary.renameTo(target)) {
+            Log.e(TAG, "Failed to publish snapshot for " + title);
+            temporary.delete();
+        }
     }
 
     private static void dispatchToListener(Listener listener, String title, String newCardInfo) {
