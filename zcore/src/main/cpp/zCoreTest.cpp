@@ -84,7 +84,7 @@ void test_https_module() {
     // 测试证书指纹验证
     LOGI("Testing certificate fingerprint verification");
     map<string, string> testUrls = {
-            {"https://www.baidu.com", "0D822C9A905AEFE98F3712C0E02630EE95332C455FE7745DF08DBC79F4B0A149"},
+            {"https://www.baidu.com", "CA5688C552685190E98B94C40E94F842EE7FDA39B08846FBD4D7E2ED7211B4F2"},
             {"https://www.jd.com", "109CC20D1518DC00F3CEEE91A8AE4AF45E878C9556E611A1DC90C301366A63C2"},
             {"https://www.taobao.com", "3D4949784246FFF7529B6B82DF7E544BF9BAD834141D2167634E5B62A1D885B5"}
     };
