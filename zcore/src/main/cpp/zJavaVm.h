@@ -12,9 +12,6 @@
 #include "zLog.h"
 
 
-// 页面起始地址计算宏
-#define PAGE_START(x)  ((x) & PAGE_MASK)
-
 /**
  * Java虚拟机管理类
  * 采用单例模式，负责管理JVM实例、JNI环境、Context和ClassLoader

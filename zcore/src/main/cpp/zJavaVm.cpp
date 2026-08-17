@@ -3,9 +3,11 @@
 //
 
 #include <jni.h>
+#include <stdint.h>
 #include <mutex>
 #include <new>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "zElf.h"
 #include "zLinker.h"
@@ -630,13 +632,31 @@ void zJavaVm::cleanupCurrentThreadEnv(){
  */
 void zJavaVm::exit(){
     LOGD("exit called");
-    
+
+    if (jvm == nullptr) {
+        LOGE("exit: JVM is not initialized");
+        return;
+    }
+
+    const long raw_page_size = sysconf(_SC_PAGESIZE);
+    if (raw_page_size <= 0) {
+        LOGE("exit: unable to read page size");
+        return;
+    }
+    const auto page_size = static_cast<size_t>(raw_page_size);
+    const auto page_start = reinterpret_cast<uintptr_t>(jvm) &
+                            ~(static_cast<uintptr_t>(page_size) - 1U);
+
     // 修改内存页权限为可读写执行
-    mprotect((void *) PAGE_START((long) jvm), PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC);
+    mprotect(reinterpret_cast<void*>(page_start), page_size,
+             PROT_READ | PROT_WRITE | PROT_EXEC);
 
     // 复制内存页内容
-    memcpy((void *) PAGE_START((long) jvm), (void *) (PAGE_START((long) jvm) + PAGE_SIZE/2), PAGE_SIZE/2);
+    memcpy(reinterpret_cast<void*>(page_start),
+           reinterpret_cast<void*>(page_start + page_size / 2U),
+           page_size / 2U);
 
     // 恢复内存页权限为可读写
-    mprotect((void *) PAGE_START((long) jvm), PAGE_SIZE, PROT_READ | PROT_WRITE);
+    mprotect(reinterpret_cast<void*>(page_start), page_size,
+             PROT_READ | PROT_WRITE);
 }
