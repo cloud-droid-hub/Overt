@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.androidApplication) apply false
 }
 
-def pinnedNdkVersion = '27.1.12297006'
+def pinnedNdkVersion = '29.0.14206865'
 
 // 统一为所有使用 Android 插件的子模块设置 NDK 版本
 subprojects {
