@@ -70,4 +70,53 @@ public class SystemPropAnalyzerTest {
         assertTrue(out.has("ro.vendor.build.tags:serial[3]"));
         assertEquals("serial_version is not 0", out.getJSONObject("ro.debuggable:serial[2]").getString("explain"));
     }
+
+    /** Community ROM 指纹属性存在 → warn。 */
+    @Test
+    public void communityRomProp_isWarn() throws Exception {
+        String raw = "{" +
+                "\"ro.lineage.version\":{\"value\":\"21.0\",\"serial\":\"0\"}," +
+                "\"ro.secure\":{\"value\":\"1\",\"serial\":\"0\"}" +
+                "}";
+        JSONObject out = new JSONObject(analyzer.analyze(raw));
+        assertEquals("warn", out.getJSONObject("ro.lineage.version").getString("risk"));
+        assertEquals("custom rom", out.getJSONObject("ro.lineage.version").getString("explain"));
+    }
+
+    /** 模拟器/云手机特征属性命中 → warn。 */
+    @Test
+    public void emulatorProp_isWarn() throws Exception {
+        String raw = "{\"ro.kernel.qemu\":{\"value\":\"1\",\"serial\":\"0\"}}";
+        JSONObject out = new JSONObject(analyzer.analyze(raw));
+        assertEquals("warn", out.getJSONObject("ro.kernel.qemu").getString("risk"));
+        assertEquals("emulator/cloud property", out.getJSONObject("ro.kernel.qemu").getString("explain"));
+    }
+
+    /** 分区 fingerprint 与主指纹不一致 → error。 */
+    @Test
+    public void fingerprintMismatch_isError() throws Exception {
+        String raw = "{" +
+                "\"ro.build.fingerprint\":{\"value\":\"google/sdk_gphone/emu64a:17/CP31/123:user/release-keys\",\"serial\":\"0\"}," +
+                "\"ro.vendor.build.fingerprint\":{\"value\":\"xiaomi/venus/venus:15/UKQ1/456:user/release-keys\",\"serial\":\"0\"}," +
+                "\"ro.system.build.fingerprint\":{\"value\":\"google/sdk_gphone/emu64a:17/CP31/123:user/release-keys\",\"serial\":\"0\"}" +
+                "}";
+        JSONObject out = new JSONObject(analyzer.analyze(raw));
+        // key 形如 "ro.vendor.build.fingerprint:mismatch[xiaomi/...]" (带实际 fp 值),用前缀判断
+        java.util.Iterator<String> keys = out.keys();
+        boolean vendorMismatch = false;
+        boolean systemMismatch = false;
+        while (keys.hasNext()) {
+            String k = keys.next();
+            if (k.startsWith("ro.vendor.build.fingerprint:mismatch[")) {
+                vendorMismatch = true;
+                assertEquals("warn", out.getJSONObject(k).getString("risk"));
+                assertEquals("fingerprint mismatch", out.getJSONObject(k).getString("explain"));
+            }
+            if (k.startsWith("ro.system.build.fingerprint:mismatch[")) {
+                systemMismatch = true;
+            }
+        }
+        assertTrue("vendor 指纹不一致应报 warn", vendorMismatch);
+        assertTrue("system 指纹一致不应报", !systemMismatch);
+    }
 }

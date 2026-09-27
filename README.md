@@ -38,7 +38,7 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
 - **app**（Java UI + C++ 调度）：`zManager` 只编排采集；`MainActivity` 只做显示（收到原始数据先调 zengine 分析，再渲染）。
 - **zcore/zconfig/zlog/zstd/zlibc**：核心库、配置开关、日志、标准库替代、libc 封装。
 
-19 类检测任务均已分离：`root_state_info` / `class_loader_info` / `class_info` / `side_channel_info` / `finger_info` / `linker_info` / `proc_info` / `tee_info` / `package_info` / `system_setting_info` / `system_prop_info` / `signature_info` / `port_info` / `time_info` / `ssl_info` / `local_network_info` / `logcat_info` / `isoloated_process_info` / `sensor_info`，每一类的判定逻辑都在 `zengine/src/main/java/com/example/zengine/analyzer/` 下对应 Analyzer 中。
+19 类检测任务均已分离：`risk_file_info` / `class_loader_info` / `class_info` / `side_channel_info` / `finger_info` / `linker_info` / `proc_info` / `tee_info` / `package_info` / `system_setting_info` / `system_prop_info` / `signature_info` / `port_info` / `time_info` / `ssl_info` / `local_network_info` / `logcat_info` / `isoloated_process_info` / `sensor_info`，每一类的判定逻辑都在 `zengine/src/main/java/com/example/zengine/analyzer/` 下对应 Analyzer 中。
 
 注：`package_info` 的探测包名列表（C++ `probe_package_map`）是采集范围的天然声明（JNI 必须知道探测哪些包）；风险判定（黑名单命中即 error、白名单缺失即 warn）的名单完全内置在 Java 侧 `PackageInfoAnalyzer`。
 
