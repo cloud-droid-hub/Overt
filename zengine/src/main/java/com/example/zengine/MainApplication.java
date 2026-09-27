@@ -29,8 +29,15 @@ import java.util.Map;
  * 所有风险判定(黑名单/阈值)都在这套 Java 分析器中完成。
  * 已迁移的类别由对应 analyzer 分析；未迁移的类别原样透传(其采集端仍输出 {risk, explain})。
  * <p>
- * 纯逻辑类(不 extends Application、零 Android 依赖)，可被 app 通过 sourceSets
- * 源码共享，也可在本模块内以硬编码数据独立单测。
+ * 定位：zengine 扮演【模拟服务端】——服务端不会被 hook，是风险判定的信任锚。
+ * 采集端(native)上传的是"客户端观察到的数据"，zengine 以服务端视角做判定。
+ * <p>
+ * MITM 检测边界(重要)：SSL 期望指纹采用"现场抓取"时，期望值与观察值都来自同一台被检测设备
+ * (zengine 与采集端同进程)。若中间人同时污染两者，指纹比对会自洽而失效——这是"自己验自己"的固有局限。
+ * 真正的 MITM 检测需要期望值来自可信外部源(如硬编码/服务端下发的真指纹)。
+ * <p>
+ * 依赖约定：允许使用 android.util.Log(运行日志);但判定逻辑保持纯 Java、可 JVM 单测
+ * (网络/Context 等能力通过可注入 Provider 解耦)。
  */
 public final class MainApplication {
 

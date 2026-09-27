@@ -11,13 +11,16 @@ import java.util.Iterator;
  * <p>
  * 迁移自 zinfo zSslInfo.cpp get_ssl_info 的内联判断：
  * - 对每个 URL:error 非空 → error；观察指纹 != 期望指纹 → error
+ *   (期望指纹不再硬编码,由 zengine 动态获取:SslFingerprintFetcher 重新请求目标 URL 现场解析)
  * - location:空 → error；不以"中国"开头 → error；否则 safe
  */
 public final class SslInfoAnalyzer implements MainApplication.Analyzer {
 
-    /** URL → 期望证书 SHA256 指纹(迁移自 C++ url_info 表)。 */
-    private static final String[][] URL_FINGERPRINT = {
-            {"https://www.baidu.com", "0D822C9A905AEFE98F3712C0E02630EE95332C455FE7745DF08DBC79F4B0A149"},
+    /** 需要检测证书指纹的目标 URL(仅探测范围;期望指纹动态获取,不硬编码)。
+     *  与采集端 zSslInfo.cpp 的 urls[] 保持一致。 */
+    private static final String[] URLS = {
+            "https://www.baidu.com",
+            "https://r.inews.qq.com/api/ip2city",   // 腾讯新闻 ip2city(地理位置)
     };
 
     @Override
@@ -27,9 +30,7 @@ public final class SslInfoAnalyzer implements MainApplication.Analyzer {
             JSONObject out = new JSONObject();
 
             // URL 证书指纹比对(原始 key = URL)
-            for (String[] uf : URL_FINGERPRINT) {
-                String url = uf[0];
-                String expectedFp = uf[1];
+            for (String url : URLS) {
                 JSONObject item = raw.optJSONObject(url);
                 if (item == null) continue;
 
@@ -40,6 +41,16 @@ public final class SslInfoAnalyzer implements MainApplication.Analyzer {
                     out.put(url, new JSONObject()
                             .put("risk", "error")
                             .put("explain", error));
+                    continue;
+                }
+
+                // 动态获取期望指纹(zengine 重新请求现场解析,不硬编码)
+                String expectedFp = SslFingerprintFetcher.getExpectedFingerprint(url);
+                if (expectedFp == null) {
+                    // 期望值获取失败(network 失败)→ 无法比对,不武断报 error,提示
+                    out.put(url, new JSONObject()
+                            .put("risk", "warn")
+                            .put("explain", "cannot fetch expected fingerprint"));
                 } else if (!expectedFp.equals(observedFp)) {
                     out.put(url, new JSONObject()
                             .put("risk", "error")
