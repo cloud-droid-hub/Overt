@@ -188,20 +188,26 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
 
 #### TEE信息检测原理
 
-1. **KeyStore认证证书获取**:
-   - 通过Android KeyStore API生成密钥对
-   - 设置认证挑战（Attestation Challenge）
-   - 获取包含TEE认证信息的X.509证书
+1. **KeyStore认证证书链获取**（采集端 zTeeInfo.cpp）:
+   - 通过Android KeyStore API生成密钥对，设置认证挑战（Attestation Challenge "tee_check"）
+   - 获取完整的X.509认证证书链（叶子→根，不只取叶子）
+   - 整条链 base64 编码后作为 `tee_cert_chain` 原始数据上报，C++ 侧不做任何解析/判定
 
-2. **证书解析**:
-   - 使用OpenSSL解析X.509证书
-   - 提取TEE认证扩展（TEE Attestation Extension）
-   - 解析认证记录（Attestation Record）中的授权列表
+2. **验签（zengine TeeAttestationVerifier）**:
+   - 链自洽验签：逐级验证叶子由中间签发、链顶自签（伪造证书/篡改链在此被拦下）
+   - 根公钥增强：链顶公钥 ∈ {Google / AOSP 根} 视为强信任；厂商/模拟器根不误报（链自洽为硬门槛）
+   - 由于采集端 challenge 固定为 `tee_check`，分析器同时校验证书内的 challenge 防重放
 
-3. **安全状态检测**:
-   - 检查设备锁定状态（device_locked），未锁定则判定为不安全
-   - 检查验证启动状态（verified_boot_state），非已验证状态则判定为不安全
-   - 检查RootOfTrust信息，验证启动密钥和状态
+3. **字段解析（zengine Asn1Attestation，抄自 KeyAttestation）**:
+   - 用 BouncyCastle 解析叶子证书的 TEE Attestation 扩展（OID 1.3.6.1.4.1.11129.2.1.17）
+   - AuthorizationList 以 ASN1TaggedObject 存储，`getTagNo()` 取 tag（RootOfTrust/OS_VERSION 等）
+   - 提取 RootOfTrust：device_locked、verified_boot_state、verified_boot_key
+
+4. **安全状态判定（zengine TeeInfoAnalyzer）**:
+   - 验签失败 / challenge 不匹配 → tee_verify error
+   - 解析失败 / 无 RootOfTrust → tee_statue error
+   - device_locked 未锁定 → error
+   - verified_boot_state 非已验签(VERIFIED=0) → error
 
 #### 包信息检测原理
 

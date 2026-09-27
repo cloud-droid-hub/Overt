@@ -11,7 +11,8 @@
 #include "zTeeInfo.h"
 #include "zFile.h"
 #include "zHttps.h"
-#include "zTeeCert.h"
+#include "zBase64.h"
+#include "zRandom.h"
 
 // 验证启动状态常量定义
 #define VERIFIED_BOOT_STATE_VERIFIED 0      // 已验证状态
@@ -36,17 +37,21 @@ string bytes_to_hex(const unsigned char* data, size_t len) {
 }
 
 /**
- * 通过JNI从Android KeyStore获取认证证书
+ * 通过JNI从Android KeyStore获取认证证书链(完整链,含中间/根)
  * 使用Android KeyStore API生成密钥对并获取证书链
+ * 查杀分离—采集端:返回完整链(不只叶子)与本次随机 challenge
  * @param env JNI环境指针
  * @param context Android上下文对象
- * @return 证书的DER编码字节数组
+ * @param out_challenge [out]本次生成的随机 attestation challenge(供上报校验一致性)
+ * @return 证书链的DER编码字节数组,每项一张证书(顺序:叶子→根);空表示失败
  */
-vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context) {
-    LOGD("get_attestation_cert_from_java called");
-    vector<uint8_t> result;
-    LOGI("Start get_attestation_cert_from_java");
-    
+vector<vector<uint8_t>> get_attestation_cert_chain_from_java(JNIEnv* env, jobject context,
+                                                             vector<uint8_t>* out_challenge) {
+    LOGD("get_attestation_cert_chain_from_java called");
+    vector<vector<uint8_t>> result;
+    if (out_challenge) out_challenge->clear();
+    LOGI("Start get_attestation_cert_chain_from_java");
+
     // 检查参数有效性
     if (!env || !context) {
         LOGE("env or context is null");
@@ -126,10 +131,13 @@ vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context) {
     builder = env->CallObjectMethod(builder, midSetDigests, digestArray);
     LOGD("builder after setDigests: %p", builder);
 
-    // 步骤6: 设置认证挑战
-    const char* challengeStr = "tee_check";
-    jbyteArray challenge = env->NewByteArray(strlen(challengeStr));
-    env->SetByteArrayRegion(challenge, 0, strlen(challengeStr), (const jbyte*)challengeStr);
+    // 步骤6: 设置认证挑战(本次随机生成 16 字节,用于防重放/一致性校验)
+    vector<uint8_t> challenge_bytes(16);
+    zRandom::getRandomBytes(challenge_bytes);   // zcore 通用随机工具(内核 getrandom + fallback)
+    if (out_challenge) *out_challenge = challenge_bytes;
+    jbyteArray challenge = env->NewByteArray((jsize)challenge_bytes.size());
+    env->SetByteArrayRegion(challenge, 0, (jsize)challenge_bytes.size(),
+                            (const jbyte*)challenge_bytes.data());
     jmethodID midSetChallenge = env->GetMethodID(clsKeyGenBuilder, "setAttestationChallenge", "([B)Landroid/security/keystore/KeyGenParameterSpec$Builder;");
     builder = env->CallObjectMethod(builder, midSetChallenge, challenge);
     LOGD("builder after setAttestationChallenge: %p", builder);
@@ -164,38 +172,39 @@ vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context) {
         return result;
     }
 
-    // 步骤11: 获取证书链
+    // 步骤11: 获取完整证书链(叶子→根;verify 需要完整链,不只叶子)
     jmethodID midGetCertChain = env->GetMethodID(clsKeyStore, "getCertificateChain", "(Ljava/lang/String;)[Ljava/security/cert/Certificate;");
     jobjectArray certChain = (jobjectArray)env->CallObjectMethod(keyStore, midGetCertChain, jAlias);
     LOGD("certChain: %p", certChain);
     if (!certChain) return result;
-    jobject cert = env->GetObjectArrayElement(certChain, 0);
-    LOGD("cert: %p", cert);
 
-    // 步骤12: 获取证书的DER编码
+    jsize chainLen = env->GetArrayLength(certChain);
+    LOGI("certChain length: %d", (int)chainLen);
+
+    // 步骤12: 遍历整条链,每张证书取 DER 编码(全部收进 result)
     jclass clsX509 = env->FindClass("java/security/cert/X509Certificate");
     LOGD("FindClass X509Certificate: %p", clsX509);
     jmethodID midGetEncoded = env->GetMethodID(clsX509, "getEncoded", "()[B");
     LOGD("GetMethodID getEncoded: %p", midGetEncoded);
-    jbyteArray certBytes = (jbyteArray)env->CallObjectMethod(cert, midGetEncoded);
-    LOGD("certBytes: %p", certBytes);
 
-    // 提取证书数据
-    if (certBytes && env->GetArrayLength(certBytes) > 0) {
-        jsize len = env->GetArrayLength(certBytes);
-        result.resize(len);
-        env->GetByteArrayRegion(certBytes, 0, len, reinterpret_cast<jbyte*>(result.data()));
-        LOGI("Got DER cert, size: %d", (int)len);
-        
-        // 记录前几个字节用于调试
-        if (len > 0) {
-            string hex_data = bytes_to_hex(result.data(), len);
-            LOGD("certBytes of cert[%d]: %s", len, hex_data.c_str());
+    for (jsize i = 0; i < chainLen; i++) {
+        jobject cert = env->GetObjectArrayElement(certChain, i);
+        if (!cert) {
+            LOGE("cert[%d] is null", (int)i);
+            continue;
         }
-    } else {
-        LOGE("DER cert is empty");
+        jbyteArray certBytes = (jbyteArray)env->CallObjectMethod(cert, midGetEncoded);
+        if (certBytes && env->GetArrayLength(certBytes) > 0) {
+            jsize len = env->GetArrayLength(certBytes);
+            vector<uint8_t> der((size_t)len);
+            env->GetByteArrayRegion(certBytes, 0, len, reinterpret_cast<jbyte*>(der.data()));
+            result.push_back(std::move(der));
+            LOGI("Got DER cert[%d], size: %d", (int)i, (int)len);
+        } else {
+            LOGE("cert[%d] DER is empty", (int)i);
+        }
     }
-    LOGD("End get_attestation_cert_from_java");
+    LOGD("End get_attestation_cert_chain_from_java");
     return result;
 }
 
@@ -223,13 +232,32 @@ map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject conte
         return info;
     }
 
-    // 从Java层获取认证证书
-    vector<uint8_t> cert_data = get_attestation_cert_from_java(env, context);
-    if (cert_data.empty()) {
+    // 从Java层获取完整认证证书链(叶子→根;链供验签,叶子供解析TEE扩展)
+    vector<uint8_t> tee_challenge;
+    vector<vector<uint8_t>> cert_chain = get_attestation_cert_chain_from_java(env, context, &tee_challenge);
+    if (cert_chain.empty()) {
         LOGE("获取证书失败");
         info["tee_state"]["value"] = "cert_empty";
         return info;
     }
+    const vector<uint8_t>& cert_data = cert_chain[0]; // 叶子证书(含TEE扩展)
+
+    // 查杀分离—采集端：把完整证书链(base64 编码)作为【原始数据】上报，
+    // 验签/解析/判定完全由 zengine(Java)负责；此处不做任何验证。
+    // 每条证书 DER → base64，多张用 ',' 拼接，键为 "tee_cert_chain"。
+    {
+        string chain_b64;
+        for (size_t i = 0; i < cert_chain.size(); i++) {
+            if (i > 0) chain_b64 += ",";
+            chain_b64 += zBase64::encode(cert_chain[i]);   // zcore 通用 base64 工具
+        }
+        info["tee_cert_chain"]["value"] = chain_b64;
+        LOGI("tee_cert_chain base64 len=%zu (certs=%zu)", chain_b64.size(), cert_chain.size());
+    }
+
+    // 上报本次随机 challenge(供 zengine 校验证书内 challenge == 本次值)
+    info["tee_challenge"]["value"] = zBase64::encode(tee_challenge);
+    LOGI("tee_challenge base64 len=%zu", tee_challenge.size());
 
 //    zHttps https_client(5);
 //
@@ -256,103 +284,10 @@ map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject conte
 //        }
 //    }
 
-    // 测试C解析器解析证书数据
-    LOGI("Testing certificate parsing with %zu bytes", cert_data.size());
-
-    // 记录证书的前64字节用于调试
-    if (cert_data.size() > 0) {
-        string hex_data = bytes_to_hex(cert_data.data(), cert_data.size());
-        LOGI("certBytes of cert[%d]: %s", cert_data.size(), hex_data.c_str());
-
-        // 分段记录证书数据用于详细调试
-        auto log_cert_chunk = [&](size_t offset, size_t expect_len, const char* label) {
-            if (offset >= cert_data.size()) {
-                LOGI("%s skipped: offset=%zu, cert_size=%zu", label, offset, cert_data.size());
-                return;
-            }
-            size_t remain = cert_data.size() - offset;
-            size_t actual_len = remain < expect_len ? remain : expect_len;
-            string hex_chunk = bytes_to_hex(cert_data.data() + offset, actual_len);
-            LOGI("%s offset=%zu len=%zu: %s", label, offset, actual_len, hex_chunk.c_str());
-        };
-
-        log_cert_chunk(0, 300, "certBytes chunk1");
-        log_cert_chunk(300, 300, "certBytes chunk2");
-        log_cert_chunk(600, 53, "certBytes chunk3");
-    }
-
-    zTeeCert tee = zTeeCert(cert_data);
-    if (!tee.isValid()) {
-        LOGE("[Native-TEE] 错误: 证书文件无效或解析失败");
-        info["tee_state"]["value"] = "cert_invalid";
-        return info;
-    }
-
-    LOGE("[Native-TEE] 证书解析成功！");
-
-    const AttestationRecord* attestationRecord = tee.getX509Certificate()->getTBSCertificate()->getExtensions()->getTEEAttestationExtension()->getAttestationRecord();
-    const AuthorizationList* softwareEnforced = attestationRecord->getSoftwareEnforced();
-    const AuthorizationList* teeEnforced = attestationRecord->getTEEEnforced();
-
-    // RootOfTrust 可能在 Software Enforced 或 TEE Enforced 中
-    // 优先从 Software Enforced 获取，如果为空则从 TEE Enforced 获取
-    const RootOfTrust* rootOfTrust = nullptr;
-    if (softwareEnforced && !softwareEnforced->getRootOfTrust().verified_boot_key.empty()) {
-        rootOfTrust = &softwareEnforced->getRootOfTrust();
-    } else if (teeEnforced && !teeEnforced->getRootOfTrust().verified_boot_key.empty()) {
-        rootOfTrust = &teeEnforced->getRootOfTrust();
-    } else if (softwareEnforced) {
-        rootOfTrust = &softwareEnforced->getRootOfTrust();
-    } else if (teeEnforced) {
-        rootOfTrust = &teeEnforced->getRootOfTrust();
-    }
-
-    LOGE("KeymasterSecurityLevel %d", (int)attestationRecord->getAttestationSecurityLevel());
-    if (rootOfTrust) {
-        LOGE("device_locked %d", rootOfTrust->device_locked);
-        LOGE("verified_boot_key size: %zu", rootOfTrust->verified_boot_key.size());
-        if (!rootOfTrust->verified_boot_key.empty()) {
-            LOGE("verified_boot_key (前8字节): %02X %02X %02X %02X %02X %02X %02X %02X",
-                 rootOfTrust->verified_boot_key[0], rootOfTrust->verified_boot_key[1],
-                 rootOfTrust->verified_boot_key[2], rootOfTrust->verified_boot_key[3],
-                 rootOfTrust->verified_boot_key[4], rootOfTrust->verified_boot_key[5],
-                 rootOfTrust->verified_boot_key[6], rootOfTrust->verified_boot_key[7]);
-        }
-
-        // 查杀分离 — 采集端：全量上报解析出的TEE原始字段(不做安全判定，由zengine负责)
-        info["tee_state"]["value"] = "cert_ok";
-        info["device_locked"]["value"] = rootOfTrust->device_locked ? "1" : "0";
-        info["verified_boot_state"]["value"] = to_string(rootOfTrust->verified_boot_state);
-        info["verified_boot_key_size"]["value"] = to_string(rootOfTrust->verified_boot_key.size());
-        info["attestation_security_level"]["value"] = to_string((int)attestationRecord->getAttestationSecurityLevel());
-        if (softwareEnforced) {
-            info["os_version_sw"]["value"] = to_string(softwareEnforced->getOSVersion());
-            info["os_patch_level_sw"]["value"] = to_string(softwareEnforced->getOSPatchLevel());
-            info["boot_patch_level_sw"]["value"] = to_string(softwareEnforced->getBootPatchLevel());
-        }
-        if (teeEnforced) {
-            info["os_version_tee"]["value"] = to_string(teeEnforced->getOSVersion());
-            info["os_patch_level_tee"]["value"] = to_string(teeEnforced->getOSPatchLevel());
-            info["boot_patch_level_tee"]["value"] = to_string(teeEnforced->getBootPatchLevel());
-        }
-        LOGE("verified_boot_state %d", rootOfTrust->verified_boot_state);
-    } else {
-        LOGE("RootOfTrust: 未找到");
-        info["tee_state"]["value"] = "root_of_trust_missing";
-    }
-
-    // OSVersion 通常在 Software Enforced 中
-    if (softwareEnforced) {
-        LOGE("OSVersion (Software Enforced): %d", softwareEnforced->getOSVersion());
-        LOGE("OSPatchLevel (Software Enforced): %d", softwareEnforced->getOSPatchLevel());
-        LOGE("BootPatchLevel (Software Enforced): %d", softwareEnforced->getBootPatchLevel());
-    }
-    if (teeEnforced) {
-        LOGE("OSVersion (TEE Enforced): %d", teeEnforced->getOSVersion());
-        LOGE("OSPatchLevel (TEE Enforced): %d", teeEnforced->getOSPatchLevel());
-        LOGE("BootPatchLevel (TEE Enforced): %d", teeEnforced->getBootPatchLevel());
-    }
-    LOGE("\n======================\n");
+    // 查杀分离—采集端：完整证书链已在上方作为 tee_cert_chain 上报；
+    // 字段解析(device_locked/verified_boot_state/os_version 等)与验签全部在 zengine(Java)。
+    // C++ 侧不再解析证书，此处直接结束。
+    info["tee_state"]["value"] = "cert_collected";
 
     return info;
 }

@@ -11,7 +11,6 @@
 #include "zLog.h"
 #include "zFile.h"
 #include "zJavaVm.h"
-#include "zTeeCert.h"
 
 namespace {
 struct LocalFrameGuard {

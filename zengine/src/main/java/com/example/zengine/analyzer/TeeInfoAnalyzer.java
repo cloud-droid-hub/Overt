@@ -5,12 +5,17 @@ import com.example.zengine.MainApplication;
 import org.json.JSONObject;
 
 /**
- * TEE 信息分析器。
+ * TEE 信息分析器(查杀分离:验签/解析/判定全在 Java)。
  * <p>
- * 迁移自 zinfo zTeeInfo.cpp get_tee_info_openssl 的内联判断：
- * - tee_state: 除 "cert_ok" 外(证书获取/解析失败、env/context 空) → error
- * - device_locked != "1" → error
- * - verified_boot_state != "0"(VERIFIED) → error
+ * 采集端(zTeeInfo.cpp)只上报 tee_cert_chain(base64 完整证书链)；
+ * 本分析器用 TeeAttestationParser:
+ * 1. 验签(链自洽 + 根公钥 ∈ 可信集合) → 非 ok → tee_verify error
+ * 2. 解析叶子证书的 TEE Attestation 扩展 → 提取 device_locked / verified_boot_state
+ *    / attestation_security_level 等字段
+ * 3. 判定:
+ *    - 链为空/解析失败 → tee_statue error
+ *    - device_locked != true → error
+ *    - verified_boot_state != VERIFIED(0) → error
  */
 public final class TeeInfoAnalyzer implements MainApplication.Analyzer {
 
@@ -23,24 +28,59 @@ public final class TeeInfoAnalyzer implements MainApplication.Analyzer {
             JSONObject raw = new JSONObject(rawJson);
             JSONObject out = new JSONObject();
 
-            String teeState = valueOf(raw, "tee_state");
-            if (!"cert_ok".equals(teeState)) {
-                // 证书不可用 / 解析失败 → 按原逻辑报 error(tee_statue is damage)
+            String chainB64 = valueOf(raw, "tee_cert_chain");
+            if (chainB64.isEmpty()) {
                 out.put("tee_statue", new JSONObject()
                         .put("risk", "error")
                         .put("explain", "tee_statue is damage"));
                 return out.toString();
             }
 
-            // device_locked: "1" 安全,否则 error
-            if (!"1".equals(valueOf(raw, "device_locked"))) {
+            // 1) 验签
+            String verifyResult = TeeAttestationParser.verify(chainB64);
+            if (!TeeAttestationVerifier.OK.equals(verifyResult)) {
+                out.put("tee_verify", new JSONObject()
+                        .put("risk", "error")
+                        .put("explain", "tee attestation verify failed: " + verifyResult));
+            }
+
+            // 2) 解析叶子证书的 TEE Attestation 扩展
+            Asn1Attestation attestation = TeeAttestationParser.parse(chainB64);
+            if (attestation == null) {
+                out.put("tee_statue", new JSONObject()
+                        .put("risk", "error")
+                        .put("explain", "tee_statue is damage"));
+                return out.toString();
+            }
+
+            RootOfTrust rootOfTrust = attestation.getRootOfTrust();
+            if (rootOfTrust == null) {
+                out.put("tee_statue", new JSONObject()
+                        .put("risk", "error")
+                        .put("explain", "root_of_trust_missing"));
+                return out.toString();
+            }
+
+            // 一致性校验:证书内 challenge 必须等于采集端上报的 tee_challenge(本次随机值)。
+            // 防重放/防简单篡改:若攻击者替换证书而未同步改上报的 challenge,此处拦截。
+            String reportedChallengeB64 = valueOf(raw, "tee_challenge");
+            byte[] certChallenge = attestation.getAttestationChallenge();
+            if (reportedChallengeB64.isEmpty() || certChallenge == null ||
+                    !java.util.Arrays.equals(
+                            java.util.Base64.getDecoder().decode(reportedChallengeB64),
+                            certChallenge)) {
+                out.put("tee_verify", new JSONObject()
+                        .put("risk", "error")
+                        .put("explain", "tee attestation challenge mismatch"));
+            }
+
+            // 3) 判定
+            if (!rootOfTrust.isDeviceLocked()) {
                 out.put("device_locked", new JSONObject()
                         .put("risk", "error")
                         .put("explain", "device_locked is unsafe"));
             }
-
-            // verified_boot_state: "0" 已验证,否则 error
-            if (!VERIFIED_BOOT_STATE.equals(valueOf(raw, "verified_boot_state"))) {
+            if (!VERIFIED_BOOT_STATE.equals(String.valueOf(rootOfTrust.getVerifiedBootState()))) {
                 out.put("verified_boot_state", new JSONObject()
                         .put("risk", "error")
                         .put("explain", "verified_boot_state is unsafe"));
