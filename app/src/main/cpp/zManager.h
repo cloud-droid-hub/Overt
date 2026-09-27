@@ -30,9 +30,10 @@
  * - 异步处理：支持后台任务执行
  * - 内存优化：智能管理检测数据生命周期
  * 
- * 数据存储结构：
+ * 数据存储结构（查杀分离后存【原始采集数据】，不含 risk 判定）：
  * device_info[检测类别][检测项目][属性名] = 属性值
- * 例如：device_info["root_state_info"]["su文件检测"]["risk"] = "error"
+ * 例如：device_info["root_state_info"]["/sbin/su"]["value"] = "1"
+ * 注意：风险判定已移入 zengine 分析引擎，本存储层不再产生 {"risk","explain"}。
  * 
  * 线程安全机制：
  * - 使用std::shared_mutex实现读写锁

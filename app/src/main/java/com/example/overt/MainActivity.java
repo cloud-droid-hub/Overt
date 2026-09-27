@@ -7,7 +7,8 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.widget.NestedScrollView;
 
-import org.json.JSONException;
+import com.example.zengine.MainApplication;
+
 import org.json.JSONObject;
 
 /**
@@ -92,17 +93,21 @@ public class MainActivity extends AppCompatActivity {
     private void updateUIWithNewCardInfo(String title, String newCardInfo) {
         if (cardContainer != null) {
             try {
-                // 解析JSON格式的卡片数据
-                JSONObject jsonObject = new JSONObject(newCardInfo);
-                
+                // 查杀分离：Native 层上传的是原始数据，先交给 zengine 分析引擎
+                // 得到 {item: {risk, explain}} 结果 JSON，再渲染到卡片。
+                String analyzed = MainApplication.analyze(title, newCardInfo);
+
+                // 解析分析后的JSON格式数据
+                JSONObject jsonObject = new JSONObject(analyzed);
+
                 // 更新或创建卡片
                 // createIfNotExists=true 表示如果卡片不存在则创建新卡片
                 cardContainer.updateCard(title, jsonObject, true);
-            } catch (JSONException e) {
-                // JSON解析失败，通常表示Native层传递的数据格式有问题
+            } catch (Exception e) {
+                // JSON解析失败或分析异常（fail-closed），通常表示数据格式有问题
                 Log.e(TAG, "Failed to parse JSON data: " + newCardInfo, e);
                 // 避免因为单条数据异常导致整个应用崩溃
-                // 仅记录错误并跳过本次更新
+                // 仅记录错误并跳过本次更新（原始数据绝不直接渲染到 UI）
             }
         } else {
             Log.w(TAG, "Card container is null, cannot update UI");

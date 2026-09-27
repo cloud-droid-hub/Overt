@@ -10,22 +10,11 @@ android {
         applicationId "com.example.overt"
         minSdk 26
         targetSdk 34
-        versionCode 936
-        versionName "1.936"
+        versionCode 994
+        versionName "1.994"
         ndk{
             abiFilters 'arm64-v8a'
         }
-//        // 测试了一下 ollvm 编译
-//        externalNativeBuild {
-//            cmake {
-//                cppFlags "-std=c++14", "-frtti", "-fexceptions", "-DANDROID_TOOLCHAIN=clang", "-ffunction-sections", "-fdata-sections",
-//                        "-mllvm", "-irobf-cse",
-//                        "-mllvm", "-irobf-indbr",
-//                        "-mllvm", "-irobf-icall",
-//                        "-mllvm", "-irobf-indgv",
-//                        "-mllvm", "-irobf-cff"
-//            }
-//        }
     }
     signingConfigs {
         release {
@@ -87,6 +76,15 @@ android {
     buildFeatures {
         viewBinding true
         aidl true
+    }
+    // 源码共享 zengine 分析引擎(查杀分离)：
+    // 只共享 zengine/src/main/java(引擎纯逻辑,零 res/R 引用,零 Application)，
+    // 不引入 gradle 依赖；zengine 可在其模块内独立单测。
+    // ★ 必须用 += 追加,不能用 = 覆盖(会丢默认源目录)
+    sourceSets {
+        main {
+            java.srcDirs += "${rootDir}/zengine/src/main/java"
+        }
     }
 }
 
