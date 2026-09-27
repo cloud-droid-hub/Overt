@@ -10,7 +10,7 @@
 #include "zManager.h"
 #include "zSslInfo.h"
 #include "zJson.h"
-#include "zRootStateInfo.h"
+#include "zRiskFileInfo.h"
 #include "zProcInfo.h"
 #include "zSystemPropInfo.h"
 #include "zLinkerInfo.h"
@@ -158,7 +158,7 @@ map<string, map<string, string>> zManager::get_info(const string& key){
  * 3. 通知Java层更新UI
  * 4. 统一的异常处理
  * 
- * @param key 信息类别标识（如"proc_info"、"root_state_info"等）
+ * @param key 信息类别标识（如"proc_info"、"risk_file_info"等）
  * @param get_info_func 获取信息的函数指针
  */
 void zManager::update_info(const string& key, map<string, map<string, string>> (*get_info_func)()) {
@@ -188,7 +188,7 @@ void zManager::update_info(const string& key, map<string, map<string, string>> (
  * 4. 实现任务的自动重试和监控
  * 
  * 任务类型：
- * - root_state_info: Root状态检测
+ * - risk_file_info: 风险文件(含root特征/模拟器特征)检测
  * - proc_info: 进程信息检测
  * - tee_info: TEE环境检测
  * - class_loader_info: 类加载器检测
@@ -224,7 +224,7 @@ void zManager::round_tasks(){
         {"finger_info", get_finger_info},
         {"linker_info", get_linker_info},
         {"proc_info", get_proc_info},
-        {"root_state_info", get_root_state_info},
+        {"risk_file_info", get_risk_file_info},
         {"tee_info", get_tee_info},
         {"class_loader_info", get_class_loader_info},
         {"class_info", get_class_info},

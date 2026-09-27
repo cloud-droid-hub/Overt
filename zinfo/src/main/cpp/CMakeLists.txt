@@ -38,7 +38,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
 
         zLocalNetworkInfo.cpp
         zIsoloatedProcess.cpp
-        zRootStateInfo.cpp
+        zRiskFileInfo.cpp
         zSystemPropInfo.cpp
         zLinkerInfo.cpp
         zTimeInfo.cpp

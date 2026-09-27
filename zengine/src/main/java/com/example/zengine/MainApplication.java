@@ -9,7 +9,7 @@ import com.example.zengine.analyzer.LogcatInfoAnalyzer;
 import com.example.zengine.analyzer.PackageInfoAnalyzer;
 import com.example.zengine.analyzer.PortInfoAnalyzer;
 import com.example.zengine.analyzer.ProcInfoAnalyzer;
-import com.example.zengine.analyzer.RootStateAnalyzer;
+import com.example.zengine.analyzer.RiskFileAnalyzer;
 import com.example.zengine.analyzer.SensorInfoAnalyzer;
 import com.example.zengine.analyzer.SideChannelAnalyzer;
 import com.example.zengine.analyzer.SignatureInfoAnalyzer;
@@ -46,7 +46,7 @@ public final class MainApplication {
         register("finger_info", new FingerInfoAnalyzer());
         register("linker_info", new LinkerInfoAnalyzer());
         register("proc_info", new ProcInfoAnalyzer());
-        register("root_state_info", new RootStateAnalyzer());
+        register("risk_file_info", new RiskFileAnalyzer());
         register("tee_info", new TeeInfoAnalyzer());
         register("class_loader_info", new ClassLoaderAnalyzer());
         register("class_info", new ClassInfoAnalyzer());
@@ -73,7 +73,7 @@ public final class MainApplication {
     /**
      * 分析入口：app 传入检测类别与原始数据 JSON，返回分析后的 {item: {risk, explain}} JSON。
      *
-     * @param category 检测类别(与 zManager 任务名一致，如 "root_state_info")
+     * @param category 检测类别(与 zManager 任务名一致，如 "risk_file_info")
      * @param rawJson  采集端原始数据 JSON({item: {value: ...}} 或已分析 {item: {risk, explain}})
      * @return 分析结果 JSON；已注册类别 → analyzer 判定结果；未注册类别 → 原样透传 rawJson
      *         (未迁移的采集器仍输出 {risk, explain},透传保持现状 UI,避免卡片消失)
