@@ -27,18 +27,18 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
 
 [Java 侧 —— 分析，由 zengine 引擎负责]
   NativeUpdateBus.onCardInfoUpdated(title, rawJson)
-  → MainApplication.analyze(title, rawJson)   [zengine 分析引擎，纯 Java]
+  → MainActivity 后台线程调 MainApplication.analyze(title, rawJson)   [zengine 分析引擎]
   → 19 个 Analyzer 按内置黑名单/阈值/规则判定 → {项目: {risk: safe|warn|error, explain: ...}}
-  → InfoCardContainer 渲染成风险卡片
+  → 回主线程 InfoCardContainer 渲染成风险卡片
 ```
 
 各模块职责：
-- **zinfo**（C++）：只负责**采集原始数据**（文件/属性/进程/Linker/TEE/端口等），全量上报，不做 risk 判定；黑白名单等判定数据不在采集端内置（PackageInfo 的探测包名列表仅作为探测范围声明）。
-- **zengine**（纯 Java 分析引擎）：内置全部**风险判定逻辑**——黑名单、阈值、期望值、特征串。入口 `MainApplication.analyze(category, rawJson)`，返回 `{risk, explain}` 结果 JSON。通过 `app/build.gradle` 的 `sourceSets` 源码共享编入 app，也作为独立模块以硬编码数据做单测。
-- **app**（Java UI + C++ 调度）：`zManager` 只编排采集；`MainActivity` 只做显示（收到原始数据先调 zengine 分析，再渲染）。
+- **zinfo**（C++）：只负责**采集原始数据**（文件/属性/进程/Linker/TEE/端口/传感器原始字段等），全量上报，不做 risk 判定；黑白名单等判定数据不在采集端内置（PackageInfo 的探测包名列表仅作为探测范围声明）。
+- **zengine**（纯 Java 分析引擎）：内置全部**风险判定逻辑**——黑名单、阈值、期望值、特征串。定位为**【模拟服务端】**：采集端(native)上传"客户端观察到的数据"，zengine 以服务端视角(不被 hook 的信任锚)做判定。入口 `MainApplication.analyze(category, rawJson)`，返回 `{risk, explain}` 结果 JSON。通过 `app/build.gradle` 的 `sourceSets` 源码共享编入 app，也作为独立模块以硬编码数据做单测。允许使用 `android.util.Log`（运行日志）；网络/Context 等能力通过可注入 Provider 解耦（如 `SslFingerprintFetcher`、`ContextProvider`）。
+- **app**（Java UI + C++ 调度）：`zManager` 只编排采集；`MainActivity` 只做显示——收到原始数据后，**在后台线程调用 zengine 分析**（analyzer 可能发网络请求，主线程会抛 NetworkOnMainThreadException），结果回主线程渲染。
 - **zcore/zconfig/zlog/zstd/zlibc**：核心库、配置开关、日志、标准库替代、libc 封装。
 
-19 类检测任务均已分离：`risk_file_info` / `class_loader_info` / `class_info` / `side_channel_info` / `finger_info` / `linker_info` / `proc_info` / `tee_info` / `package_info` / `system_setting_info` / `system_prop_info` / `signature_info` / `port_info` / `time_info` / `ssl_info` / `local_network_info` / `logcat_info` / `isoloated_process_info` / `sensor_info`，每一类的判定逻辑都在 `zengine/src/main/java/com/example/zengine/analyzer/` 下对应 Analyzer 中。
+19 类检测任务均已分离：`risk_file_info` / `class_loader_info` / `class_info` / `side_channel_info` / `finger_info` / `linker_info` / `proc_info` / `tee_info` / `package_info` / `system_setting_info` / `system_prop_info` / `signature_info` / `port_info` / `time_info` / `ssl_info` / `local_network_info` / `selinux_info` / `isoloated_process_info` / `sensor_info`，每一类的判定逻辑都在 `zengine/src/main/java/com/example/zengine/analyzer/` 下对应 Analyzer 中。
 
 注：`package_info` 的探测包名列表（C++ `probe_package_map`）是采集范围的天然声明（JNI 必须知道探测哪些包）；风险判定（黑名单命中即 error、白名单缺失即 warn）的名单完全内置在 Java 侧 `PackageInfoAnalyzer`。
 
@@ -48,18 +48,17 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
 
 #### Root检测原理
 
-1. **文件系统检测**:
-   - 遍历常见Root文件路径（如`/system/bin/su`、`/system/xbin/su`等）
-   - 检查文件是否存在，存在则判定为Root设备
-   - 检测Root管理应用（SuperSU、Magisk Manager等）的安装
+1. **风险文件检测**（采集端 zRiskFileInfo.cpp,统一探测 root 特征 + 模拟器特征文件）:
+   - 遍历 root 特征文件（`/system/bin/su`、`/system/xbin/su` 等）+ 模拟器特征文件（qemu/goldfish/vbox/redroid 等）
+   - 全部路径统一探测存在状态，上报 `{路径 -> {value: "1"/"0"}}`，不掺类别/判定
+   - 由 zengine RiskFileAnalyzer 内置名单判定：root 特征文件存在 → error；模拟器特征文件存在 → error
+   - Root 管理应用（SuperSU、Magisk Manager 等）安装检测见「包信息检测原理」
 
-2. **系统属性检测**:
-   - 检查`ro.secure`、`ro.debuggable`等关键系统属性
-   - 验证属性值是否符合预期，异常值表示可能被Root
+2. **系统属性检测**（见「系统属性检测原理」）:
+   - ro.secure/ro.debuggable 等关键属性的期望值校验由 zengine 判定
 
-3. **挂载点检测**:
-   - 分析`/proc/mounts`文件，检测异常挂载点
-   - 检测overlay文件系统挂载，这是Magisk等Root框架的常见特征
+3. **挂载点/挂载命名空间检测**（见「进程信息检测原理」）:
+   - /proc/mounts 异常挂载点、overlay 挂载、mount ns 对比均由 zengine 判定
 
 #### 类加载器检测原理
 
@@ -88,10 +87,13 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
    - 正常情况下，`faccessat`的执行速度应该快于`fchownat`
    - 如果`faccessat`大量慢于`fchownat`，说明存在Hook框架拦截
    - Hook框架会增加系统调用的执行时间，导致时序异常
+   - 采集端只上报异常计数，阈值判定（7000/5000）由 zengine 负责
 
-3. **阈值判定**:
-   - 统计异常次数，超过阈值（如7000次）则判定为环境异常
-   - 这种方法可以检测到基于系统调用Hook的调试工具
+3. **KernelSU/APatch prctl 探测**（机制级内核root检测）:
+   - KernelSU/APatch 是内核级 root，无文件痕迹，但通过私有 prctl `0xDEADBEEF` 与用户态通信
+   - 普通内核不认识该 option → 返回错误且 out 参数不变
+   - 打了 KSU/APatch 补丁的内核会响应（写版本号 / 回魔数 `0x5A5A5A5A` / 返回 0）
+   - 探测到内核响应即判定存在内核 root，由 zengine 判定为 risk
 
 #### 时间检测原理
 
@@ -127,32 +129,50 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
 
 #### 进程信息检测原理
 
-1. **进程状态分析**:
-   - 解析`/proc/self/status`文件，获取进程状态信息
-   - 检测进程的TracerPid，非零值表示进程被调试
+1. **内存映射分析**（maps）:
+   - 遍历 `/proc/self/maps`，上报关键系统库（libart/libc/libinput）的映射段数/权限序列
+   - 检测 base.odex 加载状态与内容特征（`--inline-max-code-units=0`）
+   - 段数/权限异常由 zengine 判定（正常为 4 段、权限序列 r--p/r-xp/r--p/rw-p）
 
-2. **任务信息检测**:
-   - 分析`/proc/self/task`目录，获取所有线程信息
-   - 检测可疑线程名（如`gmain`、`pool-frida`等Frida相关线程）
+2. **挂载点检测**（mounts）:
+   - 读取 `/proc/self/mounts` 全量上报
+   - 检测异常挂载名（dex2oat/APatch/shamiko/模块）与 /system overlay 由 zengine 判定
 
-3. **内存映射分析**:
-   - 检测内存中映射的可疑库文件
-   - 识别调试工具和Hook框架的特征库
+3. **任务信息检测**（task）:
+   - 分析 `/proc/self/task` 每个线程的 stat，上报原始行
+   - 检测可疑线程名（`gmain`/`pool-frida` 等 Frida 特征）由 zengine 判定
+
+4. **进程属性检测**（attr_prev）:
+   - 读取 `/proc/self/attr/prev`，`zygote` 特征（可能为 Magisk 痕迹）由 zengine 判定
+
+5. **网络连接检测**（net_tcp）:
+   - 读取 `/proc/self/net/tcp`，Frida/IDA 端口特征（:69A2/:69A3/:5D8A）由 zengine 判定
+
+6. **挂载命名空间对比**（mount ns）:
+   - 上报自己的与 init 进程（PID 1）的 `ns/mnt` ID 与 mountinfo 全文（原始数据）
+   - zengine 对比：两者 mnt namespace 不同 → 隔离了挂载（被动手脚）→ risk
+   - init 中关键挂载点（/system /vendor /product /system_ext /odm /data/adb /sbin /debug_ramdisk /apex）
+     在自己的 mountinfo 中缺失 → mount 隐藏证据 → risk
 
 #### SSL证书检测原理
 
-1. **HTTPS连接建立**:
-   - 使用mbedTLS建立HTTPS连接
-   - 获取服务器证书链
+1. **证书指纹采集**（采集端 zSslInfo.cpp）:
+   - 对目标 URL（百度、腾讯新闻 ip2city）发起 HTTPS 请求（mbedTLS），获取服务器证书
+   - 上报观察到的证书 SHA256 指纹 + 请求错误，均为原始数据
+   - 不内置任何期望指纹（期望值不硬编码在采集端）
 
-2. **证书指纹验证**:
-   - 计算证书的SHA256指纹
-   - 与预置的证书指纹进行比较
-   - 指纹不匹配则判定为中间人攻击或证书被篡改
+2. **期望指纹动态获取**（zengine SslFingerprintFetcher）:
+   - 期望指纹不由采集端硬编码，而是 zengine 按需重新请求目标 URL，现场解析叶子证书 SHA256 指纹
+   - 持久化缓存为 `date:cert` 键值对（app 私有目录文件），当天命中则直接复用，不重复请求
 
-3. **证书固定**:
-   - 实现证书固定机制，只信任特定的证书
-   - 防止中间人攻击和证书伪造
+3. **指纹对比判定**（zengine SslInfoAnalyzer）:
+   - 观察指纹 vs 当天期望指纹，不一致 → error（MITM/证书被篡改）
+   - 期望指纹获取失败 → 无法比对，该项不武断判定
+   - 注意：期望值与观察值同源（同设备），MITM 检测依赖"服务端视角"的信任锚语义
+
+4. **地理位置判定**:
+   - 腾讯新闻 ip2city 响应解析出国家+省+市（采集端只解析，不判定）
+   - zengine 判定：为空 → error；不以"中国"开头 → error；否则 safe
 
 #### 设备指纹检测原理
 
@@ -196,7 +216,7 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
 2. **验签（zengine TeeAttestationVerifier）**:
    - 链自洽验签：逐级验证叶子由中间签发、链顶自签（伪造证书/篡改链在此被拦下）
    - 根公钥增强：链顶公钥 ∈ {Google / AOSP 根} 视为强信任；厂商/模拟器根不误报（链自洽为硬门槛）
-   - 由于采集端 challenge 固定为 `tee_check`，分析器同时校验证书内的 challenge 防重放
+   - 采集端每次随机生成 challenge（getrandom 内核真随机 → zRandom），zengine 校验证书内的 challenge 与上报值一致（防重放/防简单替换）
 
 3. **字段解析（zengine Asn1Attestation，抄自 KeyAttestation）**:
    - 用 BouncyCastle 解析叶子证书的 TEE Attestation 扩展（OID 1.3.6.1.4.1.11129.2.1.17）
@@ -211,20 +231,19 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
 
 #### 包信息检测原理
 
-1. **Context方式检测**:
-   - 通过PackageManager.getApplicationInfo检测应用是否安装
-   - 通过PackageManager.getLaunchIntentForPackage作为备用检测方法
-   - 检测Root管理应用（如SuperSU、Magisk Manager等）
+1. **探测包名列表**（采集端 zPackageInfo.cpp）:
+   - 采集端维护一个**探测包名列表**（probe_package_map，只声明"探测哪些包"，无黑白语义）
+   - 对列表内每个包，用 4 种方式探测安装状态并全量上报：
+     - Context（PackageManager.getApplicationInfo / getLaunchIntentForPackage）
+     - 路径（/data/data、/data/user/0、/data/user_de/0、外部存储）
+     - 路径漏洞（/sdcard/android/data 等）
+     - Shell 越权
+   - 上报原始安装方式编码（0/pms/file/path_hole/shell_hole），不做判定
 
-2. **路径方式检测**:
-   - 检查`/data/data`、`/data/user/0`、`/data/user_de/0`等应用数据目录
-   - 检查`/storage/emulated/0/Android/data`外部存储目录
-   - 应用数据目录存在则判定为应用已安装
-
-3. **越权检测**:
-   - 使用路径漏洞检测（如`/sdcard/android/\u200bdata/`）
-   - 使用Shell命令越权检测
-   - 这些方法可以绕过某些检测机制
+2. **黑白名单判定**（zengine PackageInfoAnalyzer）:
+   - 黑名单名单（119 个 root/调试/VPN 包）与白名单（微信/支付宝）**完全内置在 Java 侧**
+   - 黑名单包已安装（任意方式）→ error
+   - 白名单包未安装 → warn
 
 #### 系统设置检测原理
 
@@ -240,19 +259,24 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
 
 #### 系统属性检测原理
 
-1. **属性遍历**:
-   - 使用`__system_property_foreach`遍历所有系统属性
-   - 解析属性内部结构，提取属性名、值和序列号
+1. **属性遍历**（采集端 zSystemPropInfo.cpp）:
+   - 使用`__system_property_foreach`遍历所有系统属性，全量上报属性名、值、序列号版本(原始数据)
+   - 采集端不做任何判定
 
-2. **关键属性验证**:
-   - 检查`ro.secure`属性，应为"1"表示安全模式
-   - 检查`ro.debuggable`属性，应为"0"表示不可调试
-   - 检查`ro.build.tags`属性，应为"release-keys"
-   - 属性值异常表示系统可能被修改或Root
+2. **关键属性验证**（zengine SystemPropAnalyzer）:
+   - 检查`ro.secure`应为"1"、`ro.debuggable`应为"0"、`ro.build.tags`应为"release-keys"等
+   - 值不在期望列表 → error
 
 3. **序列号分析**:
-   - 解析属性序列号的dirty标志、版本号和值长度
-   - 序列号异常可能表示属性被动态修改
+   - 关键 `ro.*` 属性 serial_version != 0（被动态修改）→ error
+
+4. **Community ROM / 模拟器 / 云手机属性**:
+   - lineage/cm/mokee/rr/pixelexperience/modversion 属性存在 → warn（custom rom）
+   - ro.kernel.qemu / ro.boot.qemu / ro.hardware.virtual / cloudphone 家族 / redroid → warn（模拟器/云手机）
+
+5. **分区 fingerprint 一致性**:
+   - 主 `ro.build.fingerprint` 与各分区指纹（system/vendor/odm/product/system_ext/bootimage）不一致
+   - 不一致 → warn（厂商 ROM 分区指纹差异是正常现象，不判 error）
 
 #### 签名信息检测原理
 
@@ -277,10 +301,10 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
    - 使用非阻塞模式，设置200ms超时
    - 连接成功则判定为端口被占用
 
-2. **可疑端口检测**:
-   - 检测调试工具常用端口（如Frida默认端口27042）
-   - 检测Root框架常用端口
-   - 端口被占用可能表示调试工具或Root框架正在运行
+2. **可疑端口检测**（zengine PortInfoAnalyzer 判定）:
+   - 检测调试工具常用端口（Frida 27042/27043/27047、IDA 23946）
+   - 采集端上报端口占用状态(原始)，zengine 按端口→工具名映射判定
+   - 端口被占用 → error（调试工具或Root框架正在运行）
 
 3. **错误处理**:
    - 处理连接失败、超时等异常情况
@@ -294,25 +318,21 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
    - 启动UDP广播监听器，监听端口7476接收响应
    - 启动本地IP监控，获取本机网络信息
 
-2. **设备发现**:
-   - 接收UDP广播响应，记录发送方的IP地址
-   - 将检测到的Overt设备标记为警告级别
+2. **设备发现**（zengine LocalNetworkAnalyzer 判定）:
+   - 接收UDP广播响应，记录发送方的IP地址(全量上报原始数据)
+   - 检测到同网其他Overt设备 → warn
    - 用于检测同一网络中的其他Overt设备
 
-#### 日志信息检测原理
+#### SELinux检测原理
 
-1. **日志遍历**:
-   - 遍历指定PID范围（1500-2000），检查每个进程的日志记录
-   - 使用`logcat -d`命令获取系统日志
+1. **进程 SELinux context 探测**（采集端 zSelinuxInfo.cpp）:
+   - 读取 `/proc/self/attr/current`，上报进程的 SELinux 上下文（原始数据）
+   - 正常 app 域为 `untrusted_app`；若上下文含 `magisk`/`su:`/`:su` 域标记，说明进程被 root 框架提权
+   - 由 zengine SelinuxInfoAnalyzer 判定为 risk
 
-2. **可疑记录检测**:
-   - 搜索日志中包含`avc`（SELinux审计日志）和`u:r:su:s0`（Root权限上下文）的记录
-   - 这些记录通常由Zygisk等Root框架产生
-   - 发现可疑记录则判定为存在Root框架
-
-3. **进程路径验证**:
-   - 检查对应PID的进程路径是否存在
-   - 确保检测的进程确实存在
+2. **Zygisk 痕迹检测**（logcat 审计日志）:
+   - 遍历指定PID范围（1500-2000），grep 出含 `avc` + `u:r:su:s0` 的日志行全量上报
+   - `u:r:su:s0` 是 Zygisk 等 root 框架的 SELinux 审计痕迹，由 zengine 判定
 
 #### 隔离进程信息检测原理
 
@@ -331,20 +351,22 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
 
 #### 传感器信息检测原理
 
-1. **传感器管理器**:
-   - 使用`zSensorManager`单例管理传感器检测
-   - 获取设备上所有可用的传感器
+1. **原始传感器数据采集**（采集端 zSensorInfo.cpp）:
+   - 使用 `zSensorManager` 获取设备所有传感器，逐个上报原始字段：
+     `name, type, minDelay, maxDelay, fifoMax, fifoReserved, isWakeUp`
+   - 采集端不做任何统计/聚合/评分（查杀分离最彻底：只报原始数据）
 
-2. **风险评分计算**:
-   - 检测传感器FIFO是否为空（可能表示传感器被禁用）
-   - 检测唤醒传感器数量是否过少
-   - 检测传感器延迟是否过于均匀（可能表示数据被伪造）
-   - 检测传感器总数是否过低
+2. **统计与风险评分**（zengine SensorInfoAnalyzer）:
+   - 从原始字段自行统计：传感器总数、FIFO 为 0 的数量、wake-up 传感器数
+   - 判定规则（迁移自原 C++ 逻辑）:
+     - 传感器总数 < 20 → +30 分
+     - 所有传感器 FIFO 为 0 → +30 分
+     - wake-up 传感器数 < 2 → +20 分
+     - 组合加分（wakeup不足且FIFO全空）→ +20 分，封顶 100
 
 3. **风险等级判定**:
-   - 根据风险评分计算风险等级
-   - 评分超过60为错误级别，否则为警告级别
-   - 通过风险位标志标识具体的风险类型
+   - 评分 > 60 → error；评分 > 0 → warn
+   - 传感器 name 含 `goldfish`（qemu 模拟器传感器实现）→ 独立判定 emulator 风险
 
 ## 编译环境
 
