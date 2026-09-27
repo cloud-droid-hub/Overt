@@ -37,11 +37,11 @@ static string get_process_name(){
 void __attribute__((constructor)) init_(void){
     LOGI("zInfo init - Starting comprehensive tests");
 
-    get_selinux_info();
+//    get_selinux_info();
 
 //    get_side_channel_info();
 
-//    get_sensor_info();
+    get_sensor_info();
 
 //    string processName = get_process_name();
 //    LOGI("processName: %s", processName.c_str());

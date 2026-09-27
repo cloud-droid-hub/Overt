@@ -21,18 +21,28 @@ map<string, map<string, string>> get_sensor_info() {
 
     if (!manager) {
         LOGW("Failed to get sensor manager instance");
-        info["sensor_score"]["value"] = "-1";
-        info["sensor_bits"]["value"] = "0";
+        info["sensor_raw_count"]["value"] = "0";
         return info;
     }
 
-    // 采集端：只上报风险评分与风险位(原始数据)，阈值/位判定由 zengine 负责
-    int score = manager->getRiskScore();
-    uint32_t riskBits = manager->getRiskBits();
-    LOGI("sensor risk score: %d, riskBits: 0x%x", score, riskBits);
-
-    info["sensor_score"]["value"] = to_string(score);
-    info["sensor_bits"]["value"] = to_string(riskBits);
+    // 查杀分离—采集端：直接上报每个传感器的原始字段(不做任何聚合统计/判定)。
+    // 字段顺序固定: name,type,minDelay,maxDelay,fifoMax,fifoReserved,isWakeUp
+    // 统计(sensor 总数/fifo为0数/wakeup数)与评分判定全部由 zengine 负责。
+    const vector<zSensor*>& sensors = manager->getSensors();
+    for (size_t i = 0; i < sensors.size(); i++) {
+        const zSensor* s = sensors[i];
+        string raw = string_format("%s,%d,%d,%d,%d,%d,%d",
+                                   s->getName() ? s->getName() : "",
+                                   s->getType(),
+                                   s->getMinDelay(),
+                                   s->getMaxDelay(),
+                                   s->getFifoMaxEventCount(),
+                                   s->getFifoReservedEventCount(),
+                                   s->isWakeUpSensor() ? 1 : 0);
+        info["sensor:" + to_string(i)]["value"] = raw;
+    }
+    info["sensor_raw_count"]["value"] = to_string(sensors.size());
+    LOGI("sensor raw count=%zu", sensors.size());
 
     return info;
 }

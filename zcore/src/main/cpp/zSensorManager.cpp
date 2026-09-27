@@ -119,19 +119,16 @@ zSensorManager* zSensorManager::getInstance() {
     return instance;
 }
 
-zSensorManager::zSensorManager() : manager(nullptr), riskBits(0), riskScore(0) {
-    // 构造时自动初始化并收集所有信息
+zSensorManager::zSensorManager() : manager(nullptr) {
+    // 构造时自动初始化并收集所有信息(查杀分离:只收集原始传感器,不判定)
     manager = ASensorManager_getInstance();
     if (!manager) {
         LOGW("Failed to get ASensorManager");
         return;
     }
-    
+
     // 枚举所有传感器（构造 zSensor 时会自动收集信息）
     enumerateSensors();
-    
-    // 执行检测
-    performDetection();
 }
 
 zSensorManager::~zSensorManager() {
@@ -169,89 +166,3 @@ void zSensorManager::printAllSensors() const {
     LOGI("=== Total: %zu sensors ===", sensors.size());
 }
 
-void zSensorManager::printDetectionResults() const {
-    LOGI("=== Detection Results ===");
-    LOGI("Risk Bits: 0x%08x", riskBits);
-    LOGI("Risk Score: %d/100", riskScore);
-    
-    if (riskBits == 0) {
-        LOGI("Risk Description: No risk detected");
-    } else {
-        LOGI("Risk Description:");
-        if (riskBits & SENSOR_FIFO_EMPTY) LOGI("  - FIFO empty");
-        if (riskBits & SENSOR_WAKEUP_TOO_FEW) LOGI("  - wake-up sensors too few");
-        if (riskBits & SENSOR_DELAY_UNIFORM) LOGI("  - Uniform delays");
-        if (riskBits & SENSOR_COUNT_LOW) LOGI("  - Low sensor count");
-    }
-}
-
-uint32_t zSensorManager::detectStructureAnomalies() {
-    uint32_t bits = 0;
-    
-    // 检测传感器数量
-    if (sensors.size() < 20) {
-        LOGW("L1: Sensor count too low: %zu", sensors.size());
-        bits |= SENSOR_COUNT_LOW;
-    }
-    
-    // 检测 FIFO 全为 0
-    int fifoZeroCount = 0;
-    for (const auto* sensor : sensors) {
-        if (sensor->getFifoMaxEventCount() == 0 && sensor->getFifoReservedEventCount() == 0) {
-            fifoZeroCount++;
-        }
-    }
-    
-    if (fifoZeroCount == (int)sensors.size()) {
-        LOGW("L1: All sensors have FIFO = 0");
-        bits |= SENSOR_FIFO_EMPTY;
-    }
-    
-    // 检测 wake-up sensor
-    int wakeUpCount = 0;
-    for (const auto* sensor : sensors) {
-        if (sensor->isWakeUpSensor()) {
-            wakeUpCount++;
-        }
-    }
-    
-    if (wakeUpCount < 2) {
-        LOGW("L1: wake-up sensors too few");
-        bits |= SENSOR_WAKEUP_TOO_FEW;
-    }
-    
-    LOGI("L1 Detection: wakeUpCount=%d, fifoZeroCount=%d", wakeUpCount, fifoZeroCount);
-    
-    return bits;
-}
-
-int zSensorManager::calculateRiskScore(uint32_t bits) {
-    int score = 0;
-    
-    if (bits & SENSOR_FIFO_EMPTY) score += 30;
-    if (bits & SENSOR_COUNT_LOW) score += 30;
-    if (bits & SENSOR_WAKEUP_TOO_FEW) score += 20;
-    if (bits & SENSOR_DELAY_UNIFORM) score += 20;
-
-    if ((bits & SENSOR_WAKEUP_TOO_FEW) && (bits & SENSOR_FIFO_EMPTY)) {
-        score += 20;
-    }
-
-    return score > 100 ? 100 : score;
-}
-
-void zSensorManager::performDetection() {
-    LOGI("=== Starting Sensor Risk Detection ===");
-    
-    riskBits = 0;
-    
-    // L1 检测
-    uint32_t l1Risks = detectStructureAnomalies();
-    riskBits |= l1Risks;
-    LOGI("risks: 0x%08x", l1Risks);
-    
-    // 计算评分
-    riskScore = calculateRiskScore(riskBits);
-    
-    LOGI("=== Detection Complete ===");
-}
