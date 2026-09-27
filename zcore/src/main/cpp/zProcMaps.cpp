@@ -101,16 +101,18 @@ zProcMaps::zProcMaps() {
     }
 }
 
-LibraryMapping* zProcMaps::find_so_by_name(string so_name) {
+LibraryMapping zProcMaps::find_so_by_name(string so_name) {
     for (auto it = loaded_libraries.begin(); it != loaded_libraries.end(); it++) {
         LOGI("loaded_libraries %s", it->first.c_str());
         if(string_end_with(it->first.c_str(), so_name.c_str())){
             LOGI("Find so by name: %s", it->first.c_str());
-            return &it->second;
+            // 按值返回拷贝，调用方不持有指向本容器内部数据的指针
+            return it->second;
         }
     }
     LOGE("Cannot find so by name: %s", so_name.c_str());
-    return nullptr;
+    // 未找到：返回默认构造(file_path 空串 / address_range_start=nullptr 作为哨兵)
+    return LibraryMapping();
 }
 
 

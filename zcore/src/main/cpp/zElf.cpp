@@ -74,14 +74,15 @@ zElf::zElf(char *elf_file_name) : zFile(elf_file_name) {
     
     // 检查是否为库名（以"lib"开头）
     if (strncmp(elf_file_name, "lib", 3) == 0) {
-        // 内存视图：从内存映射中获取库的基地址
+        // 内存视图：从内存映射中获取库的基地址(按值返回拷贝，不持有容器内部指针)
         link_view = LINK_VIEW::MEMORY_VIEW;
-        LibraryMapping* so_mapping = zProcMaps().find_so_by_name(elf_file_name);
-        if (so_mapping == nullptr || so_mapping->address_range_start == nullptr) {
+        zProcMaps proc_maps;
+        LibraryMapping so_mapping = proc_maps.find_so_by_name(elf_file_name);
+        if (so_mapping.address_range_start == nullptr) {
             LOGW("Failed to find so mapping for %s", elf_file_name);
             return;
         }
-        this->elf_mem_ptr = (char*)so_mapping->address_range_start;
+        this->elf_mem_ptr = (char*)so_mapping.address_range_start;
         if (this->elf_mem_ptr == nullptr) {
             LOGW("Failed to get maps base for %s", elf_file_name);
             return;

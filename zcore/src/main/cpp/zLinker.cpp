@@ -73,13 +73,14 @@ zLinker::zLinker() : zElf() {
     // 解析节头表
     parse_section_table();
 
-    // 获取linker64在 maps 中的基地址
-    LibraryMapping* linker_mapping = zProcMaps().find_so_by_name("linker64");
-    if (linker_mapping == nullptr || linker_mapping->address_range_start == nullptr) {
+    // 获取linker64在 maps 中的基地址(按值返回拷贝，不持有容器内部指针)
+    zProcMaps proc_maps;
+    LibraryMapping linker_mapping = proc_maps.find_so_by_name("linker64");
+    if (linker_mapping.address_range_start == nullptr) {
         LOGE("Failed to find linker64 maps base");
         return;
     }
-    this->elf_mem_ptr = (char*)linker_mapping->address_range_start;
+    this->elf_mem_ptr = (char*)linker_mapping.address_range_start;
     if (this->elf_mem_ptr == nullptr) {
         LOGE("Failed to get linker64 maps base");
         return;
@@ -270,13 +271,14 @@ bool zLinker::check_lib_crc(const char* so_name){
                                 elf_lib_file.get_text_segment_crc();
     LOGI("check_lib_hash elf_lib_file: %p crc: %lu", elf_lib_file.elf_file_ptr, elf_lib_file_crc);
 
-    // 获取共享库的内存版本zElf对象
-    LibraryMapping* so_mapping = zProcMaps().find_so_by_name(so_name);
-    if (so_mapping == nullptr || so_mapping->address_range_start == nullptr) {
+    // 获取共享库的内存版本zElf对象(按值返回拷贝，不持有容器内部指针)
+    zProcMaps proc_maps;
+    LibraryMapping so_mapping = proc_maps.find_so_by_name(so_name);
+    if (so_mapping.address_range_start == nullptr) {
         LOGW("check_lib_crc: failed to resolve memory mapping for %s", so_name);
         return false;
     }
-    zElf elf_lib_mem = zElf(so_mapping->address_range_start);
+    zElf elf_lib_mem = zElf(so_mapping.address_range_start);
     if (elf_lib_mem.elf_mem_ptr == nullptr) {
         LOGW("check_lib_crc: failed to build memory view for %s", so_name);
         return false;
