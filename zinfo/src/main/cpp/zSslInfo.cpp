@@ -63,21 +63,22 @@ string get_location() {
 }
 
 /**
- * 获取SSL信息的主函数
- * 检测HTTPS连接的SSL证书指纹，验证网络通信的安全性
- * 通过对比预定义的证书指纹，检测是否存在中间人攻击或证书伪造
- * @return 包含检测结果的Map，格式：{检测项目 -> {风险等级, 说明}}
+ * 获取SSL信息(查杀分离 — 采集端)
+ * 采集每个URL的HTTPS证书观察指纹/错误信息 与 地理位置(全量原始数据)，不做风险判定；
+ * 证书指纹期望值比对与"中国"地区判定由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：
+ *   {URL -> {value: "证书指纹", error: "错误信息(空串=无错误)"}} + {"location" -> {value: 位置}}
  */
 map<string, map<string, string>> get_ssl_info() {
 
     map<string, map<string, string>> info;
 
-    // 定义需要检测的URL和对应的证书指纹
+    // 采集范围：需要探测证书的目标URL(仅WHERE to look，不是风险判定)
     map<string, string> url_info{
             {"https://www.baidu.com",  "0D822C9A905AEFE98F3712C0E02630EE95332C455FE7745DF08DBC79F4B0A149"},
     };
 
-    // 检测每个URL的SSL证书指纹
+    // 检测每个URL的SSL证书指纹，全量上报(不做比对)
     for (auto &item: url_info) {
         LOGI("=== Testing URL: %s ===", item.first.c_str());
 
@@ -85,39 +86,14 @@ map<string, map<string, string>> get_ssl_info() {
         HttpsRequest request(item.first, "GET", 3);
         HttpsResponse response = https_client.performRequest(request);
 
-        // 输出证书信息
-        if (!response.error_message.empty()) {
-            LOGW("Server error_message is not empty");
-            info[item.first]["risk"] = "error";
-            info[item.first]["explain"] = response.error_message;
-            continue;
-        }
-        if (response.certificate.fingerprint_sha256 != item.second) {
-            LOGI("Server Url : %s", item.first.c_str());
-            LOGI("Server Certificate Fingerprint Local : %s", item.second.c_str());
-            LOGD("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
-            info[item.first]["risk"] = "error";
-            info[item.first]["explain"] = "Certificate Fingerprint is wrong " + response.certificate.fingerprint_sha256;
-            continue;
-        }
-        LOGI("=== Testing2 URL: %s ===", item.first.c_str());
+        info[item.first]["value"] = response.certificate.fingerprint_sha256;
+        info[item.first]["error"] = response.error_message;
     }
 
-    // 检测地理位置信息
+    // 采集地理位置(原始数据)
     string location = get_location();
-    if (location.empty()) {
-        LOGW("get_location failed");
-        info["location"]["risk"] = "error";
-        info["location"]["explain"] = "get_location failed";
-    } else if (string_start_with(location.c_str(), "中国")) {
-        LOGI("get_location succeed");
-        info["location"]["risk"] = "safe";
-        info["location"]["explain"] = location;
-    } else {
-        LOGW("get_location succeed but error");
-        info["location"]["risk"] = "error";
-        info["location"]["explain"] = location;
-    }
+    info["location"]["value"] = location;
 
+    LOGI("ssl_info raw count=%zu", info.size());
     return info;
 }

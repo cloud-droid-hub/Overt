@@ -209,26 +209,25 @@ vector<uint8_t> get_attestation_cert_from_java(JNIEnv* env, jobject context) {
 map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject context) {
     LOGD("get_tee_info_openssl called");
     map<string, map<string, string>> info;
-    
-    // 默认设置为错误状态
-    info["tee_statue"]["risk"] = "error";
-    info["tee_statue"]["explain"] = "tee_statue is damage";
 
     // 检查参数有效性
     if (!env) {
         LOGE("JNIEnv is null, 请确保JNIEnv可用");
+        info["tee_state"]["value"] = "env_null";
         return info;
     }
 
     if (!context) {
         LOGE("context is null, 请确保Context可用");
+        info["tee_state"]["value"] = "context_null";
         return info;
     }
-    
+
     // 从Java层获取认证证书
     vector<uint8_t> cert_data = get_attestation_cert_from_java(env, context);
     if (cert_data.empty()) {
         LOGE("获取证书失败");
+        info["tee_state"]["value"] = "cert_empty";
         return info;
     }
 
@@ -285,6 +284,7 @@ map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject conte
     zTeeCert tee = zTeeCert(cert_data);
     if (!tee.isValid()) {
         LOGE("[Native-TEE] 错误: 证书文件无效或解析失败");
+        info["tee_state"]["value"] = "cert_invalid";
         return info;
     }
 
@@ -319,24 +319,26 @@ map<string, map<string, string>> get_tee_info_openssl(JNIEnv* env, jobject conte
                  rootOfTrust->verified_boot_key[6], rootOfTrust->verified_boot_key[7]);
         }
 
-        // 清空默认错误信息，开始安全检查
-        info.clear();
-
-        // 检查设备锁定状态
-        if (!rootOfTrust->device_locked) {
-            info["device_locked"]["risk"] = "error";
-            info["device_locked"]["explain"] = "device_locked is unsafe";
+        // 查杀分离 — 采集端：全量上报解析出的TEE原始字段(不做安全判定，由zengine负责)
+        info["tee_state"]["value"] = "cert_ok";
+        info["device_locked"]["value"] = rootOfTrust->device_locked ? "1" : "0";
+        info["verified_boot_state"]["value"] = to_string(rootOfTrust->verified_boot_state);
+        info["verified_boot_key_size"]["value"] = to_string(rootOfTrust->verified_boot_key.size());
+        info["attestation_security_level"]["value"] = to_string((int)attestationRecord->getAttestationSecurityLevel());
+        if (softwareEnforced) {
+            info["os_version_sw"]["value"] = to_string(softwareEnforced->getOSVersion());
+            info["os_patch_level_sw"]["value"] = to_string(softwareEnforced->getOSPatchLevel());
+            info["boot_patch_level_sw"]["value"] = to_string(softwareEnforced->getBootPatchLevel());
         }
-
-        // 检查验证启动状态
-        if (rootOfTrust->verified_boot_state != VERIFIED_BOOT_STATE_VERIFIED) {
-            info["verified_boot_state"]["risk"] = "error";
-            info["verified_boot_state"]["explain"] = "verified_boot_state is unsafe";
+        if (teeEnforced) {
+            info["os_version_tee"]["value"] = to_string(teeEnforced->getOSVersion());
+            info["os_patch_level_tee"]["value"] = to_string(teeEnforced->getOSPatchLevel());
+            info["boot_patch_level_tee"]["value"] = to_string(teeEnforced->getBootPatchLevel());
         }
-
         LOGE("verified_boot_state %d", rootOfTrust->verified_boot_state);
     } else {
         LOGE("RootOfTrust: 未找到");
+        info["tee_state"]["value"] = "root_of_trust_missing";
     }
 
     // OSVersion 通常在 Software Enforced 中

@@ -164,8 +164,15 @@ bool isAppInstalledByShellHole(const char* packageName) {
 map<string, map<string, string>> get_package_info(JNIEnv *env, jobject context){
     map<string, map<string, string>> info;
 
-    // 定义黑名单应用包名和对应的应用名称
-    map<string, string> black_map = {
+    // 探测包名列表(纯采集范围声明)：合并了原先的"黑名单+白名单"，统一作为需要探测的应用包名。
+    // ★ 查杀分离约定：C++ 端只负责【探测哪些包已安装】(JNI 必须知道探测范围)，
+    //   不做任何黑白名单判定——黑名单(命中即 error)与白名单(缺失即 warn)名单
+    //   全部内置在 zengine 的 PackageInfoAnalyzer 中。此处 value 统一为安装方式，无黑白语义。
+    map<string, string> probe_package_map = {
+            // 白名单应用(缺失判定在 Java；此处仅作为探测对象)
+            {"com.tencent.mm", "微信"},
+            {"com.eg.android.AlipayGphone", "支付宝"},
+
             // Root管理工具
             {"me.weishu.kernelsu", "KernelSU"},
             {"com.topjohnwu.magisk", "Magisk"},
@@ -294,38 +301,22 @@ map<string, map<string, string>> get_package_info(JNIEnv *env, jobject context){
 
     };
 
-    // 定义白名单应用包名和对应的应用名称
-    map<string, string> white_map = {
-            {"com.tencent.mm", "微信"},
-            {"com.eg.android.AlipayGphone", "支付宝"},
-    };
-
-    // 检查黑名单应用是否已安装
-    for (auto &[package_name, app_name] : black_map) {
+    // 探测全部已安装状态：全量上报 4 种探测方式的安装状态(原始数据，不做黑白判定)。
+    // 安装方式编码与 Java analyzer 约定一致：0=未装 / pms=PackageManager / file=路径 / path_hole=路径漏洞 / shell_hole=Shell越权。
+    for (auto &[package_name, app_name] : probe_package_map) {
+        string installed = "0";
         if(isAppInstalledByContext(env, context, package_name.c_str())){
-            info[package_name]["risk"] = "error";
-            info[package_name]["explain"] = "black package name but install[pms] " + app_name;
+            installed = "pms";
         }else if(isAppInstalledByPath(package_name.c_str())){
-            info[package_name]["risk"] = "error";
-            info[package_name]["explain"] = "black package name but install[file] " + app_name;
+            installed = "file";
         }else if(isAppInstalledByPathHole(package_name.c_str())){
-            info[package_name]["risk"] = "error";
-            info[package_name]["explain"] = "black package name but install[path hole] " + app_name;
+            installed = "path_hole";
         }else if(isAppInstalledByShellHole(package_name.c_str())){
-            info[package_name]["risk"] = "error";
-            info[package_name]["explain"] = "black package name but install[shell hole] " + app_name;
+            installed = "shell_hole";
         }
+        info[package_name]["value"] = installed;
     }
-
-    // 检查白名单应用是否未安装
-    for (auto &[package_name, app_name] : white_map) {
-        bool is_installed_by_context = isAppInstalledByContext(env, context,package_name.c_str());
-        bool is_installed_by_path = isAppInstalledByPath(package_name.c_str());
-        if(!is_installed_by_path && !is_installed_by_context){
-            info[package_name]["risk"] = "warn";
-            info[package_name]["explain"] = "white package name but uninstall " + app_name;
-        }
-    }
+    LOGI("package_info raw count=%zu", info.size());
     return info;
 };
 

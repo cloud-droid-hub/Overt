@@ -8,16 +8,16 @@
 #include "zRootStateInfo.h"
 
 /**
- * 获取Root文件信息
- * 检测系统中常见的Root相关文件，如su、mu等
- * 这些文件的存在通常表明设备已被Root
- * @return 包含检测结果的Map，格式：{文件路径 -> {风险等级, 说明}}
+ * 获取Root文件信息(查杀分离 — 采集端)
+ * 只遍历并上报常见Root相关文件路径的存在状态(全量原始数据)，不做任何风险判定；
+ * 风险判定(哪些路径存在应判为风险)由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：{文件路径 -> {value: "1"存在 / "0"不存在}}
  */
 map<string, map<string, string>> get_root_state_info(){
     LOGD("get_root_file_info called");
     map<string, map<string, string>> info;
 
-    // 定义需要检测的Root相关文件路径列表
+    // 采集范围：常见Root相关文件路径(仅WHERE to look，不是风险名单)
     const char* paths[] = {
             "/sbin/su",
             "/system/bin/su",
@@ -32,19 +32,13 @@ map<string, map<string, string>> get_root_state_info(){
             "/apex/com.android.runtime/bin/suu",
     };
 
-    // 遍历检测每个路径
+    // 遍历检测每个路径，全量上报存在状态，不做过滤
     for (const char* path : paths) {
         LOGI("Checking path: %s", path);
         zFile file(path);
-        
-        // 检查文件是否存在
-        if(file.exists()){
-            LOGI("Black file exists: %s", path);
-            // 标记为错误级别，说明检测到Root相关文件
-            info[path]["risk"] = "error";
-            info[path]["explain"] = "black file but exist";
-        }
+        info[path]["value"] = file.exists() ? "1" : "0";
     }
 
+    LOGI("root_state_info raw count=%zu", info.size());
     return info;
 }

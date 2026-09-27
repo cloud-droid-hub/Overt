@@ -26,10 +26,10 @@ static inline uint64_t raw_ns(void)
 
 
 /**
- * 获取侧信道信息的主函数
- * 通过侧信道攻击检测系统环境异常
- * 通过比较不同系统调用的执行时间来判断是否存在调试工具或Hook框架
- * @return 包含检测结果的Map，格式：{检测项目 -> {风险等级, 说明}}
+ * 获取侧信道信息(查杀分离 — 采集端)
+ * 通过侧信道时序比较不同系统调用的执行时间，采集异常计数(原始数据)，
+ * 不做风险判定；阈值判断(7000/5000)由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：{side_channel -> {value: "异常次数"}}
  * 技术参考：https://bbs.kanxue.com/thread-288928.htm
  */
 map<string, map<string, string>> get_side_channel_info(){
@@ -79,19 +79,8 @@ map<string, map<string, string>> get_side_channel_info(){
 
     LOGE("error_count: %d", error_count);
 
-    string explain = string_format("faccessat is slower than fchownat: %d", error_count);
-
-    // 如果异常次数超过7000次，则认为环境存在异常
-    if(error_count > 7000) {
-        info["side_channel"]["risk"] = "error";
-        info["side_channel"]["explain"] = explain;
-    }else if(error_count > 5000){
-        info["side_channel"]["risk"] = "warn";
-        info["side_channel"]["explain"] = explain;
-    }else{
-        info["side_channel"]["risk"] = "safe";
-        info["side_channel"]["explain"] = explain;
-    }
+    // 全量上报异常计数(原始数据)，阈值判定由 zengine 负责
+    info["side_channel"]["value"] = to_string(error_count);
 
     return info;
 }

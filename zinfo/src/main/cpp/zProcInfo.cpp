@@ -69,10 +69,10 @@ string get_app_specific_dir_path2() {
 }
 
 /**
- * 获取内存映射信息
- * 分析/proc/self/maps文件，检测关键系统库是否被篡改
- * 主要检测libart.so和libc.so等关键库的映射数量和权限是否正确
- * @return 包含检测结果的Map，格式：{库名 -> {风险等级, 说明}}
+ * 获取内存映射信息(查杀分离 — 采集端)
+ * 分析/proc/self/maps文件，全量上报关键系统库的映射段数量/权限 与 base.odex 状态，
+ * 不做风险判定；映射数量/权限异常判定由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：{"libart.so" -> {value: "段数:权限序列"}} + {"odex.base"->..} {"odex.content"->..}
  */
 map<string, map<string, string>> get_maps_info() {
     LOGD("get_maps_info called");
@@ -80,113 +80,81 @@ map<string, map<string, string>> get_maps_info() {
 
     zProcMaps maps = zProcMaps();
 
-    // 定义需要检查的关键库列表
+    // 采集范围：关键系统库(仅WHERE to look，不是风险判定)
     vector<string> check_lib_list = {
             "libart.so",    // Android运行时库
             "libc.so",      // C标准库
-            "libinput.so",      // 输入库
+            "libinput.so",  // 输入库
     };
 
     for (string lib_name: check_lib_list) {
-        LibraryMapping* library = maps.find_so_by_name(lib_name);
-        if(library == nullptr) continue;
-        // 检查映射数量是否正确（正常情况下应该有4个映射）
-        if(library->segments.size() != 4) {
-            info[lib_name]["risk"] = "error";
-            info[lib_name]["explain"] = "reference count error";
+        LibraryMapping library = maps.find_so_by_name(lib_name);
+        if(library.address_range_start == nullptr) continue;   // 未找到哨兵
+
+        // 拼接权限序列，如 "r--p,r-xp,r--p,rw-p"
+        string perms;
+        for (size_t i = 0; i < library.segments.size(); ++i) {
+            if (i > 0) perms += ",";
+            perms += library.segments[i].permissions;
         }
-        // 检查权限是否正确（正常情况下应该是r--p, r-xp, r--p, rw-p）
-        else if (library->segments[0].permissions != "r--p" ||
-                 (library->segments[1].permissions != "r-xp" && library->segments[1].permissions != "--xp") ||
-                 (library->segments[2].permissions != "r--p" && library->segments[2].permissions != "rw-p") ||
-                 (library->segments[3].permissions != "rw-p" && library->segments[3].permissions != "r--p")) {
-            info[lib_name]["risk"] = "error";
-            info[lib_name]["explain"] = "permissions error";
-        }
+        info[lib_name]["value"] = string_format("%zu:%s", library.segments.size(), perms.c_str());
     }
 
     string base_odex_path = "";
 
-    LibraryMapping* library = maps.find_so_by_name("/oat/arm64/base.odex");
-    if(library != nullptr){
-        LOGE("base.odex: %s", library->file_path.c_str());
-        base_odex_path = library->file_path;
+    LibraryMapping library = maps.find_so_by_name("/oat/arm64/base.odex");
+    if(library.address_range_start != nullptr){
+        LOGE("base.odex: %s", library.file_path.c_str());
+        base_odex_path = library.file_path;
+        info["odex.base"]["value"] = base_odex_path;
     }else{
         LOGE("base.odex load failed");
-        info["base.odex"]["risk"] = "error";
-        info["base.odex"]["explain"] = "base.odex is not loaded";
         base_odex_path = get_app_specific_dir_path2() + "/oat/arm64/base.odex";
+        info["odex.base"]["value"] = "not_loaded:" + base_odex_path;
     }
 
     zFile base_odex = zFile(base_odex_path);
     if(base_odex.exists()){
         vector<uint8_t> bytes = base_odex.readAllBytes();
         size_t pos = findBytes(bytes, "--inline-max-code-units=0");
-        if (pos != string::npos){
-            LOGE("find black str --inline-max-code-units=0");
-            info["--inline-max-code-units=0"]["risk"] = "error";
-            info["--inline-max-code-units=0"]["explain"] = "black string but find in base.odex";
-        }
+        // 全量上报黑串存在状态(原始值)，判定交 zengine
+        info["odex.content"]["value"] = (pos != string::npos) ? "1" : "0";
     }else{
-        info["base.odex"]["risk"] = "error";
-        info["base.odex"]["explain"] = "base.odex is not exists";
+        info["odex.content"]["value"] = "not_exists";
     }
 
     return info;
 }
 
 /**
- * 获取挂载点信息
- * 检测/proc/self/mounts文件中的异常挂载点
- * 主要用于检测系统被修改的痕迹，如overlay挂载、可疑模块等
- * @return 包含检测结果的Map，格式：{挂载点信息 -> {风险等级, 说明}}
+ * 获取挂载点信息(查杀分离 — 采集端)
+ * 读取/proc/self/mounts全量上报每一行(不做过滤)，不做风险判定；
+ * 异常挂载名(dex2oat/APatch/shamiko等)与overlay判定由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：{"mounts:N" -> {value: "原始挂载行"}}
  */
 map<string, map<string, string>> get_mounts_info() {
     LOGI("get_mounts_info called");
     map<string, map<string, string>> info;
 
-    // 定义需要检测的异常挂载点名称
-    const char *paths[] = {
-            "dex2oat",              // Hunter认为dex2oat存在是不合理的
-            "APatch",               // APatch框架相关
-            "shamiko",              // Shamiko模块相关
-            "/data/adb/modules",    // 模块相关
-    };
-
-    // 读取/proc/self/mounts文件，获取当前进程的挂载点信息
+    // 读取/proc/self/mounts文件，获取当前进程的挂载点信息(全量)
     vector<string> mounts_lines = zFile("/proc/self/mounts").readAllLines();
     LOGI("Read %zu lines from /proc/self/mounts", mounts_lines.size());
 
-    // 遍历每一行挂载信息
+    // 遍历每一行，全量上报(不内置过滤)
     for (int i = 0; i < mounts_lines.size(); i++) {
-        LOGI("Processing line %d: %s", i, mounts_lines[i].c_str());
-
-        // 检查是否包含异常挂载点名称
-        for (const char *path: paths) {
-            if (strstr(mounts_lines[i].c_str(), path) != nullptr) {
-                LOGE("check_mounts error %d %s", i, mounts_lines[i].c_str());
-                info[mounts_lines[i].c_str()]["risk"] = "error";
-                info[mounts_lines[i].c_str()]["explain"] = "black name but in system path";
-            }
-        }
-
-        // 检查系统目录是否被overlay挂载（这通常表示系统被修改）
-        if (strstr(mounts_lines[i].c_str(), "/system ") != nullptr &&
-            strstr(mounts_lines[i].c_str(), "overlay") != nullptr) {
-            LOGE("check_mounts error %d %s", i, mounts_lines[i].c_str());
-            info[mounts_lines[i].c_str()]["risk"] = "error";
-            info[mounts_lines[i].c_str()]["explain"] = "black name but in system path";
-        }
+        LOGD("Processing line %d: %s", i, mounts_lines[i].c_str());
+        info["mounts:" + to_string(i)]["value"] = mounts_lines[i];
     }
 
+    LOGI("mounts_info raw count=%zu", info.size());
     return info;
 }
 
 /**
- * 获取任务信息
- * 检测当前进程的所有线程，查找Frida等调试工具注入的痕迹
- * 通过分析/proc/self/task目录下的线程状态信息进行检测
- * @return 包含检测结果的Map，格式：{线程信息 -> {风险等级, 说明}}
+ * 获取任务信息(查杀分离 — 采集端)
+ * 遍历/proc/self/task每个线程的stat行全量上报(不做过滤)，不做风险判定；
+ * Frida特征线程名(gmain/pool-frida)判定由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：{"task:<tid>" -> {value: "stat行"}}
  */
 map<string, map<string, string>> get_task_info() {
     LOGD("get_task_info called");
@@ -206,34 +174,22 @@ map<string, map<string, string>> get_task_info() {
         // 读取线程状态信息
         vector<string> stat_line_list = zFile(stat_path).readAllLines();
 
-        // 分析每行状态信息
+        // 全量上报每行(不内置过滤)
         for (string stat_line: stat_line_list) {
-            LOGI("Processing stat_line: %s", stat_line.c_str());
-
-            // 检测Frida注入的gmain线程
-            if (strstr(stat_line.c_str(), "gamin") != nullptr) {
-                LOGE("gmain is found in stat line");
-                info[stat_line.c_str()]["risk"] = "error";
-                info[stat_line.c_str()]["explain"] = "frida hooked this process";
-            }
-
-            // 检测Frida注入的pool-frida线程
-            if (strstr(stat_line.c_str(), "pool-frida") != nullptr) {
-                LOGE("pool-frida is found in stat line");
-                info[stat_line.c_str()]["risk"] = "error";
-                info[stat_line.c_str()]["explain"] = "frida hooked this process";
-            }
+            LOGD("Processing stat_line: %s", stat_line.c_str());
+            info["task:" + task_dir]["value"] = stat_line;
         }
     }
+    LOGI("task_info raw count=%zu", info.size());
     return info;
 }
 
 
 /**
- * 获取进程属性信息
- * 检测/proc/self/attr/prev文件中的进程属性信息
- * 主要用于检测Magisk等Root框架的痕迹
- * @return 包含检测结果的Map，格式：{属性信息 -> {风险等级, 说明}}
+ * 获取进程属性信息(查杀分离 — 采集端)
+ * 读取/proc/self/attr/prev全量上报每一行，不做风险判定；
+ * zygote特征(可能为Magisk痕迹)判定由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：{"prev:N" -> {value: "原始行"}}
  */
 map<string, map<string, string>> get_attr_prev_info() {
     LOGI("get_attr_prev_info called");
@@ -241,25 +197,20 @@ map<string, map<string, string>> get_attr_prev_info() {
 
     vector<string> lines = zFile("/proc/self/attr/prev").readAllLines();
 
-    // 遍历每一行挂载信息
-    for (string line: lines) {
-        LOGI("line %s", line.c_str());
-        // 检测Frida注入的pool-frida线程
-        if (strstr(line.c_str(), "zygote") != nullptr) {
-            LOGE("magisk is found in prev line");
-            info[line.c_str()]["risk"] = "error";
-            info[line.c_str()]["explain"] = "magisk is found in prev";
-        }
+    // 遍历每一行，全量上报(不内置过滤)
+    for (size_t i = 0; i < lines.size(); ++i) {
+        LOGD("line %zu %s", i, lines[i].c_str());
+        info["prev:" + to_string(i)]["value"] = lines[i];
     }
-
+    LOGI("attr_prev_info raw count=%zu", info.size());
     return info;
 }
 
 /**
- * 获取网络TCP信息
- * 检测/proc/self/net/tcp文件中的网络连接信息
- * 主要用于检测Frida、IDA等调试工具的端口使用情况
- * @return 包含检测结果的Map，格式：{网络连接信息 -> {风险等级, 说明}}
+ * 获取网络TCP信息(查杀分离 — 采集端)
+ * 读取/proc/self/net/tcp全量上报每一行(android7后无权限则为空)，不做风险判定；
+ * Frida/IDA端口特征(:69A2/:69A3/:5D8A)判定由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：{"net_tcp:N" -> {value: "原始行"}}
  */
 map<string, map<string, string>> get_net_tcp_info() {
     LOGI("get_net_tcp_info called");
@@ -268,22 +219,12 @@ map<string, map<string, string>> get_net_tcp_info() {
     // android7 之后没权限
     vector<string> lines = zFile("/proc/self/net/tcp").readAllLines();
 
-    // 遍历每一行挂载信息
-    for (string line: lines) {
-        LOGI("line %s", line.c_str());
-
-        if (strstr(line.c_str(), ":69A2") != nullptr || strstr(line.c_str(), ":69A3") != nullptr) {
-            LOGE("black port is found in tcp line");
-            info[line.c_str()]["risk"] = "error";
-            info[line.c_str()]["explain"] = "find frida port";
-        }
-        if (strstr(line.c_str(), ":5D8A") != nullptr) {
-            LOGE("black port is found in tcp line");
-            info[line.c_str()]["risk"] = "error";
-            info[line.c_str()]["explain"] = "find ida port";
-        }
+    // 遍历每一行，全量上报(不内置过滤)
+    for (size_t i = 0; i < lines.size(); ++i) {
+        LOGD("line %zu %s", i, lines[i].c_str());
+        info["net_tcp:" + to_string(i)]["value"] = lines[i];
     }
-
+    LOGI("net_tcp_info raw count=%zu", info.size());
     return info;
 }
 

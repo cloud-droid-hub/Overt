@@ -81,97 +81,27 @@ map<string, PropertyValue> getAllSystemProperties() {
 }
 
 /**
- * 获取系统属性信息
- * 检测关键系统属性的值是否正确，如ro.secure、ro.debuggable等
- * 这些属性的异常值通常表明系统已被修改或Root
- * @return 包含检测结果的Map，格式：{属性名 -> {风险等级, 说明}}
+ * 获取系统属性信息(查杀分离 — 采集端)
+ * 遍历所有系统属性并全量上报属性名、值、序列号版本(原始数据)，不做风险判定；
+ * 关键属性期望值(prop_map)与serial_version!=0判定由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：{属性名 -> {value: "属性值", serial: "版本"}}
  */
 map<string, map<string, string>> get_system_prop_info() {
     LOGD("get_system_prop_info called");
     map<string, map<string, string>> info;
-    
+
     // 获取所有系统属性
     auto properties = getAllSystemProperties();
     LOGI("Got %zu properties", properties.size());
 
-    // 定义需要检查的关键属性列表
-    vector<string> prop_list{
-            "ro.secure",                    // 安全标志
-            "ro.debuggable",                // 可调试标志
-            "ro.boot.flash.locked",         // 启动分区锁定状态
-            "ro.dalvik.vm.native.bridge",   // Dalvik原生桥接
-            "ro.boot.vbmeta.device_state",  // 设备状态
-            "ro.boot.verifiedbootstate",    // 验证启动状态
-            "ro.boot.veritymode",           // 验证模式
-            "ro.boot.verifiedbootstate",    // 验证启动状态
-            "ro.build.tags",                // 构建标签
-            "ro.build.type",                // 构建类型
-    };
-
-    // 定义属性名和期望值的映射关系
-    map<string, vector<string>> prop_map{
-
-            {"ro.secure",                   {"1"}},                         // 安全模式应为1
-            {"ro.debuggable",               {"0"}},                         // 调试模式应为0
-            {"ro.boot.flash.locked",        {"1"}},                         // 启动分区应锁定
-            {"ro.dalvik.vm.native.bridge",  {"0"}},                         // 原生桥接应关闭
-            {"ro.boot.vbmeta.device_state", {"locked"}},                    // 设备状态应锁定
-            {"ro.boot.verifiedbootstate",   {"green"}},                     // 验证启动状态应为绿色
-            {"ro.boot.veritymode",          {"enforcing"}},                 // 验证模式应强制
-            {"ro.boot.verifiedbootstate",   {"green"}},                     // 验证启动状态应为绿色
-            {"ro.build.tags",               {"release-keys"}},              // 构建标签应为发行版
-            {"ro.bootimage.build.tags",     {"release-keys"}},              // 构建标签应为发行版
-            {"ro.system.build.tags",        {"release-keys"}},              // 构建标签应为发行版
-            {"ro.vendor.build.tags",        {"release-keys"}},              // 构建标签应为发行版
-            {"ro.build.type",               {"user"}},                      // 构建类型应为用户版
-            {"init.svc.adbd",               {"stopped"}},                   // ADB服务应停止
-            {"persist.sys.usb.config",      {"mtp", "ptp", "none", ""}},    // USB配置
-            {"persist.security.adbinput",   {"0"}},                         // ADB输入应关闭
-            {"sys.usap.enable",             {"true"}},
-    };
-
-    // 检查属性值是否正确
-    for(const auto& [key, value] : prop_map){
-        LOGD("Checking property: %s", key.c_str());
-        if(properties.find(key) == properties.end()) {
-            LOGD("Property not found: %s", key.c_str());
-            continue;
-        }
-
-        // 检查属性值是否在期望值列表中
-        bool flag = false;
-        for(const auto& v: value){
-            if(v == properties[key.c_str()].value){
-                flag = true;
-                break;
-            }
-        }
-        
-        // 如果值不在期望列表中，标记为错误
-        if(!flag){
-            string buffer = string_format(":value[%s]", properties[key.c_str()].value.c_str());
-            info[key+buffer]["risk"] = "error";
-            info[key+buffer]["explain"] = "value is not correct";
-        }
-
-        // 检查关键属性的版本号是否为0（0表示未被修改）
-        if(string_start_with(key.c_str(), "ro.") && properties[key.c_str()].serial_version != 0){
-            string buffer = string_format(":serial[%d]", properties[key.c_str()].serial_version);
-            info[key+buffer]["risk"] = "error";
-            info[key+buffer]["explain"] = "serial_version is not 0";
-        }
-
+    // 全量上报每个属性名、值、序列号版本(不内置过滤)
+    for (const auto& entry : properties) {
+        const string& key = entry.first;
+        const PropertyValue& pv = entry.second;
+        info[key]["value"] = pv.value;
+        info[key]["serial"] = to_string(pv.serial_version);
     }
 
-//    // 检查关键属性的版本号是否为0（表示未被修改）
-//    for(const string& key : prop_list){
-//        if(properties.find(key) != properties.end()) {
-//            if(properties[key.c_str()].serial_version != 0){
-//                string buffer = string_format(":serial[%d]", properties[key.c_str()].serial_version);
-//                info[key+buffer]["risk"] = "error";
-//                info[key+buffer]["explain"] = "serial_version is not 0";
-//            }
-//        }
-//    }
+    LOGI("system_prop_info raw count=%zu", info.size());
     return info;
 }

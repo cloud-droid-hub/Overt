@@ -411,95 +411,43 @@ map<string, map<string, string>> get_system_setting_info(JNIEnv* env, jobject co
         return info;
     }
 
+    // 查杀分离 — 采集端：只上报各项原始状态/值，不做风险判定(zengine负责判定)
+
     // 获取电池信息
     bool is_charging = isCharging(env, context);
+    info["battery"]["value"] = is_charging ? "1" : "0";
 
-    // 获取安装者包名
+    // 获取安装者包名(原始包名，是否官方市场由 zengine 判定)
     string installer_name = getInstallerName(env, context);
-    bool is_market_installed = !installer_name.empty();
-    if (is_market_installed) {
-        vector<string> market_name_list = {
-                "com.oppo.market",                      // OPPO
-                "com.bbk.appstore",                     // VIVO
-                "com.xiaomi.market",                    // XIAOMI
-                "com.huawei.appmarket",                 // HUAWEI
-                "com.hihonor.appmarket",                // HONOR
-        };
-        is_market_installed = false;
-        for (const auto& market_name : market_name_list) {
-            if (installer_name == market_name) {
-                is_market_installed = true;
-                break;
-            }
-        }
-    }
+    info["installer"]["value"] = installer_name;
 
     // 获取 SIM 卡信息
     bool is_sim_exist = isSimExist(env, context);
+    info["sim"]["value"] = is_sim_exist ? "1" : "0";
 
     // 获取开发者模式信息
     bool is_developer_mode_enabled = isDeveloperModeEnabled(env, context);
+    info["developer_mode"]["value"] = is_developer_mode_enabled ? "1" : "0";
 
     // 获取 USB 调试信息
     bool is_usb_debug_enabled = isUsbDebugEnabled(env, context);
+    info["usb_debug"]["value"] = is_usb_debug_enabled ? "1" : "0";
 
     // 获取代理信息
     bool is_proxy_enabled = isProxyEnabled(env, context);
+    info["proxy"]["value"] = is_proxy_enabled ? "1" : "0";
 
     // 获取锁屏密码信息
     bool is_password_locked = isPasswordLocked(env, context);
+    info["password"]["value"] = is_password_locked ? "1" : "0";
 
     // 获取 VPN 信息
     bool is_vpn_enable = isVpnEnable(env, context);
+    info["vpn"]["value"] = is_vpn_enable ? "1" : "0";
 
-
-    LOGI("is_charging=%d", is_charging);
-    if(is_charging){
-        info["battery"]["risk"] = "warn";
-        info["battery"]["explain"] = "phone is being charged";
-    }
-
-    LOGI("isMarketInstalled=%d", is_market_installed);
-    if(!is_market_installed){
-        info["installer"]["risk"] = "warn";
-        info["installer"]["explain"] = "not install from official app market [" + installer_name + "]";
-    }
-
-    LOGI("is_sim_exist=%d", is_sim_exist);
-    if(!is_sim_exist){
-        info["sim"]["risk"] = "error";
-        info["sim"]["explain"] = "no sim card";
-    }
-
-    LOGI("is_developer_mode_enabled=%d", is_developer_mode_enabled);
-    if(is_developer_mode_enabled){
-        info["developer_mode"]["risk"] = "error";
-        info["developer_mode"]["explain"] = "developer mode is enabled";
-    }
-
-    LOGI("is_usb_debug_enabled=%d", is_usb_debug_enabled);
-    if(is_usb_debug_enabled){
-        info["usb_debug"]["risk"] = "error";
-        info["usb_debug"]["explain"] = "usb debugging is enabled";
-    }
-
-    LOGI("is_proxy_enabled=%d", is_proxy_enabled);
-    if(is_proxy_enabled){
-        info["proxy"]["risk"] = "error";
-        info["proxy"]["explain"] = "proxy is enabled";
-    }
-
-    LOGI("is_password_locked=%d", is_password_locked);
-    if(!is_password_locked){
-        info["password"]["risk"] = "warn";
-        info["password"]["explain"] = "lock screen password is not set";
-    }
-
-    LOGI("is_vpn_enable=%d", is_vpn_enable);
-    if(is_vpn_enable){
-        info["vpn"]["risk"] = "error";
-        info["vpn"]["explain"] = "vpn is enable";
-    }
+    LOGI("system_setting_info raw: battery=%d installer=%s sim=%d dev=%d usb=%d proxy=%d pwd=%d vpn=%d",
+         is_charging, installer_name.c_str(), is_sim_exist, is_developer_mode_enabled,
+         is_usb_debug_enabled, is_proxy_enabled, is_password_locked, is_vpn_enable);
 
     env->PopLocalFrame(nullptr);
     return info;

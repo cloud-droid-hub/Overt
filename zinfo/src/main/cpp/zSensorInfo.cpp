@@ -21,34 +21,18 @@ map<string, map<string, string>> get_sensor_info() {
 
     if (!manager) {
         LOGW("Failed to get sensor manager instance");
-        info["sensor_info"]["risk"] = "error";
-        info["sensor_info"]["explain"] = "Failed to get sensor manager instance";
+        info["sensor_score"]["value"] = "-1";
+        info["sensor_bits"]["value"] = "0";
         return info;
     }
 
+    // 采集端：只上报风险评分与风险位(原始数据)，阈值/位判定由 zengine 负责
     int score = manager->getRiskScore();
-    LOGI("sensor risk score: %d", score);
+    uint32_t riskBits = manager->getRiskBits();
+    LOGI("sensor risk score: %d, riskBits: 0x%x", score, riskBits);
 
-    if(score > 0){
-        string level = score > 60 ? "error" : "warn";
-        uint32_t riskBits = manager->getRiskBits();
-        if (riskBits & SENSOR_FIFO_EMPTY) {
-            info["fifo"]["risk"] = level;
-            info["fifo"]["explain"] = "sensor fifo is empty";
-        }
-        if (riskBits & SENSOR_WAKEUP_TOO_FEW) {
-            info["wakeup_sensor"]["risk"] = level;
-            info["wakeup_sensor"]["explain"] = "wakeup sensors too few";
-        }
-        if (riskBits & SENSOR_DELAY_UNIFORM) {
-            info["delay"]["risk"] = level;
-            info["delay"]["explain"] = "sensor uniform delays";
-        }
-        if (riskBits & SENSOR_COUNT_LOW) {
-            info["count"]["risk"] = level;
-            info["count"]["explain"] = "sensor count is too low";
-        }
-    }
+    info["sensor_score"]["value"] = to_string(score);
+    info["sensor_bits"]["value"] = to_string(riskBits);
 
     return info;
 }

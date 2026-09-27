@@ -9,9 +9,10 @@
 #include "zBinder.h"
 
 /**
- * 获取隔离进程信息
- * 通过 Binder 共享内存通道向隔离进程请求检测结果
- * @return 包含检测结果的Map，格式：{检查项 -> {风险等级, 说明}}
+ * 获取隔离进程信息(查杀分离 — 纯传输管道)
+ * 通过 Binder 共享内存通道向隔离进程请求 proc_info 原始数据(隔离进程侧也是全量原始输出)，
+ * 不做风险判定；主进程收到后与 proc_info 类别一样交给 zengine 分析引擎。
+ * @return 包含原始数据的Map，格式：{检查项 -> {value: 原始值}}
  */
 map<string, map<string, string>> get_isoloated_process_info(){
     map<string, map<string, string>> info;

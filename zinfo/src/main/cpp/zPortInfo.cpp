@@ -103,44 +103,33 @@ bool is_port_in_use(int port) {
 
 
 /**
- * 获取端口信息的主函数
- * 检测系统中可疑端口的使用情况
- * 主要用于检测Frida、IDA等调试工具的端口监听
- * @return 包含检测结果的Map，格式：{工具名 -> {风险等级, 说明}}
+ * 获取端口信息(查杀分离 — 采集端)
+ * 检测指定端口的占用状态(全量原始数据)，不做风险判定；
+ * 端口→工具名映射及"占用即风险"由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：{端口号 -> {value: "1"占用 / "0"未占用}}
  */
 map<string, map<string, string>> get_port_info(){
     LOGI("get_port_info: starting port detection");
-    
+
     map<string, map<string, string>> info;
 
-    // 定义需要检测的端口和对应的工具名称
-    map<int, string> tcp_info{
-        {27042, "frida"},
-        {27043, "frida"},
-        {27047, "frida"},
-        {23946, "ida"},
-    };
+    // 采集范围：调试工具常用端口(仅WHERE to look，不是风险判定)
+    int ports[] = {27042, 27043, 27047, 23946};
 
-    LOGI("get_port_info: checking %zu ports", tcp_info.size());
+    LOGI("get_port_info: checking %zu ports", sizeof(ports)/sizeof(ports[0]));
 
-    // 检查每个端口是否被占用
-    for (auto& item : tcp_info) {
+    // 检查每个端口是否被占用，全量上报状态(不做过滤)
+    for (int port : ports) {
         try {
-            LOGD("get_port_info: checking port %d for %s", item.first, item.second.c_str());
-            
-            if (is_port_in_use(item.first)) {
-                LOGI("get_port_info: detected suspicious port %d (%s)", item.first, item.second.c_str());
-                info[item.second]["risk"] = "error";
-                info[item.second]["explain"] = "black port is in use " + item.second;
-            } else {
-                LOGD("get_port_info: port %d (%s) is not in use", item.first, item.second.c_str());
-            }
+            LOGD("get_port_info: checking port %d", port);
+            info[to_string(port)]["value"] = is_port_in_use(port) ? "1" : "0";
         } catch (...) {
-            LOGE("get_port_info: exception occurred while checking port %d", item.first);
-            // 继续检查其他端口，不因为一个端口失败而停止
+            LOGE("get_port_info: exception occurred while checking port %d", port);
+            info[to_string(port)]["value"] = "0"; // 检测失败当作未占用
+            continue;
         }
     }
 
-    LOGI("get_port_info: completed, found %zu suspicious ports", info.size());
+    LOGI("get_port_info: completed, raw count=%zu", info.size());
     return info;
 }
