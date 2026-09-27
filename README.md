@@ -13,9 +13,38 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
 
 ## 项目架构
 
-项目采用多模块架构，包含app（主应用）、zcore（核心功能库）、zinfo（信息收集）、zconfig（配置管理）、zlog（日志）、zstd（标准库工具）、zlibc（系统调用封装）等模块。采用分层依赖架构，从配置管理到任务调度共分6个依赖等级。
+项目采用多模块架构，包含app（主应用）、zengine（分析引擎）、zcore（核心功能库）、zinfo（信息收集）、zconfig（配置管理）、zlog（日志）、zstd（标准库工具）、zlibc（系统调用封装）等模块。采用分层依赖架构，从配置管理到任务调度共分6个依赖等级。
+
+## 查杀分离架构
+
+本项目采用「查杀分离」设计，将**信息采集**与**风险判定**彻底解耦：
+
+```
+[C++ 侧 —— 采集，到此为止]
+  zinfo 采集器 (只收集全量原始数据，输出 {项目: {value: 原始值}}，无任何判定)
+  → zManager 调度 (每 10s 轮询 19 类检测任务)
+  → notice_java(title)  ← 向 zengine 上传原始数据的唯一上传点，此后零 native 调用
+
+[Java 侧 —— 分析，由 zengine 引擎负责]
+  NativeUpdateBus.onCardInfoUpdated(title, rawJson)
+  → MainApplication.analyze(title, rawJson)   [zengine 分析引擎，纯 Java]
+  → 19 个 Analyzer 按内置黑名单/阈值/规则判定 → {项目: {risk: safe|warn|error, explain: ...}}
+  → InfoCardContainer 渲染成风险卡片
+```
+
+各模块职责：
+- **zinfo**（C++）：只负责**采集原始数据**（文件/属性/进程/Linker/TEE/端口等），全量上报，不做 risk 判定；黑白名单等判定数据不在采集端内置（PackageInfo 的探测包名列表仅作为探测范围声明）。
+- **zengine**（纯 Java 分析引擎）：内置全部**风险判定逻辑**——黑名单、阈值、期望值、特征串。入口 `MainApplication.analyze(category, rawJson)`，返回 `{risk, explain}` 结果 JSON。通过 `app/build.gradle` 的 `sourceSets` 源码共享编入 app，也作为独立模块以硬编码数据做单测。
+- **app**（Java UI + C++ 调度）：`zManager` 只编排采集；`MainActivity` 只做显示（收到原始数据先调 zengine 分析，再渲染）。
+- **zcore/zconfig/zlog/zstd/zlibc**：核心库、配置开关、日志、标准库替代、libc 封装。
+
+19 类检测任务均已分离：`root_state_info` / `class_loader_info` / `class_info` / `side_channel_info` / `finger_info` / `linker_info` / `proc_info` / `tee_info` / `package_info` / `system_setting_info` / `system_prop_info` / `signature_info` / `port_info` / `time_info` / `ssl_info` / `local_network_info` / `logcat_info` / `isoloated_process_info` / `sensor_info`，每一类的判定逻辑都在 `zengine/src/main/java/com/example/zengine/analyzer/` 下对应 Analyzer 中。
+
+注：`package_info` 的探测包名列表（C++ `probe_package_map`）是采集范围的天然声明（JNI 必须知道探测哪些包）；风险判定（黑名单命中即 error、白名单缺失即 warn）的名单完全内置在 Java 侧 `PackageInfoAnalyzer`。
 
 ## 核心原理
+
+> 统一说明：以下各检测器的「采集」在 `zinfo` 侧 C++ 完成并全量上报原始数据；「判定」（黑名单/阈值/期望值）在 `zengine` 侧 Java Analyzer 中完成。
 
 #### Root检测原理
 
@@ -352,6 +381,10 @@ Overt是一个专业的Android设备安全检测工具，通过多维度收集�
 ./gradlew :app:assembleDebug
 ./gradlew :zcore:assembleDebug
 ./gradlew :zinfo:assembleDebug
+./gradlew :zengine:assembleDebug
+
+# 运行 zengine 分析引擎单测(硬编码数据，无需真机)
+./gradlew :zengine:testDebugUnitTest
 
 # 清理项目
 ./gradlew clean
