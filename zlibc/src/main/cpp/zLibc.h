@@ -14,7 +14,7 @@
 
 // ==================== 系统调用相关 ====================
 // 模块配置开关 - 可以通过修改这个宏来控制是否使用自定义系统调用实现
-#define ZSYSCALL_ENABLE_NONSTD_API 1
+#define ZSYSCALL_ENABLE_NONSTD_API 0
 
 // 当全局配置宏启用时，全局宏配置覆盖模块宏配置
 #if ZCONFIG_ENABLE

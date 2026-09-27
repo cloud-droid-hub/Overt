@@ -4,6 +4,7 @@
 
 #include <dlfcn.h>
 #include <regex>
+#include <unistd.h>
 
 #include "zLog.h"
 #include "zLibc.h"
@@ -229,6 +230,43 @@ map<string, map<string, string>> get_net_tcp_info() {
 }
 
 /**
+ * 获取挂载命名空间对比信息(查杀分离 — 采集端,并入 proc_info)
+ * 采集自己的/init 进程的 mount namespace id 与 mountinfo 全文(原始数据)，
+ * 不做对比判定；ns 是否不同、关键挂载点是否被隐藏，由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：
+ *   {"ns.self" -> {value: "ns/mnt readlink"}} + {"ns.init" -> {value: ...}} +
+ *   {"mountinfo.self" -> {value: "全文"}} + {"mountinfo.init" -> {value: "全文"}}
+ *   这个检测点是从 https://github.com/WsttXm/RiskEngine 抄过来的，我的手机没有检测到，可能和版本有关
+ */
+map<string, map<string, string>> get_mount_ns_info() {
+    LOGI("get_mount_ns_info called");
+    map<string, map<string, string>> info;
+
+    // 1) 读取 mount namespace id(readlink)
+    auto read_ns = [](const char* path) -> string {
+        char buf[128] = {0};
+        ssize_t n = readlink(path, buf, sizeof(buf) - 1);
+        if (n <= 0) return string();
+        return string(buf, (size_t)n);
+    };
+    string self_ns = read_ns("/proc/self/ns/mnt");
+    string init_ns = read_ns("/proc/1/ns/mnt");
+    info["ns.self"]["value"] = self_ns;
+    info["ns.init"]["value"] = init_ns;
+    LOGI("ns.self=%s ns.init=%s", self_ns.c_str(), init_ns.c_str());
+
+    // 2) 读取 mountinfo 全文(原始数据,解析交 zengine)
+    string self_mountinfo = zFile("/proc/self/mountinfo").readAllText();
+    string init_mountinfo = zFile("/proc/1/mountinfo").readAllText();
+    info["mountinfo.self"]["value"] = self_mountinfo;
+    info["mountinfo.init"]["value"] = init_mountinfo;
+    LOGI("mountinfo.self len=%zu mountinfo.init len=%zu",
+         self_mountinfo.size(), init_mountinfo.size());
+
+    return info;
+}
+
+/**
  * 获取进程信息的主函数
  * 整合所有进程相关的检测功能，包括内存映射、挂载点、任务状态等
  * 通过多种检测手段综合分析进程的安全状态
@@ -261,6 +299,11 @@ map<string, map<string, string>> get_proc_info() {
     map<string, map<string, string>> net_tcp_info = get_net_tcp_info();
     LOGI("get_net_tcp_info insert is called");
     info.insert(net_tcp_info.begin(), net_tcp_info.end());
+
+    LOGI("get_mount_ns_info is called");
+    map<string, map<string, string>> mount_ns_info = get_mount_ns_info();
+    LOGI("get_mount_ns_info insert is called");
+    info.insert(mount_ns_info.begin(), mount_ns_info.end());
 
     return info;
 }

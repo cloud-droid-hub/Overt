@@ -53,7 +53,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zPortInfo.cpp
         zTeeInfo.cpp
         zSslInfo.cpp
-        zLogcatInfo.cpp
+        zSelinuxInfo.cpp
 
         zInfoTest.cpp)
 

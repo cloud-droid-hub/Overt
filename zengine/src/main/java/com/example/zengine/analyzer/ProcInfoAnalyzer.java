@@ -16,6 +16,9 @@ import java.util.Iterator;
  * - task: 含 "gamin"(gmain)/"pool-frida" → error
  * - prev: 含 "zygote" → error
  * - net_tcp: 含 :69A2/:69A3(frida)或 :5D8A(ida) → error
+ * - mount ns 对比: self 与 init 的 mnt namespace 不同 → error;
+ *   init 的关键挂载点(/system /vendor /product /system_ext /odm /data/adb /sbin /debug_ramdisk /apex)
+ *   在 self mountinfo 中缺失 → error(mount 隐藏证据)
  */
 public final class ProcInfoAnalyzer implements MainApplication.Analyzer {
 
@@ -130,10 +133,83 @@ public final class ProcInfoAnalyzer implements MainApplication.Analyzer {
                     }
                 }
             }
+
+            // —— mount namespace 对比判定 ——
+            analyzeMountNs(raw, out);
+
             return out.toString();
         } catch (Exception e) {
             return "{}";
         }
+    }
+
+    /** 关键挂载点前缀(init 有、self 缺失 → 隐藏)。 */
+    private static final String[] HIDDEN_MOUNT_PREFIXES = {
+            "/system", "/vendor", "/product", "/system_ext", "/odm",
+            "/data/adb", "/sbin", "/debug_ramdisk", "/apex",
+    };
+
+    /** mount ns 对比:ns 不同 + 关键挂载点隐藏检测。 */
+    private static void analyzeMountNs(JSONObject raw, JSONObject out) throws Exception {
+        String selfNs = valueOf(raw, "ns.self");
+        String initNs = valueOf(raw, "ns.init");
+        if (!selfNs.isEmpty() && !initNs.isEmpty() && !selfNs.equals(initNs)) {
+            out.put("ns_differs", new JSONObject()
+                    .put("risk", "error")
+                    .put("explain", "mount namespace differs from init"));
+        }
+
+        String selfMountinfo = valueOf(raw, "mountinfo.self");
+        String initMountinfo = valueOf(raw, "mountinfo.init");
+        if (selfMountinfo.isEmpty() || initMountinfo.isEmpty()) return;
+
+        // 提取 init mountinfo 的所有挂载点(field 5)
+        java.util.Set<String> initPoints = extractMountPoints(initMountinfo);
+        java.util.Set<String> selfPoints = extractMountPoints(selfMountinfo);
+
+        int missing = 0;
+        for (String point : initPoints) {
+            if (!isInterestingMount(point)) continue;
+            if (!selfPoints.contains(point)) {
+                missing++;
+                if (missing <= 4) {
+                    out.put(AnalyzerUtil.trimKey("mount_hidden:" + point), new JSONObject()
+                            .put("risk", "error")
+                            .put("explain", "mount hidden"));
+                }
+            }
+        }
+        if (missing > 0) {
+            out.put("mount_hidden_count", new JSONObject()
+                    .put("risk", "error")
+                    .put("explain", "hidden mounts: " + missing));
+        }
+    }
+
+    private static java.util.Set<String> extractMountPoints(String mountinfo) {
+        java.util.Set<String> points = new java.util.HashSet<>();
+        String[] lines = mountinfo.split("\n");
+        for (String line : lines) {
+            // mountinfo 字段: id parent major:minor root mountpoint ...
+            // 取第 5 个字段(空格分隔,索引4)
+            String[] parts = line.split(" ");
+            if (parts.length >= 5) {
+                points.add(parts[4]);
+            }
+        }
+        return points;
+    }
+
+    private static boolean isInterestingMount(String point) {
+        for (String prefix : HIDDEN_MOUNT_PREFIXES) {
+            if (point.startsWith(prefix)) return true;
+        }
+        return false;
+    }
+
+    private static String valueOf(JSONObject raw, String key) {
+        JSONObject item = raw.optJSONObject(key);
+        return (item == null) ? "" : item.optString("value", "");
     }
 
     /** 权限序列必须形如 "r--p,r-xp,r--p,rw-p"(兼容 "--xp"/"rw-p" 变体)。 */

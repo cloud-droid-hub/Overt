@@ -113,4 +113,45 @@ public class ProcInfoAnalyzerTest {
         JSONObject out = new JSONObject(analyzer.analyze(raw));
         assertTrue("干净环境应无输出: " + out, out.length() == 0);
     }
+
+    /** ns 不同(隔离 mount namespace)→ error。 */
+    @Test
+    public void mountNsDiffers_isError() throws Exception {
+        String raw = "{" +
+                "\"ns.self\":{\"value\":\"mnt:[4026531841]\"}," +
+                "\"ns.init\":{\"value\":\"mnt:[4026531840]\"}," +
+                "\"mountinfo.self\":{\"value\":\"/ / rw\"}," +
+                "\"mountinfo.init\":{\"value\":\"/ / rw\"}" +
+                "}";
+        JSONObject out = new JSONObject(analyzer.analyze(raw));
+        assertEquals("error", out.getJSONObject("ns_differs").getString("risk"));
+    }
+
+    /** ns 相同但 init 的关键挂载点在 self 缺失(隐藏)→ error。 */
+    @Test
+    public void hiddenMount_isError() throws Exception {
+        // init 有 /system 挂载点,self 没有
+        String raw = "{" +
+                "\"ns.self\":{\"value\":\"mnt:[4026531840]\"}," +
+                "\"ns.init\":{\"value\":\"mnt:[4026531840]\"}," +
+                "\"mountinfo.self\":{\"value\":\"1 2 0:3 / / rw\"}," +   // self 没有 /system
+                "\"mountinfo.init\":{\"value\":\"1 2 0:3 / /system rw\"}" +  // init 有 /system
+                "}";
+        JSONObject out = new JSONObject(analyzer.analyze(raw));
+        assertTrue("应报 mount_hidden: " + out, out.length() > 0);
+        assertTrue(!out.has("ns_differs"));
+    }
+
+    /** ns 相同且关键挂载点都在 → 无输出。 */
+    @Test
+    public void mountNsSame_noError() throws Exception {
+        String raw = "{" +
+                "\"ns.self\":{\"value\":\"mnt:[4026531840]\"}," +
+                "\"ns.init\":{\"value\":\"mnt:[4026531840]\"}," +
+                "\"mountinfo.self\":{\"value\":\"1 2 0:3 / /system rw\"}," +
+                "\"mountinfo.init\":{\"value\":\"1 2 0:3 / /system rw\"}" +
+                "}";
+        JSONObject out = new JSONObject(analyzer.analyze(raw));
+        assertTrue("ns 相同且无隐藏应无输出: " + out, out.length() == 0);
+    }
 }

@@ -82,7 +82,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSslInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLocalNetworkInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zIsoloatedProcess.cpp
-        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLogcatInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSelinuxInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSignatureInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSideChannelInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSensorInfo.cpp

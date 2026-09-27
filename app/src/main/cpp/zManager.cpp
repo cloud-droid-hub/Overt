@@ -23,7 +23,7 @@
 #include "zSslInfo.h"
 #include "zLocalNetworkInfo.h"
 #include "zThreadPool.h"
-#include "zLogcatInfo.h"
+#include "zSelinuxInfo.h"
 #include "zJavaVm.h"
 #include "zSignatureInfo.h"
 #include "zSideChannelInfo.h"
@@ -201,7 +201,7 @@ void zManager::update_info(const string& key, map<string, map<string, string>> (
  * - time_info: 时间信息检测
  * - ssl_info: SSL证书检测
  * - local_network_info: 本地网络检测
- * - logcat_info: 系统日志检测
+ * - selinux_info: SELinux上下文/zygisk痕迹检测
  * - side_channel_info: 侧信道检测
  * 
  * 执行机制：
@@ -236,7 +236,7 @@ void zManager::round_tasks(){
         {"time_info", get_time_info},
         {"ssl_info", get_ssl_info},
         {"local_network_info", get_local_network_info},
-        {"logcat_info", get_logcat_info},
+        {"selinux_info", get_selinux_info},
         {"side_channel_info", get_side_channel_info},
         {"isoloated_process_info", get_isoloated_process_info},
         {"sensor_info", get_sensor_info},

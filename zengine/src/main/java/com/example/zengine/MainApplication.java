@@ -5,11 +5,11 @@ import com.example.zengine.analyzer.ClassLoaderAnalyzer;
 import com.example.zengine.analyzer.FingerInfoAnalyzer;
 import com.example.zengine.analyzer.LinkerInfoAnalyzer;
 import com.example.zengine.analyzer.LocalNetworkAnalyzer;
-import com.example.zengine.analyzer.LogcatInfoAnalyzer;
 import com.example.zengine.analyzer.PackageInfoAnalyzer;
 import com.example.zengine.analyzer.PortInfoAnalyzer;
 import com.example.zengine.analyzer.ProcInfoAnalyzer;
 import com.example.zengine.analyzer.RiskFileAnalyzer;
+import com.example.zengine.analyzer.SelinuxInfoAnalyzer;
 import com.example.zengine.analyzer.SensorInfoAnalyzer;
 import com.example.zengine.analyzer.SideChannelAnalyzer;
 import com.example.zengine.analyzer.SignatureInfoAnalyzer;
@@ -58,7 +58,7 @@ public final class MainApplication {
         register("time_info", new TimeInfoAnalyzer());
         register("ssl_info", new SslInfoAnalyzer());
         register("local_network_info", new LocalNetworkAnalyzer());
-        register("logcat_info", new LogcatInfoAnalyzer());
+        register("selinux_info", new SelinuxInfoAnalyzer());
         register("side_channel_info", new SideChannelAnalyzer());
         // isoloated_process_info 复用 proc_info 的分析规则(隔离进程侧返回同一原始结构)
         register("isoloated_process_info", new ProcInfoAnalyzer());
