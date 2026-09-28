@@ -37,11 +37,25 @@ static string get_process_name(){
 void __attribute__((constructor)) init_(void){
     LOGI("zInfo init - Starting comprehensive tests");
 
+    // 隔离进程守卫：libzInfo.so 的构造函数在任何进程加载都会执行，
+    // 但隔离进程(Server, isolatedProcess=true)不允许 registerReceiver 等框架调用，
+    // 无脑跑检测会在 JNI 处崩溃(SecurityException + pending exception)。
+    // 因此仅在非隔离进程(主进程)中执行检测，隔离进程等收到共享内存 fd 再干活。
+    string processName = get_process_name();
+    LOGI("processName: [%s]", processName.c_str());
+    if (string_end_with(processName.c_str(), ".Server")
+        || processName.find("overt_server_iso") != string::npos) {
+        LOGI("isolated 进程, 跳过检测初始化 (等待共享内存 fd)");
+        return;
+    }
+
+    get_system_setting_info();
+
 //    get_selinux_info();
 
 //    get_side_channel_info();
 
-    get_sensor_info();
+    // get_sensor_info();
 
 //    string processName = get_process_name();
 //    LOGI("processName: %s", processName.c_str());
