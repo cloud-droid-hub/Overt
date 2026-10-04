@@ -89,30 +89,30 @@ static int run_crc_detector(const char* library_name) {
         return 2;
 
     zProcMaps maps;
-    LibraryMapping* mapping = maps.find_so_by_name(library_name);
-    if (mapping == nullptr || mapping->address_range_start == nullptr)
+    LibraryMapping mapping = maps.find_so_by_name(library_name);
+    if (mapping.address_range_start == nullptr)
         return 2;
 
     return zLinker::check_lib_crc(library_name) ? 1 : 0;
 }
 
-static int run_maps_layout_detector() {
+static int run_map_layout() {
     const char* libraries[] = {"libart.so", "libc.so", "libinput.so"};
     int checked = 0;
     zProcMaps maps;
 
     for (const char* library_name : libraries) {
-        LibraryMapping* library = maps.find_so_by_name(library_name);
-        if (library == nullptr)
+        LibraryMapping library = maps.find_so_by_name(library_name);
+        if (library.file_path.empty())
             continue;
 
         checked++;
-        if (library->segments.size() != 4)
+        if (library.segments.size() != 4)
             return 1;
-        if (library->segments[0].permissions != "r--p" ||
-            (library->segments[1].permissions != "r-xp" && library->segments[1].permissions != "--xp") ||
-            (library->segments[2].permissions != "r--p" && library->segments[2].permissions != "rw-p") ||
-            (library->segments[3].permissions != "rw-p" && library->segments[3].permissions != "r--p"))
+        if (library.segments[0].permissions != "r--p" ||
+            (library.segments[1].permissions != "r-xp" && library.segments[1].permissions != "--xp") ||
+            (library.segments[2].permissions != "r--p" && library.segments[2].permissions != "rw-p") ||
+            (library.segments[3].permissions != "rw-p" && library.segments[3].permissions != "r--p"))
             return 1;
     }
 
@@ -153,8 +153,12 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_example_overt_MainActivity_runDetector(JNIEnv *env, jobject thiz,
-                                                jstring selector_value) {
+runDetector(JNIEnv *env, jobject thiz, jstring selector_value)
+        asm("Java_com_example_overt_MainActivity_runDetector");
+
+extern "C"
+JNIEXPORT jint JNICALL
+runDetector(JNIEnv *env, jobject thiz, jstring selector_value) {
     if (selector_value == nullptr)
         return 2;
 
@@ -178,7 +182,7 @@ Java_com_example_overt_MainActivity_runDetector(JNIEnv *env, jobject thiz,
     else if (strcmp(selector, "libinput-crc") == 0)
         result = run_crc_detector("libinput.so");
     else if (strcmp(selector, "maps-layout") == 0)
-        result = run_maps_layout_detector();
+        result = run_map_layout();
     else if (strcmp(selector, "syscall-timing") == 0)
         result = run_side_channel_detector();
     else if (strcmp(selector, "child-stability") == 0)
