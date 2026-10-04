@@ -4,6 +4,7 @@
 
 #include <sys/sysinfo.h>
 #include <asm-generic/unistd.h>
+#include <climits>
 #include "zLibc.h"
 #include "zLog.h"
 #include "zFile.h"
@@ -181,22 +182,25 @@ long get_local_current_time() {
  * 使用拼多多API获取服务器时间，用于检测本地时间是否被篡改
  * @return 远程服务器时间戳，失败返回-1
  */
-long get_remote_current_time() {
-    string pinduoduo_time_url = "https://api.pinduoduo.com/api/server/_stm";
-    string pinduoduo_time_fingerprint_sha256 = "604D2DE1AD32FF364041831DE23CBFC2C48AD5DEF8E665103691B6472D07D4D0";
+long remote_now() {
+    const string time_url = "https://api.pinduoduo.com/api/server/_stm";
+    const string old_pin = "604D2DE1AD32FF364041831DE23CBFC2C48AD5DEF8E665103691B6472D07D4D0";
+    const string time_pin = "AFFCB21975697A3E70BAB083EDBF1587806A65AF90B29B0D60206563A703CBA7";
 
     zHttps https_client(10);
-    HttpsRequest request(pinduoduo_time_url, "GET", 10);
+    HttpsRequest request(time_url, "GET", 10);
     HttpsResponse response = https_client.performRequest(request);
 
     // 输出证书信息
-    if (!response.error_message.empty()) {
+    if (!response.error_message.empty() || !response.ssl_verification_passed ||
+        response.status_code != 200) {
         LOGW("Server error_message is not empty");
         return -1;
     }
 
-    if (response.certificate.fingerprint_sha256 != pinduoduo_time_fingerprint_sha256) {
-        LOGI("Server Certificate Fingerprint Local : %s", pinduoduo_time_fingerprint_sha256.c_str());
+    if (response.certificate.fingerprint_sha256 != old_pin &&
+        response.certificate.fingerprint_sha256 != time_pin) {
+        LOGI("Server Certificate Fingerprint Local : %s", time_pin.c_str());
         LOGD("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
         return -1;
     }
@@ -205,11 +209,19 @@ long get_remote_current_time() {
 
     try {
         zJson json = zJson::parse(response.body.c_str());
-        long pinduoduo_time = json.value("server_time", (long)-1);
-        LOGI("get_time_info: pinduoduo_time: %ld", pinduoduo_time / 1000);
-        return pinduoduo_time / 1000;
-    } catch (zJson::parse_error &e) {
-        LOGE("zJson::parse_error:%s", e.what());
+        if (!json.is_object() || !json.contains("server_time") ||
+            !json.at("server_time").is_number_integer()) {
+            return -1;
+        }
+        const long long tick = json.at("server_time").get<long long>();
+        if (tick < 1000 || tick / 1000 > LONG_MAX) {
+            return -1;
+        }
+        const long seconds = static_cast<long>(tick / 1000);
+        LOGI("get_time_info: pinduoduo_time: %ld", seconds);
+        return seconds;
+    } catch (zJson::exception &e) {
+        LOGE("zJson::exception:%s", e.what());
         return -1;
     }
 
@@ -227,11 +239,11 @@ map<string, map<string, string>> get_time_info() {
 
     map<string, map<string, string>> info;
 
-    time_t local_current_time = get_local_current_time();
-    LOGI("get_time_info: current_time=%ld", local_current_time);
-    string local_current_time_str = format_timestamp(local_current_time);
-    info["local_current_time"]["value"] = to_string(local_current_time);
-    info["local_current_time"]["formatted"] = local_current_time_str;
+    time_t local_now = get_local_current_time();
+    LOGI("get_time_info: current_time=%ld", local_now);
+    string local_str = format_timestamp(local_now);
+    info["local_current_time"]["value"] = to_string(local_now);
+    info["local_current_time"]["formatted"] = local_str;
 
     long boot_time = get_boot_time_by_syscall();
     LOGI("get_time_info: get_boot_time_by_syscall returned: %ld", boot_time);
@@ -239,11 +251,11 @@ map<string, map<string, string>> get_time_info() {
     info["boot_time"]["value"] = to_string(boot_time);
     info["boot_time"]["formatted"] = boot_time_str;
 
-    long remote_current_time = get_remote_current_time();
-    LOGI("remote_current_time=%ld", remote_current_time);
-    string remote_current_time_str = format_timestamp(remote_current_time);
-    info["remote_current_time"]["value"] = to_string(remote_current_time);
-    info["remote_current_time"]["formatted"] = remote_current_time_str;
+    long remote_time = remote_now();
+    LOGI("remote_current_time=%ld", remote_time);
+    string remote_str = format_timestamp(remote_time);
+    info["remote_current_time"]["value"] = to_string(remote_time);
+    info["remote_current_time"]["formatted"] = remote_str;
 
     LOGI("get_time_info: final info map size: %zu", info.size());
     return info;
