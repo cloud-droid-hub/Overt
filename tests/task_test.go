@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestTaskLife(t *testing.T) {
+func TestTask(t *testing.T) {
 	root := os.Getenv("CDH_PROJECT_DIR")
 	src := os.Getenv("CDH_OVERT_DIR")
 	out := os.Getenv("CDH_SSL_OUT")

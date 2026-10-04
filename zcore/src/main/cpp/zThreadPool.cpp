@@ -158,9 +158,9 @@ void zThreadPool::tryRunTask(){
          m_tasks.size(), m_workerThreads.size());
 
     // 使用专门的 tryRunTask 互斥锁，避免与任务队列锁冲突
-    static std::mutex try_run_task_mutex;
+    static std::mutex runLock;
     
-    std::lock_guard<std::mutex> lock(try_run_task_mutex);
+    std::lock_guard<std::mutex> lock(runLock);
     LOGI("zThread: tryRunTask acquired try_run_task lock");
     
     if(this->m_tasks.empty()){
@@ -174,9 +174,9 @@ void zThreadPool::tryRunTask(){
     }
     
     // 直接为每个任务分配一个工作线程
-    int successfulAssignments = 0;
+    int sentCount = 0;
     while(!this->m_tasks.empty()) {
-        bool foundAvailableWorker = false;
+        bool foundWorker = false;
         
         for(size_t i = 0; i < this->m_workerThreads.size(); i++){
             zThread* m_workerThread = m_workerThreads[i];
@@ -197,12 +197,15 @@ void zThreadPool::tryRunTask(){
                 m_tasks.erase(m_tasks.begin());
             }
             
+            const string taskName = task->getTaskName();
+            const string taskId = task->getTaskId();
+
             // 直接调用 setExecuteTask 分配任务
             bool success = m_workerThread->setExecuteTask(task);
             if(success) {
-                successfulAssignments++;
+                sentCount++;
                 LOGI("zThread: tryRunTask - Successfully assigned task '%s' (ID: %s) to worker %zu, remaining tasks: %zu", 
-                     task->getTaskName().c_str(), task->getTaskId().c_str(), i, m_tasks.size());
+                     taskName.c_str(), taskId.c_str(), i, m_tasks.size());
                 
                 // 验证任务是否真的被设置
                 if (!m_workerThread->isTaskRunning()) {
@@ -210,7 +213,7 @@ void zThreadPool::tryRunTask(){
                 }
             } else {
                 LOGW("zThread: tryRunTask - Failed to assign task '%s' to worker %zu", 
-                     task->getTaskName().c_str(), i);
+                     taskName.c_str(), i);
                 
                 // 如果分配失败，需要把任务放回队列
                 {
@@ -219,17 +222,17 @@ void zThreadPool::tryRunTask(){
                 }
             }
             
-            foundAvailableWorker = true;
+            foundWorker = true;
             break; // 分配一个任务后跳出内层循环，重新开始查找
         }
         
-        if(!foundAvailableWorker) {
+        if(!foundWorker) {
             LOGI("zThread: tryRunTask - No more worker threads available, stopping assignment");
             break;
         }
     }
 
-    LOGI("zThread: tryRunTask completed, assigned %d tasks successfully, remaining tasks: %zu", successfulAssignments, m_tasks.size());
+    LOGI("zThread: tryRunTask completed, assigned %d tasks successfully, remaining tasks: %zu", sentCount, m_tasks.size());
 }
 
 int zThreadPool::get_cpu_max_freq() {
@@ -286,4 +289,3 @@ int zThreadPool::suggest_thread_count(uint32_t maxFreq){
     }
     return std::max(1, threads);
 }
-

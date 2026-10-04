@@ -200,6 +200,7 @@ bool zThread::setExecuteFunction(void (*func)(void*), void* arg) {
 bool zThread::setExecuteTask(zTask* task) {
     LOGI("zThread[%zu] setExecuteTask called with task '%s'",
          m_threadIndex, task ? task->getTaskName().c_str() : "null");
+    string taskName;
     
     // 使用 RAII 锁保护整个操作
     {
@@ -223,6 +224,8 @@ bool zThread::setExecuteTask(zTask* task) {
             return false;
         }
 
+        taskName = task->getTaskName();
+
         // 原子地设置任务和状态
         this->m_task = task;
         this->m_callable = nullptr;
@@ -237,7 +240,7 @@ bool zThread::setExecuteTask(zTask* task) {
     // 唤醒线程执行任务
     m_taskCV->notify_one();
     
-    LOGI("zThread[%zu] awakened to execute task '%s'", m_threadIndex, task->getTaskName().c_str());
+    LOGI("zThread[%zu] awakened to execute task '%s'", m_threadIndex, taskName.c_str());
     return true;
 }
 
