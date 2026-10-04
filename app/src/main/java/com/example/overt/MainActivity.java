@@ -65,11 +65,12 @@ public class MainActivity extends AppCompatActivity {
      * 注意事项：
      * - 卡片容器初始化为空，等待Native层数据更新
      *
-     * @param savedInstanceState 保存的实例状态，用于Activity重建
+     * @param saved 保存的实例状态，用于Activity重建
      */
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    protected void onCreate(Bundle saved) {
+        super.onCreate(saved);
+        ServerStarter.start(getApplicationContext());
 
         // 设置主界面布局
         setContentView(R.layout.activity_main);
