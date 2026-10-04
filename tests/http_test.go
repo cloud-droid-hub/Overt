@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestHTTPSRead(t *testing.T) {
+func TestHTTP(t *testing.T) {
 	root := os.Getenv("CDH_PROJECT_DIR")
 	src := os.Getenv("CDH_OVERT_DIR")
 	out := os.Getenv("CDH_SSL_OUT")
@@ -47,8 +47,16 @@ func TestHTTPSRead(t *testing.T) {
 			t.Fatalf("native transfer: %s %v", data, err)
 		}
 	}
-	for _, name := range []string{"split-close", "many-records", "length-last", "until-eof", "chunked", "truncated", "read-error", "timeout", "oversize", "binary", "head", "head-chunked", "head-split"} {
-		t.Run(name, func(t *testing.T) {
+	for _, c := range []struct{ label, name string }{
+		{"split", "split-close"}, {"records", "many-records"},
+		{"length", "length-last"}, {"eof", "until-eof"},
+		{"chunked", "chunked"}, {"trunc", "truncated"},
+		{"read", "read-error"}, {"timeout", "timeout"},
+		{"big", "oversize"}, {"binary", "binary"},
+		{"head", "head"}, {"hchunk", "head-chunked"}, {"hsplit", "head-split"},
+	} {
+		t.Run(c.label, func(t *testing.T) {
+			name := c.name
 			data, err := exec.Command(adb, "-s", serial, "shell", guest, name).CombinedOutput()
 			t.Logf("native response: %s error=%v", data, err)
 			if err != nil {

@@ -63,7 +63,7 @@ func prepSSL(t *testing.T) (string, string) {
 	return guest, serial
 }
 
-func TestSSLReply(t *testing.T) {
+func TestSSL(t *testing.T) {
 	bin, serial := prepSSL(t)
 	cn := `{"ret":0,"country":"中国","province":"浙江省","city":"杭州市"}`
 	us := `{"ret":0,"country":"美国","province":"弗吉尼亚州","city":"阿什本"}`
