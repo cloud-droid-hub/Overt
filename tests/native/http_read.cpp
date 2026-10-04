@@ -12,7 +12,10 @@ static int end_code;
 void zLogPrint(int level, const char* tag, const char* file, const char* func,
 			   int line, const char* fmt, ...) {}
 
-extern "C" int __wrap_mbedtls_ssl_read(mbedtls_ssl_context* ssl,
+extern "C" int ssl_read_wrap(mbedtls_ssl_context* ssl, unsigned char* buf,
+							 size_t size) __asm__("__wrap_mbedtls_ssl_read");
+
+extern "C" int ssl_read_wrap(mbedtls_ssl_context* ssl,
 									 unsigned char* buf, size_t size) {
 	++calls;
 	if (step == pieces.size()) return end_code;
