@@ -53,7 +53,7 @@ func TestMapLife(t *testing.T) {
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 3 || !got["stable"] || !got["missing"] || !got["changed"] {
-		t.Fatalf("mapping returned temporary storage: %s", data)
+	if len(got) != 4 || !got["copy"] || !got["missing"] || !got["isolated"] || !got["alive"] {
+		t.Fatalf("mapping result did not survive independently: %s", data)
 	}
 }

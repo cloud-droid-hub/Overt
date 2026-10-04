@@ -2,14 +2,20 @@ package com.example.overt;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.widget.NestedScrollView;
 
-import org.json.JSONException;
+import com.example.zengine.MainApplication;
+
 import org.json.JSONObject;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * 主活动类 - Overt安全检测工具的主界面
@@ -34,6 +40,11 @@ public class MainActivity extends AppCompatActivity {
     private InfoCardContainer cardContainer;    // 信息卡片容器，管理所有检测结果卡片
     private TextView titleBar;                  // 标题栏，显示应用名称
     private FrameLayout cardContainerLayout;    // 卡片容器布局，承载可滚动的内容
+
+    // zengine 分析在后台线程执行(analyzer 可能发网络请求,主线程会抛 NetworkOnMainThreadException),
+    // 结果回主线程更新 UI。单线程 Executor 保证卡片按顺序更新。
+    private static final ExecutorService ANALYZE_EXECUTOR = Executors.newSingleThreadExecutor();
+    private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
     
     private final NativeUpdateBus.Listener nativeUpdateListener = new NativeUpdateBus.Listener() {
         @Override
@@ -120,23 +131,42 @@ public class MainActivity extends AppCompatActivity {
      * @param newCardInfo JSON格式的卡片数据
      */
     private void updateUIWithNewCardInfo(String title, String newCardInfo) {
-        if (cardContainer != null) {
-            try {
-                // 解析JSON格式的卡片数据
-                JSONObject jsonObject = new JSONObject(newCardInfo);
-                
-                // 更新或创建卡片
-                // createIfNotExists=true 表示如果卡片不存在则创建新卡片
-                cardContainer.updateCard(title, jsonObject, true);
-            } catch (JSONException e) {
-                // JSON解析失败，通常表示Native层传递的数据格式有问题
-                Log.e(TAG, "Failed to parse JSON data: " + newCardInfo, e);
-                // 避免因为单条数据异常导致整个应用崩溃
-                // 仅记录错误并跳过本次更新
-            }
-        } else {
+        if (cardContainer == null) {
             Log.w(TAG, "Card container is null, cannot update UI");
+            return;
         }
+        // zengine 分析放到后台线程(analyzer 可能发网络请求;主线程会抛 NetworkOnMainThreadException),
+        // 分析结果 post 回主线程更新 UI(卡片容器必须在主线程操作)。
+        ANALYZE_EXECUTOR.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // 查杀分离：Native 层上传的是原始数据，先交给 zengine 分析引擎
+                    // 得到 {item: {risk, explain}} 结果 JSON，再渲染到卡片。
+                    String analyzed = MainApplication.analyze(title, newCardInfo);
+
+                    // 解析分析后的JSON格式数据
+                    final JSONObject jsonObject = new JSONObject(analyzed);
+
+                    // 回主线程更新卡片(createIfNotExists=true 表示如果卡片不存在则创建)
+                    MAIN_HANDLER.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                cardContainer.updateCard(title, jsonObject, true);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Failed to update card: " + title, e);
+                            }
+                        }
+                    });
+                } catch (Exception e) {
+                    // 分析异常(fail-closed)，通常表示数据格式有问题
+                    Log.e(TAG, "Failed to analyze JSON data: " + newCardInfo, e);
+                    // 避免因为单条数据异常导致整个应用崩溃
+                    // 仅记录错误并跳过本次更新（原始数据绝不直接渲染到 UI）
+                }
+            }
+        });
     }
     
     @Override

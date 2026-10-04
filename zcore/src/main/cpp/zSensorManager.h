@@ -61,16 +61,11 @@ public:
     
     // 打印所有传感器信息
     void printAllSensors() const;
-    
-    // 打印检测结果
-    void printDetectionResults() const;
-    
+
     // 获取传感器列表
     const vector<zSensor*>& getSensors() const { return sensors; }
     
-    // 获取检测结果
-    uint32_t getRiskBits() const { return riskBits; }
-    int getRiskScore() const { return riskScore; }
+    // 原始传感器列表(查杀分离:只暴露原始数据,聚合/统计/判定全在 zengine)
     
     // 禁止拷贝和赋值
     zSensorManager(const zSensorManager&) = delete;
@@ -86,20 +81,9 @@ private:
     
     ASensorManager* manager;
     vector<zSensor*> sensors;
-    uint32_t riskBits;
-    int riskScore;
-    
+
     // 内部方法：在构造时调用
     void enumerateSensors();
-    void performDetection();
-    
-    // 检测方法
-    uint32_t detectStructureAnomalies();
-    bool detectBatchFake();
-    bool detectTimestampAnomalies();
-    
-    // 计算风险评分
-    int calculateRiskScore(uint32_t bits);
 };
 
 #endif // ZSENSORMANAGER_H

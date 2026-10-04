@@ -7,6 +7,9 @@
 #include "zSideChannelInfo.h"
 #include "zLog.h"
 #include "zStdUtil.h"
+#include "zLibc.h"
+#include <sys/syscall.h>
+
 
 /**
  * 获取当前时间（纳秒）
@@ -26,10 +29,10 @@ static inline uint64_t raw_ns(void)
 
 
 /**
- * 获取侧信道信息的主函数
- * 通过侧信道攻击检测系统环境异常
- * 通过比较不同系统调用的执行时间来判断是否存在调试工具或Hook框架
- * @return 包含检测结果的Map，格式：{检测项目 -> {风险等级, 说明}}
+ * 获取侧信道信息(查杀分离 — 采集端)
+ * 通过侧信道时序比较不同系统调用的执行时间，采集异常计数(原始数据)，
+ * 不做风险判定；阈值判断(7000/5000)由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：{side_channel -> {value: "异常次数"}}
  * 技术参考：https://bbs.kanxue.com/thread-288928.htm
  */
 int measure_side_channel_error_count(){
@@ -84,18 +87,33 @@ map<string, map<string, string>> get_side_channel_info(){
 
     LOGE("error_count: %d", error_count);
 
-    string explain = string_format("faccessat is slower than fchownat: %d", error_count);
+    // 全量上报异常计数(原始数据)，阈值判定由 zengine 负责
+    info["side_channel"]["value"] = to_string(error_count);
 
-    // 如果异常次数超过7000次，则认为环境存在异常
-    if(error_count > 7000) {
-        info["side_channel"]["risk"] = "error";
-        info["side_channel"]["explain"] = explain;
-    }else if(error_count > 5000){
-        info["side_channel"]["risk"] = "warn";
-        info["side_channel"]["explain"] = explain;
-    }else{
-        info["side_channel"]["risk"] = "safe";
-        info["side_channel"]["explain"] = explain;
+    // —— KernelSU/APatch prctl 探测(机制级 root 检测) ——
+    // KernelSU/APatch 是内核级 root,无文件痕迹;但它们通过私有 prctl option 0xDEADBEEF
+    // 与用户态通信。普通内核不认识该 option → 返回 -EINVAL 且 out 参数不变;
+    // 打了 KSU/APatch 补丁的内核会响应(写版本号 / 回魔数 / 返回 0)。
+    // 只上报原始探测结果,判定(命中即风险)由 zengine 负责。
+    // 这个检测点是从 https://github.com/WsttXm/RiskEngine 抄过来的，我的手机没有检测到，可能和版本有关
+    {
+        volatile int ksu_version = 0;
+        volatile int ksu_reply = 0;
+        long ksu_ret = syscall(SYS_prctl, 0xDEADBEEF, 2,
+                               reinterpret_cast<unsigned long>(&ksu_version), 0,
+                               reinterpret_cast<unsigned long>(&ksu_reply));
+        bool ksu_present = (ksu_version != 0) || (ksu_reply == 0x5A5A5A5A) || (ksu_ret == 0);
+
+        if (ksu_present) {
+            string ksu_token = (ksu_version > 0)
+                    ? string_format("v:%d", ksu_version)
+                    : "present";
+            info["ksu_prctl"]["value"] = ksu_token;
+            LOGE("KernelSU prctl detected: %s", ksu_token.c_str());
+        } else {
+            info["ksu_prctl"]["value"] = "0";
+            LOGI("KernelSU prctl not present (ret=%ld)", ksu_ret);
+        }
     }
 
     return info;

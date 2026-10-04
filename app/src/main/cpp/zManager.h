@@ -30,9 +30,10 @@
  * - 异步处理：支持后台任务执行
  * - 内存优化：智能管理检测数据生命周期
  * 
- * 数据存储结构：
+ * 数据存储结构（查杀分离后存【原始采集数据】，不含 risk 判定）：
  * device_info[检测类别][检测项目][属性名] = 属性值
- * 例如：device_info["root_state_info"]["su文件检测"]["risk"] = "error"
+ * 例如：device_info["risk_file_info"]["/sbin/su"]["value"] = "1"
+ * 注意：风险判定已移入 zengine 分析引擎，本存储层不再产生 {"risk","explain"}。
  * 
  * 线程安全机制：
  * - 使用std::shared_mutex实现读写锁
@@ -99,7 +100,7 @@ private:
     
     /**
      * 任务状态映射表
-     * 键：任务名称（如"root_state_info"）
+     * 键：任务名称（如"risk_file_info"）
      * 值：任务状态信息
      */
     map<string, TaskStatus> task_status_map;
@@ -114,13 +115,12 @@ private:
     
     /**
      * 设备信息存储结构（三层嵌套Map）
-     * 第一层：检测类别（如"root_state_info"、"proc_info"）
+     * 第一层：检测类别（如"risk_file_info"、"proc_info"）
      * 第二层：检测项目（如"su文件检测"、"进程名检测"）
-     * 第三层：属性值对（如"risk"->"error", "explain"->"检测到Root"）
+     * 第三层：属性值对（如"value"->"1"）
      * 
      * 示例结构：
-     * device_info["root_state_info"]["su文件检测"]["risk"] = "error"
-     * device_info["root_state_info"]["su文件检测"]["explain"] = "检测到su文件"
+     * device_info["risk_file_info"]["/sbin/su"]["value"] = "1"
      */
     static map<string, map<string, map<string, string>>> device_info;
 
@@ -206,7 +206,7 @@ public:
      * - 使用独占写锁，确保更新原子性
      * - 会阻塞其他读写操作
      * 
-     * @param key 信息类别标识（如"root_state_info"、"proc_info"）
+     * @param key 信息类别标识（如"risk_file_info"、"proc_info"）
      * @param value 该类别下的具体信息，二层嵌套Map
      */
     void update_device_info(const string& key, const map<string, map<string, string>>& value);
@@ -269,7 +269,7 @@ private:
      * 3. 通知Java层更新UI
      * 4. 统一的异常处理
      * 
-     * @param key 信息类别标识（如"proc_info"、"root_state_info"等）
+     * @param key 信息类别标识（如"proc_info"、"risk_file_info"等）
      * @param get_info_func 获取信息的函数指针
      */
     void update_info(const string& key, map<string, map<string, string>> (*get_info_func)());

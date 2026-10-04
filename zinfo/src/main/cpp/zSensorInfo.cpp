@@ -21,34 +21,28 @@ map<string, map<string, string>> get_sensor_info() {
 
     if (!manager) {
         LOGW("Failed to get sensor manager instance");
-        info["sensor_info"]["risk"] = "error";
-        info["sensor_info"]["explain"] = "Failed to get sensor manager instance";
+        info["sensor_raw_count"]["value"] = "0";
         return info;
     }
 
-    int score = manager->getRiskScore();
-    LOGI("sensor risk score: %d", score);
-
-    if(score > 0){
-        string level = score > 60 ? "error" : "warn";
-        uint32_t riskBits = manager->getRiskBits();
-        if (riskBits & SENSOR_FIFO_EMPTY) {
-            info["fifo"]["risk"] = level;
-            info["fifo"]["explain"] = "sensor fifo is empty";
-        }
-        if (riskBits & SENSOR_WAKEUP_TOO_FEW) {
-            info["wakeup_sensor"]["risk"] = level;
-            info["wakeup_sensor"]["explain"] = "wakeup sensors too few";
-        }
-        if (riskBits & SENSOR_DELAY_UNIFORM) {
-            info["delay"]["risk"] = level;
-            info["delay"]["explain"] = "sensor uniform delays";
-        }
-        if (riskBits & SENSOR_COUNT_LOW) {
-            info["count"]["risk"] = level;
-            info["count"]["explain"] = "sensor count is too low";
-        }
+    // 查杀分离—采集端：直接上报每个传感器的原始字段(不做任何聚合统计/判定)。
+    // 字段顺序固定: name,type,minDelay,maxDelay,fifoMax,fifoReserved,isWakeUp
+    // 统计(sensor 总数/fifo为0数/wakeup数)与评分判定全部由 zengine 负责。
+    const vector<zSensor*>& sensors = manager->getSensors();
+    for (size_t i = 0; i < sensors.size(); i++) {
+        const zSensor* s = sensors[i];
+        string raw = string_format("%s,%d,%d,%d,%d,%d,%d",
+                                   s->getName() ? s->getName() : "",
+                                   s->getType(),
+                                   s->getMinDelay(),
+                                   s->getMaxDelay(),
+                                   s->getFifoMaxEventCount(),
+                                   s->getFifoReservedEventCount(),
+                                   s->isWakeUpSensor() ? 1 : 0);
+        info["sensor:" + to_string(i)]["value"] = raw;
     }
+    info["sensor_raw_count"]["value"] = to_string(sensors.size());
+    LOGI("sensor raw count=%zu", sensors.size());
 
     return info;
 }

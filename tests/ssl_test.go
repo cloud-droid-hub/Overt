@@ -17,7 +17,6 @@ type sslCase struct {
 	tls    string
 	status string
 	error  string
-	risk   string
 	text   string
 }
 
@@ -69,28 +68,28 @@ func TestSSLReply(t *testing.T) {
 	cn := `{"ret":0,"country":"中国","province":"浙江省","city":"杭州市"}`
 	us := `{"ret":0,"country":"美国","province":"弗吉尼亚州","city":"阿什本"}`
 	cases := []sslCase{
-		{"cn", cn, leaf, "1", "200", "", "safe", "中国浙江省杭州市"},
-		{"us", us, leaf, "1", "200", "", "safe", "美国弗吉尼亚州阿什本"},
-		{"same-city", `{"ret":0,"country":"中国","province":"上海市","city":"上海市"}`, leaf, "1", "200", "", "safe", "中国上海市"},
-		{"country-only", `{"ret":0,"country":"日本"}`, leaf, "1", "200", "", "safe", "日本"},
-		{"bad-pin", cn, "00", "1", "200", "", "error", "get_location failed"},
-		{"old-pin", cn, "A58095F1C26CA01A5AAC2666DCAA66182BE423BE47973BBD1F3CCFF9ACA59D14", "1", "200", "", "error", "get_location failed"},
-		{"bad-tls", cn, leaf, "0", "200", "", "error", "get_location failed"},
-		{"http-error", cn, leaf, "1", "503", "", "error", "get_location failed"},
-		{"transport-error", cn, leaf, "1", "200", "connection failed", "error", "get_location failed"},
-		{"ret-error", `{"ret":1,"country":"中国"}`, leaf, "1", "200", "", "error", "get_location failed"},
-		{"missing-ret", `{"country":"中国"}`, leaf, "1", "200", "", "error", "get_location failed"},
-		{"float-ret", `{"ret":0.0,"country":"中国"}`, leaf, "1", "200", "", "error", "get_location failed"},
-		{"large-ret", `{"ret":4294967296,"country":"中国"}`, leaf, "1", "200", "", "error", "get_location failed"},
-		{"empty-country", `{"ret":0,"country":""}`, leaf, "1", "200", "", "error", "get_location failed"},
-		{"blank-country", `{"ret":0,"country":"   "}`, leaf, "1", "200", "", "error", "get_location failed"},
-		{"null-country", `{"ret":0,"country":null}`, leaf, "1", "200", "", "error", "get_location failed"},
-		{"wrong-country", `{"ret":0,"country":7}`, leaf, "1", "200", "", "error", "get_location failed"},
-		{"wrong-province", `{"ret":0,"country":"中国","province":7}`, leaf, "1", "200", "", "error", "get_location failed"},
-		{"wrong-city", `{"ret":0,"country":"中国","city":null}`, leaf, "1", "200", "", "error", "get_location failed"},
-		{"control", `{"ret":0,"country":"中国\u0000"}`, leaf, "1", "200", "", "error", "get_location failed"},
-		{"malformed", `{`, leaf, "1", "200", "", "error", "get_location failed"},
-		{"array", `[]`, leaf, "1", "200", "", "error", "get_location failed"},
+		{"cn", cn, leaf, "1", "200", "", "中国浙江省杭州市"},
+		{"us", us, leaf, "1", "200", "", "美国弗吉尼亚州阿什本"},
+		{"same", `{"ret":0,"country":"中国","province":"上海市","city":"上海市"}`, leaf, "1", "200", "", "中国上海市"},
+		{"ctry", `{"ret":0,"country":"日本"}`, leaf, "1", "200", "", "日本"},
+		{"pin", cn, "00", "1", "200", "", "中国浙江省杭州市"},
+		{"old", cn, "A58095F1C26CA01A5AAC2666DCAA66182BE423BE47973BBD1F3CCFF9ACA59D14", "1", "200", "", "中国浙江省杭州市"},
+		{"tls", cn, leaf, "0", "200", "", ""},
+		{"http", cn, leaf, "1", "503", "", ""},
+		{"tran", cn, leaf, "1", "200", "connection failed", ""},
+		{"ret", `{"ret":1,"country":"中国"}`, leaf, "1", "200", "", ""},
+		{"miss", `{"country":"中国"}`, leaf, "1", "200", "", ""},
+		{"flt", `{"ret":0.0,"country":"中国"}`, leaf, "1", "200", "", ""},
+		{"big", `{"ret":4294967296,"country":"中国"}`, leaf, "1", "200", "", ""},
+		{"empt", `{"ret":0,"country":""}`, leaf, "1", "200", "", ""},
+		{"spc", `{"ret":0,"country":"   "}`, leaf, "1", "200", "", ""},
+		{"null", `{"ret":0,"country":null}`, leaf, "1", "200", "", ""},
+		{"num", `{"ret":0,"country":7}`, leaf, "1", "200", "", ""},
+		{"prov", `{"ret":0,"country":"中国","province":7}`, leaf, "1", "200", "", ""},
+		{"city", `{"ret":0,"country":"中国","city":null}`, leaf, "1", "200", "", ""},
+		{"ctl", `{"ret":0,"country":"中国\u0000"}`, leaf, "1", "200", "", ""},
+		{"json", `{`, leaf, "1", "200", "", ""},
+		{"arr", `[]`, leaf, "1", "200", "", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -113,8 +112,17 @@ func TestSSLReply(t *testing.T) {
 				t.Fatalf("native JSON: %s %v", data, err)
 			}
 			row := got["location"]
-			if row["risk"] != c.risk || row["explain"] != c.text || len(got) != 1 {
-				t.Fatalf("response=%s, want=%s/%s", data, c.risk, c.text)
+			qq := got["https://r.inews.qq.com/api/ip2city"]
+			wantErr := c.error
+			if wantErr == "" && c.tls == "0" {
+				wantErr = "certificate verification failed"
+			}
+			if wantErr == "" && c.status != "200" {
+				wantErr = "unexpected HTTP status"
+			}
+			if row["value"] != c.text || len(row) != 1 || len(got) != 3 ||
+				qq["value"] != c.pin || qq["error"] != wantErr || len(qq) != 2 {
+				t.Fatalf("response=%s, want location=%s pin=%s error=%s", data, c.text, c.pin, wantErr)
 			}
 		})
 	}

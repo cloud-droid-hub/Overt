@@ -18,39 +18,18 @@ static bool valid_place(const string &text, bool required) {
 }
 
 /**
- * 获取地理位置信息
- * 通过HTTPS请求获取设备的地理位置信息
- * 使用腾讯新闻API获取IP地址对应的地理位置
+ * 解析地理位置(查杀分离 — 采集端)
+ * 从腾讯新闻 ip2city 响应的 body 中解析出地理位置(国家+省份+城市)。
+ * 只负责解析,不发起请求、不做指纹校验(指纹采集由 get_ssl_info 的 urls[] 统一负责)。
+ * @param body 腾讯新闻 ip2city 的响应 body
  * @return 地理位置字符串，格式：国家+省份+城市
  */
-string get_location() {
+string get_location(const string& body) {
 
     string location = "";
 
-    string qq_location_url = "https://r.inews.qq.com/api/ip2city";
-    string loc_pin = "EA725FF9B6B1A8D8A823A6DE0C59A24496FC38E937C03EF6F5D84C66F107C421";
-
-    zHttps https_client(5);
-    HttpsRequest request(qq_location_url, "GET", 3);
-    HttpsResponse response = https_client.performRequest(request);
-
-    // 输出证书信息
-    if (!response.error_message.empty() || !response.ssl_verification_passed ||
-        response.status_code != 200) {
-        LOGW("Location request failed");
-        return location;
-    }
-
-    if (response.certificate.fingerprint_sha256 != loc_pin) {
-        LOGI("Server Certificate Fingerprint Local : %s", loc_pin.c_str());
-        LOGI("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
-        return location;
-    }
-
-    LOGI("get_location response: %s", response.body.c_str());
-
     try {
-        zJson json = zJson::parse(response.body.c_str());
+        zJson json = zJson::parse(body.c_str());
 
         if (!json.is_object() || !json.contains("ret") ||
             !json.at("ret").is_number_integer() || json.at("ret") != 0 ||
@@ -61,9 +40,7 @@ string get_location() {
         }
 
         string country = json.value("country", "");
-
         string province = json.value("province", "");
-
         string city = json.value("city", "");
 
         if (!valid_place(country, true) || !valid_place(province, false) ||
@@ -76,7 +53,6 @@ string get_location() {
         } else {
             location = country + province + city;
         }
-
         LOGI("get_location: %s", location.c_str());
 
         return location;
@@ -84,60 +60,53 @@ string get_location() {
         LOGE("Location JSON error:%s", e.what());
         return location;
     }
+
+    return location;
 }
 
 /**
- * 获取SSL信息的主函数
- * 检测HTTPS连接的SSL证书指纹，验证网络通信的安全性
- * 通过对比预定义的证书指纹，检测是否存在中间人攻击或证书伪造
- * @return 包含检测结果的Map，格式：{检测项目 -> {风险等级, 说明}}
+ * 获取SSL信息(查杀分离 — 采集端)
+ * 采集每个URL的HTTPS证书观察指纹/错误信息 与 地理位置(全量原始数据)，不做风险判定；
+ * 证书指纹期望值(不硬编码，由 zengine 动态获取)比对与"中国"地区判定由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：
+ *   {URL -> {value: "证书指纹", error: "错误信息(空串=无错误)"}} + {"location" -> {value: 位置}}
  */
 map<string, map<string, string>> get_ssl_info() {
 
     map<string, map<string, string>> info;
 
-    // 定义需要检测的URL和对应的证书指纹
-    map<string, string> url_info{
-            {"https://www.baidu.com",  "CA5688C552685190E98B94C40E94F842EE7FDA39B08846FBD4D7E2ED7211B4F2"},
+    // 采集范围：需要探测证书的目标URL(仅WHERE to look；期望指纹不在采集端硬编码)
+    const char* urls[] = {
+            "https://www.baidu.com",
+            "https://r.inews.qq.com/api/ip2city",   // 腾讯新闻 ip2city(地理位置)
     };
 
-    // 检测每个URL的SSL证书指纹
-    for (auto &item: url_info) {
-        LOGI("=== Testing URL: %s ===", item.first.c_str());
+    // 检测每个URL的SSL证书指纹，全量上报(不做比对)
+    for (const char* url : urls) {
+        LOGI("=== Testing URL: %s ===", url);
 
         zHttps https_client(5);
-        HttpsRequest request(item.first, "HEAD", 3);
+        const char* method = strcmp(url, "https://r.inews.qq.com/api/ip2city") == 0 ? "GET" : "HEAD";
+        HttpsRequest request(url, method, 3);
         HttpsResponse response = https_client.performRequest(request);
 
-        // 输出证书信息
-        if (!response.error_message.empty()) {
-            LOGW("Server error_message is not empty");
-            info[item.first]["risk"] = "error";
-            info[item.first]["explain"] = response.error_message;
-            continue;
+        info[url]["value"] = response.certificate.fingerprint_sha256;
+        info[url]["error"] = response.error_message;
+        if (info[url]["error"].empty() && !response.ssl_verification_passed) {
+            info[url]["error"] = "certificate verification failed";
         }
-        if (response.certificate.fingerprint_sha256 != item.second) {
-            LOGI("Server Url : %s", item.first.c_str());
-            LOGI("Server Certificate Fingerprint Local : %s", item.second.c_str());
-            LOGD("Server Certificate Fingerprint Remote: %s", response.certificate.fingerprint_sha256.c_str());
-            info[item.first]["risk"] = "error";
-            info[item.first]["explain"] = "Certificate Fingerprint is wrong " + response.certificate.fingerprint_sha256;
-            continue;
+        if (info[url]["error"].empty() && response.status_code != 200) {
+            info[url]["error"] = "unexpected HTTP status";
         }
-        LOGI("=== Testing2 URL: %s ===", item.first.c_str());
+
+        // qq ip2city: 额外解析 location(原始数据,地区判定交 zengine)
+        if (strcmp(url, "https://r.inews.qq.com/api/ip2city") == 0) {
+            string location;
+            if (info[url]["error"].empty()) location = get_location(response.body);
+            info["location"]["value"] = location;
+        }
     }
 
-    // 检测地理位置信息
-    string location = get_location();
-    if (location.empty()) {
-        LOGW("get_location failed");
-        info["location"]["risk"] = "error";
-        info["location"]["explain"] = "get_location failed";
-    } else {
-        LOGI("get_location succeed");
-        info["location"]["risk"] = "safe";
-        info["location"]["explain"] = location;
-    }
-
+    LOGI("ssl_info raw count=%zu", info.size());
     return info;
 }

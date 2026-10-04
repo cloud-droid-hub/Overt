@@ -128,16 +128,11 @@ string getSha256byBaseApk() {
 map<string, map<string, string>> get_signature_info(){
     LOGD("get_signature_info called");
     map<string, map<string, string>> info;
-    string sha256_real = "4D8ADE7A8C33C37B774F402EF0ED88D69C6E543DC11CAC7C573077EEF2903F6F";
+    // 采集端：只上报APK签名文件的实际SHA256(原始数据)，期望值比对由 zengine 负责
     string sha256_baseapk = getSha256byBaseApk();
     LOGI("sha256_baseapk:%s", sha256_baseapk.c_str());
 
-    if(sha256_baseapk != sha256_real){
-        LOGI("sha256_baseapk: %s", sha256_baseapk.c_str());
-        LOGI("sha256_real: %s", sha256_real.c_str());
-        info["signature"]["risk"] = "error";
-        info["signature"]["explain"] = "signature is not " + sha256_real;
-    }
-
+    info["signature"]["value"] = sha256_baseapk;
+    LOGI("signature_info raw count=%zu", info.size());
     return info;
 }

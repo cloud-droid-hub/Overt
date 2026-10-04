@@ -26,6 +26,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         zProcMaps.cpp
         zJavaVm.cpp
         zTee.cpp
+        zBase64.cpp
+        zRandom.cpp
         zBroadCast.cpp
         zTask.cpp
         zThread.cpp

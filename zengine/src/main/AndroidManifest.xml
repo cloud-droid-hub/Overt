@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- zengine 为纯分析引擎模块：无 Application、无 Activity、无 launcher。
+         MainApplication 是普通 final class(静态 analyze 入口)，不再 extends Application，
+         故此处不能声明 android:name，否则独立 APK 启动进程时会 Crash。 -->
+    <application
+        android:allowBackup="true"
+        android:label="zengine"
+        android:supportsRtl="true" />
+
+</manifest>

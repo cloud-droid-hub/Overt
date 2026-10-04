@@ -11,7 +11,6 @@
 #include "zLog.h"
 #include "zFile.h"
 #include "zJavaVm.h"
-#include "zTeeCert.h"
 
 namespace {
 struct LocalFrameGuard {
@@ -313,50 +312,32 @@ string get_boot_id() {
 }
 
 map<string, map<string, string>> get_finger_info() {
-    LOGI("get_time_info: starting...");
+    LOGI("get_finger_info: starting...");
 
     map<string, map<string, string>> info;
 
+    // 查杀分离 — 采集端：只上报各指纹原始值，空/异常判定由 zengine 分析引擎负责
     string android_id = get_android_id(zJavaVm::getInstance()->getEnv(), zJavaVm::getInstance()->getContext());
-    info["android_id"]["risk"] = "safe";
-    info["android_id"]["explain"] = android_id;
+    info["android_id"]["value"] = android_id;
 
-    string drm_id =get_drm_id();
-    if(drm_id.empty()){
-        info["drm_id"]["risk"] = "error";
-        info["drm_id"]["explain"] = "drm_id is empty";
-    }else{
-        info["drm_id"]["risk"] = "safe";
-        info["drm_id"]["explain"] = drm_id;
-    }
+    string drm_id = get_drm_id();
+    info["drm_id"]["value"] = drm_id;
 
     string base_apk_path = get_package_base_apk_path(zJavaVm::getInstance()->getEnv(), zJavaVm::getInstance()->getContext(), "com.tencent.mm");
 
     string weixin_finger = get_app_specific_dir_finger(base_apk_path);
-    if(weixin_finger.empty()){
-        info["weixin_finger"]["risk"] = "warn";
-        info["weixin_finger"]["explain"] = "weixin_finger is empty";
-    }else{
-        info["weixin_finger"]["risk"] = "safe";
-        info["weixin_finger"]["explain"] = base_apk_path;
-    }
+    info["weixin_finger"]["value"] = weixin_finger;
+    info["weixin_apk_path"]["value"] = base_apk_path;
 
     string boot_id = get_boot_id();
-    if(boot_id.empty()){
-        info["boot_id"]["risk"] = "error";
-        info["boot_id"]["explain"] = "boot_id is empty";
-    }else{
-        info["boot_id"]["risk"] = "safe";
-        info["boot_id"]["explain"] = boot_id;
-    }
+    info["boot_id"]["value"] = boot_id;
 
     zFile build_prop = zFile("/system/build.prop");
-    info["build_prop_finger"]["risk"] = "safe";
-    info["build_prop_finger"]["explain"] = to_string(build_prop.getFsid()) + "_" + to_string(build_prop.getDev()) + "_" + to_string(build_prop.getIno());
+    info["build_prop_finger"]["value"] = to_string(build_prop.getFsid()) + "_" + to_string(build_prop.getDev()) + "_" + to_string(build_prop.getIno());
 
     zFile data_blocks = zFile("/data");
-    info["data_finger"]["risk"] = "safe";
-    info["data_finger"]["explain"] = to_string(data_blocks.getBlocks()) + "_" + to_string(data_blocks.getBsize()) + "_" + to_string(data_blocks.getFiles());
+    info["data_finger"]["value"] = to_string(data_blocks.getBlocks()) + "_" + to_string(data_blocks.getBsize()) + "_" + to_string(data_blocks.getFiles());
 
+    LOGI("finger_info raw count=%zu", info.size());
     return info;
 }

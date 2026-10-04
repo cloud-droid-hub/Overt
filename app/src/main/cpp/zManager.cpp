@@ -10,7 +10,7 @@
 #include "zManager.h"
 #include "zSslInfo.h"
 #include "zJson.h"
-#include "zRootStateInfo.h"
+#include "zRiskFileInfo.h"
 #include "zProcInfo.h"
 #include "zSystemPropInfo.h"
 #include "zLinkerInfo.h"
@@ -23,7 +23,7 @@
 #include "zSslInfo.h"
 #include "zLocalNetworkInfo.h"
 #include "zThreadPool.h"
-#include "zLogcatInfo.h"
+#include "zSelinuxInfo.h"
 #include "zJavaVm.h"
 #include "zSignatureInfo.h"
 #include "zSideChannelInfo.h"
@@ -158,7 +158,7 @@ map<string, map<string, string>> zManager::get_info(const string& key){
  * 3. 通知Java层更新UI
  * 4. 统一的异常处理
  * 
- * @param key 信息类别标识（如"proc_info"、"root_state_info"等）
+ * @param key 信息类别标识（如"proc_info"、"risk_file_info"等）
  * @param get_info_func 获取信息的函数指针
  */
 void zManager::update_info(const string& key, map<string, map<string, string>> (*get_info_func)()) {
@@ -188,7 +188,7 @@ void zManager::update_info(const string& key, map<string, map<string, string>> (
  * 4. 实现任务的自动重试和监控
  * 
  * 任务类型：
- * - root_state_info: Root状态检测
+ * - risk_file_info: 风险文件(含root特征/模拟器特征)检测
  * - proc_info: 进程信息检测
  * - tee_info: TEE环境检测
  * - class_loader_info: 类加载器检测
@@ -201,7 +201,7 @@ void zManager::update_info(const string& key, map<string, map<string, string>> (
  * - time_info: 时间信息检测
  * - ssl_info: SSL证书检测
  * - local_network_info: 本地网络检测
- * - logcat_info: 系统日志检测
+ * - selinux_info: SELinux上下文/zygisk痕迹检测
  * - side_channel_info: 侧信道检测
  * 
  * 执行机制：
@@ -224,7 +224,7 @@ void zManager::round_tasks(){
         {"finger_info", get_finger_info},
         {"linker_info", get_linker_info},
         {"proc_info", get_proc_info},
-        {"root_state_info", get_root_state_info},
+        {"risk_file_info", get_risk_file_info},
         {"tee_info", get_tee_info},
         {"class_loader_info", get_class_loader_info},
         {"class_info", get_class_info},
@@ -236,7 +236,7 @@ void zManager::round_tasks(){
         {"time_info", get_time_info},
         {"ssl_info", get_ssl_info},
         {"local_network_info", get_local_network_info},
-        {"logcat_info", get_logcat_info},
+        {"selinux_info", get_selinux_info},
         {"side_channel_info", get_side_channel_info},
         {"isoloated_process_info", get_isoloated_process_info},
         {"sensor_info", get_sensor_info},

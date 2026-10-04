@@ -39,7 +39,12 @@ public :
 
     ~zProcMaps(){};
 
-    LibraryMapping* find_so_by_name(string so_name);
+    /**
+     * 按名称查找共享库映射。
+     * @return 找到的 LibraryMapping 的【拷贝】(未找到时为默认构造：file_path 空串、address_range_start=nullptr)。
+     * 按值返回：调用者拿到的副本与容器生命周期无关，杜绝 use-after-free(悬垂指针)。
+     */
+    LibraryMapping find_so_by_name(string so_name);
 
 };
 

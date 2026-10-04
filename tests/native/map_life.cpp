@@ -6,22 +6,26 @@ void zLogPrint(int level, const char* tag, const char* file, const char* func,
 			   int line, const char* fmt, ...) {}
 
 int main() {
-	zProcMaps maps;
 	string path = "/data/local/tmp/map-case/oat/arm64/base.odex";
-	LibraryMapping item{};
-	item.file_path = path;
-	maps.loaded_libraries[path] = item;
-	auto* got = maps.find_so_by_name("/oat/arm64/base.odex");
-	auto* stored = &maps.loaded_libraries.at(path);
-	bool stable = got == stored;
-	bool missing = maps.find_so_by_name("/missing/map-case.so") == nullptr;
-	bool changed = false;
-	if (stable) {
-		got->inode = "219";
-		changed = maps.loaded_libraries.at(path).inode == "219";
+	LibraryMapping got{};
+	bool copied = false;
+	bool missing = false;
+	bool isolated = false;
+	{
+		zProcMaps maps;
+		LibraryMapping item{};
+		item.file_path = path;
+		maps.loaded_libraries[path] = item;
+		got = maps.find_so_by_name("/oat/arm64/base.odex");
+		copied = got.file_path == path && &got != &maps.loaded_libraries.at(path);
+		auto absent = maps.find_so_by_name("/missing/map-case.so");
+		missing = absent.file_path.empty() && absent.address_range_start == nullptr;
+		got.inode = "219";
+		isolated = maps.loaded_libraries.at(path).inode != "219";
 	}
-	printf("{\"stable\":%s,\"missing\":%s,\"changed\":%s}\n",
-		   stable ? "true" : "false", missing ? "true" : "false",
-		   changed ? "true" : "false");
+	bool alive = got.file_path == path && got.inode == "219";
+	printf("{\"copy\":%s,\"missing\":%s,\"isolated\":%s,\"alive\":%s}\n",
+		   copied ? "true" : "false", missing ? "true" : "false",
+		   isolated ? "true" : "false", alive ? "true" : "false");
 	return fflush(stdout) == 0 ? 0 : 4;
 }

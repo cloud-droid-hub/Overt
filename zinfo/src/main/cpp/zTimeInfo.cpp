@@ -217,10 +217,10 @@ long get_remote_current_time() {
 
 
 /**
- * 获取时间信息的主函数
- * 检测系统时间、启动时间等时间相关信息
- * 主要用于检测时间篡改、系统重启等异常情况
- * @return 包含检测结果的Map，格式：{检测项目 -> {风险等级, 说明}}
+ * 获取时间信息(查杀分离 — 采集端)
+ * 采集本地时间、启动时间、远程时间(原始数据)，不做风险判定；
+ * 开机时间过短/时钟偏差阈值判定由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：{时间项 -> {value: "原始秒数", formatted: "格式化"}}
  */
 map<string, map<string, string>> get_time_info() {
     LOGI("get_time_info: starting...");
@@ -230,53 +230,21 @@ map<string, map<string, string>> get_time_info() {
     time_t local_current_time = get_local_current_time();
     LOGI("get_time_info: current_time=%ld", local_current_time);
     string local_current_time_str = format_timestamp(local_current_time);
-    LOGD("get_time_info: format_timestamp result: %s", local_current_time_str.c_str());
+    info["local_current_time"]["value"] = to_string(local_current_time);
+    info["local_current_time"]["formatted"] = local_current_time_str;
 
     long boot_time = get_boot_time_by_syscall();
     LOGI("get_time_info: get_boot_time_by_syscall returned: %ld", boot_time);
     string boot_time_str = format_timestamp(boot_time);
-    LOGD("get_time_info: format_timestamp result: %s", boot_time_str.c_str());
+    info["boot_time"]["value"] = to_string(boot_time);
+    info["boot_time"]["formatted"] = boot_time_str;
 
     long remote_current_time = get_remote_current_time();
     LOGI("remote_current_time=%ld", remote_current_time);
     string remote_current_time_str = format_timestamp(remote_current_time);
-    LOGD("remote_current_time_str: format_timestamp result: %s", remote_current_time_str.c_str());
-
-    // 开机时间过短，可能刚重启
-    long time_diff_seconds = local_current_time - boot_time;
-    long one_day_seconds = 1 * 24 * 60 * 60;
-    LOGD("get_time_info: time_diff_seconds=%ld, one_day_seconds=%ld", time_diff_seconds, one_day_seconds);
-    LOGD("get_time_info: condition check: %ld < %ld = %s", time_diff_seconds, one_day_seconds, (time_diff_seconds < one_day_seconds) ? "true" : "false");
-
-    if (time_diff_seconds < one_day_seconds) {
-        LOGI("get_time_info: adding boot_time info to map");
-        info["boot_time"]["risk"] = "warn";
-        info["boot_time"]["explain"] = "boot_time is too short " + boot_time_str;
-    } else {
-        LOGI("get_time_info: boot time is not too short");
-        info["boot_time"]["risk"] = "safe";
-        info["boot_time"]["explain"] = "boot_time is " + boot_time_str;
-    }
-
-    LOGD("remote_current_time diff: %ld", abs(remote_current_time - local_current_time));
-    if (abs(remote_current_time - local_current_time) > 60) {
-        info["local_current_time"]["risk"] = "warn";
-        info["local_current_time"]["explain"] = "local_current_time is " + local_current_time_str;
-        info["remote_current_time"]["risk"] = "warn";
-        info["remote_current_time"]["explain"] = "remote_current_time is " + remote_current_time_str;
-    } else {
-        info["local_current_time"]["risk"] = "safe";
-        info["local_current_time"]["explain"] = "local_current_time is " + local_current_time_str;
-        info["remote_current_time"]["risk"] = "safe";
-        info["remote_current_time"]["explain"] = "remote_current_time is " + remote_current_time_str;
-    }
+    info["remote_current_time"]["value"] = to_string(remote_current_time);
+    info["remote_current_time"]["formatted"] = remote_current_time_str;
 
     LOGI("get_time_info: final info map size: %zu", info.size());
-    for (const auto &entry: info) {
-        LOGD("get_time_info: map entry - key: '%s', inner map size: %zu", entry.first.c_str(), entry.second.size());
-        for (const auto &inner_entry: entry.second) {
-            LOGD("get_time_info: inner map entry - key: '%s', value: '%s'", inner_entry.first.c_str(), inner_entry.second.c_str());
-        }
-    }
     return info;
 }

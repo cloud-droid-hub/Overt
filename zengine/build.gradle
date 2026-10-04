@@ -1,0 +1,34 @@
+plugins {
+    alias(libs.plugins.androidApplication)
+}
+
+android {
+    namespace 'com.example.zengine'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.example.zengine"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    // BouncyCastle: KeyAttestation 解析器依赖的 ASN.1 库(抄入 zengine 的 TEE 认证扩展解析)
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+    testImplementation libs.junit
+    // JVM 单测需要真实 org.json 实现(android.jar stub 会抛 "not mocked")
+    testImplementation 'org.json:json:20240303'
+}

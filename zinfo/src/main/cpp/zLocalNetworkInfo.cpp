@@ -100,10 +100,10 @@ static void on_receive(const char* ip, const char* msg){
 }
 
 /**
- * 获取本地网络信息
- * 通过UDP广播机制检测同一网络中的其他Overt设备
- * 使用端口7476进行广播通信
- * @return 包含检测结果的Map，格式：{IP地址 -> {风险等级, 说明}}
+ * 获取本地网络信息(查杀分离 — 采集端)
+ * 通过UDP广播机制收集同一网络中的其他Overt设备IP(全量原始数据)，不做风险判定；
+ * TTL活跃判定与"发现即警告"由 zengine 分析引擎负责。
+ * @return 包含原始数据的Map，格式：{IP地址 -> {value: "overt"}}
  */
 map<string, map<string, string>> get_local_network_info(){
     map<string, map<string, string>> info;
@@ -121,12 +121,11 @@ map<string, map<string, string>> get_local_network_info(){
         }
     }
 
-    // 处理检测到的Overt设备
+    // 全量上报活跃Overt设备IP(不内置过滤)
     for (const auto& ip : active_ips) {
-        // 将检测到的设备标记为警告级别
-        info[ip]["risk"] = "warn";
-        info[ip]["explain"] = "overt device";
+        info[ip]["value"] = "overt";
     }
 
+    LOGI("local_network_info raw count=%zu", info.size());
     return info;
 }

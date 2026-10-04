@@ -54,7 +54,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zClassLoader.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zCrc32.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zJavaVm.cpp
-        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zTeeCert.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zBase64.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zRandom.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zTee.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zBroadCast.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zFile.cpp
@@ -68,7 +69,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zBinder.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zcore/src/main/cpp/zSensorManager.cpp
 
-        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zRootStateInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zRiskFileInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSystemPropInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLinkerInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zTimeInfo.cpp
@@ -81,7 +82,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSslInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLocalNetworkInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zIsoloatedProcess.cpp
-        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zLogcatInfo.cpp
+        ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSelinuxInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSignatureInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSideChannelInfo.cpp
         ${CMAKE_SOURCE_DIR}/../../../../zinfo/src/main/cpp/zSensorInfo.cpp
