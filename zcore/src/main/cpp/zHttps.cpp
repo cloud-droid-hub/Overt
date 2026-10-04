@@ -452,7 +452,7 @@ bool zHttps::verifyCertificatePinning(const mbedtls_x509_crt* cert, const string
 
 /**
  * 执行HTTPS请求
- * 执行完整的HTTPS请求流程，包括连接建立、TLS握手、证书验证、请求发送和响应接收
+ * 执行完整的HTTPS请求流程，包括连接建立、TLS连接协商、证书验证、请求发送和响应接收
  * 支持超时控制、证书固定验证和详细的错误处理
  * @param request HTTPS请求对象
  * @return HTTPS响应对象
@@ -577,10 +577,10 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     mbedtls_ssl_conf_read_timeout(&resources.conf, ssl_timeout_ms);
     LOGI("SSL read timeout set to %u ms", ssl_timeout_ms);
 
-    // 设置握手超时（DTLS，但对TLS也有影响）
-    uint32_t handshake_timeout_ms = timeout_seconds * 1000;
-    mbedtls_ssl_conf_handshake_timeout(&resources.conf, handshake_timeout_ms, handshake_timeout_ms * 2);
-    LOGI("SSL handshake timeout set to %u-%u ms", handshake_timeout_ms, handshake_timeout_ms * 2);
+    // 设置连接协商超时（DTLS，但对TLS也有影响）
+    uint32_t hs_timeout = timeout_seconds * 1000;
+    mbedtls_ssl_conf_handshake_timeout(&resources.conf, hs_timeout, hs_timeout * 2);
+    LOGI("SSL handshake timeout set to %u-%u ms", hs_timeout, hs_timeout * 2);
 
     // 强制证书验证 - 不允许跳过验证
     mbedtls_ssl_conf_authmode(&resources.conf, MBEDTLS_SSL_VERIFY_REQUIRED);
@@ -607,7 +607,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     // 使用带超时的网络接收函数
     mbedtls_ssl_set_bio(&resources.ssl, &resources.server_fd, mbedtls_net_send, nullptr, mbedtls_net_recv_timeout);
 
-    // TLS握手
+    // TLS连接协商
     LOGI("Performing TLS handshake...");
 
     // 检查超时
@@ -617,7 +617,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
         return response;
     }
 
-    // 使用轮询进行TLS握手，带超时检查
+    // 使用轮询进行TLS连接协商，带超时检查
     do {
         ret = mbedtls_ssl_handshake(&resources.ssl);
 
@@ -649,7 +649,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
         return response;
     }
 
-    // 标记TLS握手完成
+    // 标记TLS连接协商完成
     timer.markHandshake();
     LOGI("TLS handshake completed in %d seconds", timer.getHandshakeDuration());
 
@@ -701,10 +701,10 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     char response_buf[4096];
     string full_response;
     int read_count = 0;
-    const int max_reads = 3; // 简化最大读取次数
+    const int max_reads = 64 * 1024 + 1;
     const int max_total_bytes = 64 * 1024; // 最大64KB响应
     bool found_headers = false;
-    bool response_complete = false;
+    bool complete = false;
 
     do {
         // 检查超时
@@ -719,7 +719,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
 
         if (ret > 0) {
             response_buf[ret] = '\0';
-            full_response += response_buf;
+            full_response.append(response_buf, static_cast<size_t>(ret));
             LOGI("Read %d bytes, total: %zu bytes", ret, full_response.length());
 
             // 检查是否找到HTTPS头
@@ -731,7 +731,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
             }
 
             // 检查响应是否完整
-            if (found_headers && !response_complete) {
+            if (found_headers && !complete) {
                 size_t header_end = full_response.find("\r\n\r\n");
                 if (header_end == string::npos) {
                     header_end = full_response.find("\n\n");
@@ -745,14 +745,14 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
                     LOGD("headers 长度: %zu", headers.length());
                     LOGD("headers 内容: '%s'", headers.c_str());
 
-                    size_t content_length_pos = headers.find("Content-Length:");
-                    LOGD("Content-Length 位置: %zu", content_length_pos);
+                    size_t len_pos = headers.find("Content-Length:");
+                    LOGD("Content-Length 位置: %zu", len_pos);
 
-                    if (content_length_pos != string::npos) {
+                    if (len_pos != string::npos) {
                         LOGD("找到 Content-Length 头部");
-                        LOGD("Content-Length 位置 + 15: %zu", content_length_pos + 15);
+                        LOGD("Content-Length 位置 + 15: %zu", len_pos + 15);
 
-                        size_t value_start = headers.find_first_not_of(" \t", content_length_pos + 15);
+                        size_t value_start = headers.find_first_not_of(" \t", len_pos + 15);
                         LOGD("value_start 位置: %zu", value_start);
 
                         if (value_start != string::npos) {
@@ -790,7 +790,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
                                     if (body_length >= static_cast<size_t>(expected_length)) {
                                         LOGI("Response body complete (Content-Length: %d, actual: %zu)",
                                              expected_length, body_length);
-                                        response_complete = true;
+                                        complete = true;
                                     } else {
                                         LOGD("体长度不足，期望: %d, 实际: %zu", expected_length, body_length);
                                     }
@@ -817,30 +817,25 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
                     if (headers.find("Transfer-Encoding: chunked") != string::npos) {
                         if (full_response.find("\r\n0\r\n\r\n") != string::npos) {
                             LOGI("Chunked response complete");
-                            response_complete = true;
+                            complete = true;
                         }
                     }
 
-                    // 检查Connection: close
-                    if (headers.find("Connection: close") != string::npos &&
-                        static_cast<size_t>(ret) < sizeof(response_buf) - 1) {
-                        LOGI("Connection: close detected, response likely complete");
-                        response_complete = true;
-                    }
                 }
             }
 
             // 检查是否超过最大响应大小
             if (full_response.length() > max_total_bytes) {
+                response.error_message = "Response exceeds 64KiB limit";
                 LOGI("Response too large, stopping at %zu bytes", full_response.length());
                 break;
             }
         } else if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+            response.error_message = "TLS read did not complete";
             LOGI("SSL wants read/write, stopping (no retry)");
             break;
         } else if (ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
             LOGI("Peer closed connection");
-            response_complete = true;
             break;
         } else if (ret == 0) {
             LOGI("Connection closed by peer (EOF)");
@@ -854,21 +849,17 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
 
         // 防止无限循环
         if (read_count > max_reads) {
+            response.error_message = "Response read count exceeded";
             LOGI("Reached max read count (%d), stopping", max_reads);
             break;
         }
 
         // 如果响应已完成，停止读取
-        if (response_complete) {
+        if (complete) {
             LOGI("Response marked as complete, stopping");
             break;
         }
 
-        // 如果已经找到头，且读取了足够的数据，就停止
-        if (found_headers && read_count > 1) {
-            LOGI("Found headers and read enough data, stopping");
-            break;
-        }
     } while (ret > 0);
 
     // 标记接收完成
@@ -876,7 +867,9 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     LOGI("Response reading completed in %d seconds", timer.getReceiveDuration());
 
     LOGI("Finished reading response, total bytes: %zu, read attempts: %d, found headers: %s, complete: %s",
-         full_response.length(), read_count, found_headers ? "yes" : "no", response_complete ? "yes" : "no");
+         full_response.length(), read_count, found_headers ? "yes" : "no", complete ? "yes" : "no");
+
+    if (!response.error_message.empty()) return response;
 
     // 检查响应是否有效（即使没有标记为完整，只要有内容就继续）
     if (full_response.empty()) {
@@ -901,6 +894,23 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
 
     // 解析HTTPS响应
     parseHttpsResponse(full_response, response);
+
+    auto len_it = response.headers.find("Content-Length");
+    if (len_it != response.headers.end()) {
+        char* end = nullptr;
+        errno = 0;
+        const string raw_len = len_it->second;
+        unsigned long want = strtoul(raw_len.c_str(), &end, 10);
+        if (errno != 0 || end == raw_len.c_str() || *end != '\0' ||
+            want > max_total_bytes || response.body.size() != want) {
+            response.error_message = "Incomplete or invalid Content-Length";
+        }
+    }
+    auto chunk_it = response.headers.find("Transfer-Encoding");
+    if (chunk_it != response.headers.end() &&
+        chunk_it->second.find("chunked") != string::npos && !complete) {
+        response.error_message = "Incomplete chunked response";
+    }
 
     // 标记请求完成
     timer.finish();
@@ -1425,7 +1435,7 @@ HttpsResponse zHttps::performHttpRequest(const HttpsRequest& request, RequestTim
     timer.markSend();
     LOGI("Request sent successfully in %d seconds", timer.getSendDuration());
     
-    // 标记握手完成（HTTP不需要TLS握手，但为了计时器一致性）
+    // 标记连接协商完成（HTTP不需要TLS连接协商，但为了计时器一致性）
     timer.markHandshake();
     
     // 读取响应
