@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 fei_cong(https://github.com/feicong/feicong-course)
+
 package com.example.zengine.analyzer;
 
 import com.example.zengine.MainApplication;
@@ -12,7 +14,7 @@ import java.util.Iterator;
  * 迁移自 zinfo zSslInfo.cpp get_ssl_info 的内联判断：
  * - 对每个 URL:error 非空 → error；观察指纹 != 期望指纹 → error
  *   (期望指纹不再硬编码,由 zengine 动态获取:SslFingerprintFetcher 重新请求目标 URL 现场解析)
- * - location:空 → error；不以"中国"开头 → error；否则 safe
+ * - location:缺失、空或仅有空白 → error；有效地区 → safe，并保留实际地区
  */
 public final class SslInfoAnalyzer implements MainApplication.Analyzer {
 
@@ -60,17 +62,13 @@ public final class SslInfoAnalyzer implements MainApplication.Analyzer {
 
             // 地理位置判定
             String location = valueOf(raw, "location");
-            if (location.isEmpty()) {
+            if (location.trim().isEmpty()) {
                 out.put("location", new JSONObject()
                         .put("risk", "error")
                         .put("explain", "get_location failed"));
-            } else if (location.startsWith("中国")) {
-                out.put("location", new JSONObject()
-                        .put("risk", "safe")
-                        .put("explain", location));
             } else {
                 out.put("location", new JSONObject()
-                        .put("risk", "error")
+                        .put("risk", "safe")
                         .put("explain", location));
             }
 
