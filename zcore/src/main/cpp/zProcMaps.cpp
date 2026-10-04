@@ -106,13 +106,12 @@ LibraryMapping* zProcMaps::find_so_by_name(string so_name) {
         LOGI("loaded_libraries %s", it->first.c_str());
         if(string_end_with(it->first.c_str(), so_name.c_str())){
             LOGI("Find so by name: %s", it->first.c_str());
-            return &it->second;
+            return &loaded_libraries.at(it->first);
         }
     }
     LOGE("Cannot find so by name: %s", so_name.c_str());
     return nullptr;
 }
-
 
 
 
