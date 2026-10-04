@@ -3,6 +3,7 @@ package ssltest
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"strconv"
@@ -35,6 +36,7 @@ func TestIPC(t *testing.T) {
 	}
 	t.Logf("main=%s", main)
 	end := time.Now().Add(15 * time.Second)
+	last := ""
 	for {
 		data, err := run("shell", "ps", "-A", "-o", "PID,UID,NAME")
 		if err != nil {
@@ -50,10 +52,17 @@ func TestIPC(t *testing.T) {
 				t.Fatalf("isolated UID invalid: %s %v", line, err)
 			}
 			t.Logf("isolated PID, UID, name=%s", line)
-			return
+			data, err := run("shell", "run-as", "com.example.overt", "cat", "files/overt-cards/isoloated_process_info.json")
+			var raw map[string]struct{ Value string }
+			if err == nil && json.Unmarshal([]byte(data), &raw) == nil &&
+				raw["libc.so"].Value != "" && raw["mountinfo.self"].Value != "" {
+				t.Logf("complete JSON: bytes=%d, raw items=%d", len(data), len(raw))
+				return
+			}
+			last = "isolated process exists but complete raw JSON is unavailable"
 		}
 		if time.Now().After(end) {
-			t.Fatalf("isolated process missing for 15s; main PID=%s", main)
+			t.Fatalf("isolated process or complete reply missing for 15s; main PID=%s, detail=%s", main, last)
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
