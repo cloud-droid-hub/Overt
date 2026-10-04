@@ -106,7 +106,7 @@ map<string, map<string, string>> get_ssl_info() {
         LOGI("=== Testing URL: %s ===", item.first.c_str());
 
         zHttps https_client(5);
-        HttpsRequest request(item.first, "GET", 3);
+        HttpsRequest request(item.first, "HEAD", 3);
         HttpsResponse response = https_client.performRequest(request);
 
         // 输出证书信息

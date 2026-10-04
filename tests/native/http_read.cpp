@@ -49,11 +49,15 @@ int main(int argc, char** argv) {
 		end_code = MBEDTLS_ERR_SSL_TIMEOUT;
 	} else if (name == "oversize") pieces = {"HTTP/1.1 200 OK\r\nContent-Length: 70000\r\nConnection: close\r\n\r\n", string(70000, 'x')};
 	else if (name == "binary") pieces = {"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nConnection: close\r\n\r\n", string("a\0b", 3)};
+	else if (name == "head") pieces = {"HTTP/1.1 200 OK\r\nContent-Length: 70000\r\nConnection: close\r\n\r\n"};
+	else if (name == "head-chunked") pieces = {"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n"};
+	else if (name == "head-split") pieces = {"HTTP/1.1 200 OK\r\nContent-Len", "gth: 70000\r\nConnection: close\r\n\r\n"};
 	else return 2;
 
 	// TCP、TLS协商与证书校验实际执行，只控制响应读取的分段边界。
 	zHttps client(12);
-	HttpsRequest req("https://r.inews.qq.com/api/ip2city", "GET", 12);
+	bool head = name == "head" || name == "head-chunked" || name == "head-split";
+	HttpsRequest req("https://r.inews.qq.com/api/ip2city", head ? "HEAD" : "GET", 12);
 	auto reply = client.performRequest(req);
 	map<string, string> data;
 	data["tls"] = reply.ssl_verification_passed ? "true" : "false";

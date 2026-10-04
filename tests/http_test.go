@@ -47,7 +47,7 @@ func TestHTTPSRead(t *testing.T) {
 			t.Fatalf("native transfer: %s %v", data, err)
 		}
 	}
-	for _, name := range []string{"split-close", "many-records", "length-last", "until-eof", "chunked", "truncated", "read-error", "timeout", "oversize", "binary"} {
+	for _, name := range []string{"split-close", "many-records", "length-last", "until-eof", "chunked", "truncated", "read-error", "timeout", "oversize", "binary", "head", "head-chunked", "head-split"} {
 		t.Run(name, func(t *testing.T) {
 			data, err := exec.Command(adb, "-s", serial, "shell", guest, name).CombinedOutput()
 			t.Logf("native response: %s error=%v", data, err)
@@ -71,6 +71,9 @@ func TestHTTPSRead(t *testing.T) {
 			want := "abcdef"
 			if name == "binary" {
 				want = "a\x00b"
+			}
+			if name == "head" || name == "head-chunked" || name == "head-split" {
+				want = ""
 			}
 			if got["status"] != "200" || got["error"] != "" || got["body"] != want {
 				t.Fatalf("response truncated: %s", data)

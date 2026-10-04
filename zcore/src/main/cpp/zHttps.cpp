@@ -730,6 +730,18 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
                 LOGI("Found HTTPS headers, continuing to read body...");
             }
 
+            // HEAD响应在头部分隔符结束，不读取或校验GET表示的正文长度。
+            if (found_headers && request.method == "HEAD") {
+                size_t end = full_response.find("\r\n\r\n");
+                size_t sep = 4;
+                if (end == string::npos) {
+                    end = full_response.find("\n\n");
+                    sep = 2;
+                }
+                full_response.resize(end + sep);
+                complete = true;
+            }
+
             // 检查响应是否完整
             if (found_headers && !complete) {
                 size_t header_end = full_response.find("\r\n\r\n");
@@ -896,7 +908,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
     parseHttpsResponse(full_response, response);
 
     auto len_it = response.headers.find("Content-Length");
-    if (len_it != response.headers.end()) {
+    if (request.method != "HEAD" && len_it != response.headers.end()) {
         char* end = nullptr;
         errno = 0;
         const string raw_len = len_it->second;
@@ -907,7 +919,7 @@ HttpsResponse zHttps::performRequest(const HttpsRequest& request) {
         }
     }
     auto chunk_it = response.headers.find("Transfer-Encoding");
-    if (chunk_it != response.headers.end() &&
+    if (request.method != "HEAD" && chunk_it != response.headers.end() &&
         chunk_it->second.find("chunked") != string::npos && !complete) {
         response.error_message = "Incomplete chunked response";
     }
