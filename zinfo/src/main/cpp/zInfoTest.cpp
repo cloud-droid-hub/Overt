@@ -198,9 +198,8 @@ Java_com_example_zinfo_Server_startFdListener(JNIEnv *env, jobject thiz, jint fd
     zBinder* binder = zBinder::getInstance();
 
     // 启动 isolated 进程的消息处理循环线程
-    binder->startServerMessageLoop(fd, fdListenerCallback);
+    binder->startServerLoop(fd, fdListenerCallback);
 
     LOGI("Fd listener started successfully");
     return 0;
 }
-

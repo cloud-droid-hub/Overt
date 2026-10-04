@@ -217,14 +217,20 @@ std::string fdListenerCallback(std::string msg){
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_example_overt_Server_startFdListener(JNIEnv *env, jobject thiz, jint fd) {
+jni_start_fd(JNIEnv*, jobject, jint)
+    __asm__("Java_com_example_overt_Server_startFdListener");
+
+extern "C"
+JNIEXPORT jint JNICALL
+jni_start_fd(JNIEnv *env, jobject thiz, jint fd) {
     // TODO: implement startFdListener()
 
     // 映射共享内存
     zBinder* binder = zBinder::getInstance();
 
     // 启动 isolated 进程的消息处理循环线程
-    binder->startServerMessageLoop(fd, fdListenerCallback);
+    int ret = binder->startServerLoop(fd, fdListenerCallback);
+    if (ret != 0) return ret;
 
     LOGI("Fd listener started successfully");
     return 0;

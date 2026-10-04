@@ -36,32 +36,24 @@ func TestIPC(t *testing.T) {
 	t.Logf("main=%s", main)
 	end := time.Now().Add(15 * time.Second)
 	for {
-		pid, err := run("shell", "pidof", "com.example.overt:overt_server_iso")
-		if err == nil && pid != "" {
-			if len(strings.Fields(pid)) != 1 {
-				t.Fatalf("unexpected isolated PID list: %s", pid)
+		data, err := run("shell", "ps", "-A", "-o", "PID,UID,NAME")
+		if err != nil {
+			t.Fatalf("process list: %s %v", data, err)
+		}
+		for _, line := range strings.Split(data, "\n") {
+			row := strings.Fields(line)
+			if len(row) != 3 || row[2] != "com.example.overt:overt_server_iso:com.example.overt.Server" {
+				continue
 			}
-			data, err := run("shell", "ps", "-p", pid, "-o", "UID,NAME")
-			if err != nil {
-				t.Fatalf("isolated process: %s %v", data, err)
+			uid, err := strconv.Atoi(row[1])
+			if err != nil || uid < 90000 || uid > 99999 {
+				t.Fatalf("isolated UID invalid: %s %v", line, err)
 			}
-			t.Log(data)
-			lines := strings.Split(data, "\n")
-			if len(lines) != 2 {
-				t.Fatalf("unexpected process output: %s", data)
-			}
-			row := strings.Fields(lines[1])
-			if len(row) != 2 {
-				t.Fatalf("unexpected isolated row: %s", data)
-			}
-			uid, err := strconv.Atoi(row[0])
-			if err != nil || uid < 90000 || uid > 99999 || row[1] != "com.example.overt:overt_server_iso" {
-				t.Fatalf("isolated UID/name invalid: %s %v", data, err)
-			}
+			t.Logf("isolated PID, UID, name=%s", line)
 			return
 		}
 		if time.Now().After(end) {
-			t.Fatalf("isolated process missing for 15s; main PID=%s, pidof=%q: %v", main, pid, err)
+			t.Fatalf("isolated process missing for 15s; main PID=%s", main)
 		}
 		time.Sleep(500 * time.Millisecond)
 	}

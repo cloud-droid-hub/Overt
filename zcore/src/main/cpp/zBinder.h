@@ -9,9 +9,9 @@
 #include <thread>
 
 // 共享内存布局结构
-#define SHM_SIZE 4096
+#define SHM_SIZE (1024 * 1024)
 struct ShmLayout {
-    std::atomic<int> ready;  // 0=未就绪, 1=主进程已写入, 2=isolated进程已写入
+    std::atomic<int> ready;  // 0=未就绪，1=请求，2=完整响应，3=响应错误
     char data[SHM_SIZE - sizeof(std::atomic<int>)];
 };
 
@@ -107,7 +107,7 @@ public:
      * 等待并读取消息（isolated 进程使用，高级封装）
      * @return 消息字符串，失败返回空字符串
      */
-    std::string waitAndReadMessage();
+    std::string readRequest();
     
     /**
      * 发送响应（isolated 进程使用，高级封装）
@@ -133,7 +133,7 @@ public:
      * @param callback 消息处理回调函数，接收消息字符串，返回响应字符串
      * @return 0 成功，-1 失败
      */
-    int startServerMessageLoop(int fd, std::function<std::string(std::string)> callback = nullptr);
+    int startServerLoop(int fd, std::function<std::string(std::string)> callback = nullptr);
     
     /**
      * 停止消息循环线程
@@ -149,6 +149,7 @@ private:
     
     void* m_ptr;
     int m_fd;
+    std::mutex m_msg_lock;
     
     // 消息循环线程管理
     bool m_main_loop_running;
@@ -165,7 +166,7 @@ private:
     
     // 消息循环线程函数
     void mainMessageLoopThread();
-    void serverMessageLoopThread();
+    void servLoop();
 };
 
 #endif // ZBINDER_H

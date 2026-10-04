@@ -9,13 +9,14 @@
 #include <thread>
 #include <chrono>
 #include <asm-generic/unistd.h>
+#include <vector>
 
 // 单例实例指针
 zBinder* zBinder::instance = nullptr;
 
 // Futex 辅助函数
-static int futex_wait(volatile int* addr, int val) {
-    return syscall(__NR_futex, addr, FUTEX_WAIT, val, NULL, NULL, 0);
+static int futex_wait(volatile int* addr, int val, const timespec* limit = nullptr) {
+    return syscall(__NR_futex, addr, FUTEX_WAIT, val, limit, NULL, 0);
 }
 
 static int futex_wake(volatile int* addr) {
@@ -99,7 +100,7 @@ int zBinder::createSharedMemory() {
 }
 
 int zBinder::mapSharedMemory(int fd) {
-    if (fd < 0) {
+    if (fd < 0 || ASharedMemory_getSize(fd) != SHM_SIZE) {
         LOGE("Invalid fd: %d", fd);
         return -1;
     }
@@ -151,12 +152,21 @@ void zBinder::waitForReady(int target_value) {
     
     // 第二阶段：使用 futex 阻塞等待
     volatile int* ready_ptr = reinterpret_cast<volatile int*>(&layout->ready);
+    auto end = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (ready != target_value) {
         int current = layout->ready.load(std::memory_order_acquire);
-        if (current == target_value) {
+        if (current == target_value || (target_value == 2 && current == 3)) {
             break;
         }
-        futex_wait(ready_ptr, current);
+        if (target_value == 2) {
+            auto left = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    end - std::chrono::steady_clock::now()).count();
+            if (left <= 0) break;
+            timespec limit{left / 1000000000, left % 1000000000};
+            futex_wait(ready_ptr, current, &limit);
+        } else {
+            futex_wait(ready_ptr, current);
+        }
         ready = layout->ready.load(std::memory_order_acquire);
     }
 }
@@ -183,18 +193,23 @@ int zBinder::sendMsg(const char* message) {
     }
     
     ShmLayout* layout = static_cast<ShmLayout*>(m_ptr);
+    size_t len = strlen(message);
+    if (len >= sizeof(layout->data)) {
+        LOGE("Message exceeds shared memory capacity");
+        return -1;
+    }
     
     // 如果上次的回复还没读取，先等待
     int ready = layout->ready.load(std::memory_order_acquire);
     if (ready == 1) {
         // 消息已发送但还没收到回复，等待回复
         waitForReady(2);
+        if (layout->ready.load(std::memory_order_acquire) == 1) return -1;
     }
     
     // 重置状态并写入消息
     layout->ready.store(0, std::memory_order_release);
-    strncpy(layout->data, message, sizeof(layout->data) - 1);
-    layout->data[sizeof(layout->data) - 1] = '\0';
+    memcpy(layout->data, message, len + 1);
     
     // 标记为已写入，唤醒 isolated 进程
     layout->ready.store(1, std::memory_order_release);
@@ -222,8 +237,12 @@ int zBinder::waitForResponse(char* response, size_t maxLen) {
     
     int ready = layout->ready.load(std::memory_order_acquire);
     if (ready == 2) {
-        strncpy(response, layout->data, maxLen - 1);
-        response[maxLen - 1] = '\0';
+        size_t len = strnlen(layout->data, sizeof(layout->data));
+        if (len >= sizeof(layout->data) || len >= maxLen) {
+            LOGE("Response buffer cannot hold complete reply");
+            return -1;
+        }
+        memcpy(response, layout->data, len + 1);
         LOGI("Received response1: %s", response);
         return 0;
     } else {
@@ -257,8 +276,9 @@ int zBinder::readMessage(char* message, size_t maxLen) {
     }
     
     ShmLayout* layout = static_cast<ShmLayout*>(m_ptr);
-    strncpy(message, layout->data, maxLen - 1);
-    message[maxLen - 1] = '\0';
+    size_t len = strnlen(layout->data, sizeof(layout->data));
+    if (len >= sizeof(layout->data) || len >= maxLen) return -1;
+    memcpy(message, layout->data, len + 1);
     
     return 0;
 }
@@ -275,10 +295,15 @@ int zBinder::sendResponse(const char* response) {
     }
     
     ShmLayout* layout = static_cast<ShmLayout*>(m_ptr);
-    
+    size_t len = strlen(response);
+    if (len == 0 || len >= sizeof(layout->data)) {
+        layout->ready.store(3, std::memory_order_release);
+        wakeWaiter();
+        LOGE("Invalid response length");
+        return -1;
+    }
     // 写入回复
-    strncpy(layout->data, response, sizeof(layout->data) - 1);
-    layout->data[sizeof(layout->data) - 1] = '\0';
+    memcpy(layout->data, response, len + 1);
     
     // 标记为已回复，并唤醒等待的主进程
     layout->ready.store(2, std::memory_order_release);
@@ -291,6 +316,7 @@ int zBinder::sendResponse(const char* response) {
 // ========== 高级封装 API 实现 ==========
 
 std::string zBinder::sendMessage(const std::string& message) {
+    std::lock_guard<std::mutex> lock(m_msg_lock);
     if (m_ptr == nullptr) {
         LOGE("Shared memory not initialized");
         return "";
@@ -308,16 +334,16 @@ std::string zBinder::sendMessage(const std::string& message) {
     }
     
     // 等待响应
-    char response[512];
-    if (waitForResponse(response, sizeof(response)) != 0) {
+    std::vector<char> response(SHM_SIZE);
+    if (waitForResponse(response.data(), response.size()) != 0) {
         LOGE("Failed to wait for response");
         return "";
     }
     
-    return std::string(response);
+    return std::string(response.data());
 }
 
-std::string zBinder::waitAndReadMessage() {
+std::string zBinder::readRequest() {
     if (m_ptr == nullptr) {
         LOGE("Shared memory not initialized");
         return "";
@@ -330,21 +356,16 @@ std::string zBinder::waitAndReadMessage() {
     }
     
     // 读取消息
-    char message[512];
-    if (readMessage(message, sizeof(message)) != 0) {
+    std::vector<char> message(SHM_SIZE);
+    if (readMessage(message.data(), message.size()) != 0) {
         LOGE("Failed to read message");
         return "";
     }
     
-    return std::string(message);
+    return std::string(message.data());
 }
 
 int zBinder::sendResponse(const std::string& response) {
-    if (response.empty()) {
-        LOGE("Response is empty");
-        return -1;
-    }
-    
     return sendResponse(response.c_str());
 }
 
@@ -368,7 +389,7 @@ int zBinder::startMainMessageLoop() {
     return 0;
 }
 
-int zBinder::startServerMessageLoop(int fd, std::function<std::string(std::string)> callback) {
+int zBinder::startServerLoop(int fd, std::function<std::string(std::string)> callback) {
 
     int ret = mapSharedMemory(fd);
     if (ret != 0) {
@@ -390,7 +411,7 @@ int zBinder::startServerMessageLoop(int fd, std::function<std::string(std::strin
     m_message_callback = callback;
     
     m_server_loop_running = true;
-    m_server_loop_thread = new std::thread(&zBinder::serverMessageLoopThread, this);
+    m_server_loop_thread = new std::thread(&zBinder::servLoop, this);
     
     LOGI("Server message loop thread started");
     return 0;
@@ -457,7 +478,7 @@ void zBinder::mainMessageLoopThread() {
     LOGI("Main message loop thread stopped");
 }
 
-void zBinder::serverMessageLoopThread() {
+void zBinder::servLoop() {
     LOGI("Server message loop thread started");
     int responseCount = 0;
     
@@ -469,7 +490,7 @@ void zBinder::serverMessageLoopThread() {
         
         try {
             // 使用高级封装 API：等待并读取消息
-            std::string message = waitAndReadMessage();
+            std::string message = readRequest();
             if (!message.empty()) {
                 responseCount++;
                 LOGI("Received message: %s", message.c_str());
@@ -498,4 +519,3 @@ void zBinder::serverMessageLoopThread() {
     
     LOGI("Server message loop thread stopped");
 }
-
